@@ -247,18 +247,22 @@ struct GameView: View {
                 
                 if i == 0 {
                     // Hero - slightly larger, always shows cards
+                    let isActiveInPlay = store.engine.activePlayerIndex == i
+                        && (store.state == .waitingForAction || store.state == .betting)
                     PlayerView(
                         player: store.engine.players[i],
-                        isActive: store.engine.activePlayerIndex == i && store.state == .betting,
+                        isActive: isActiveInPlay,
                         isDealer: store.engine.dealerIndex == i,
                         showCards: true,
                         compact: false
                     )
                     .position(x: x, y: y + 15)
                 } else {
+                    let isActiveInPlay = store.engine.activePlayerIndex == i
+                        && (store.state == .waitingForAction || store.state == .betting)
                     PlayerView(
                         player: store.engine.players[i],
-                        isActive: store.engine.activePlayerIndex == i && store.state == .betting,
+                        isActive: isActiveInPlay,
                         isDealer: store.engine.dealerIndex == i,
                         showCards: isShowdown,
                         compact: true
@@ -481,7 +485,7 @@ struct GameView: View {
                 }
             }
             
-        case .betting:
+        case .waitingForAction:
             if let hero = hero,
                store.engine.activePlayerIndex == heroIndex,
                hero.status == .active {
@@ -502,6 +506,7 @@ struct GameView: View {
                     HStack(spacing: 10) {
                         ActionButton(title: "Fold", color: .red) {
                             store.engine.processAction(.fold)
+                            store.send(.playerActed)
                             if settings.soundEnabled { SoundManager.shared.playSound(.fold) }
                         }
                         
@@ -510,6 +515,7 @@ struct GameView: View {
                             color: .green
                         ) {
                             store.engine.processAction(callAmount == 0 ? .check : .call)
+                            store.send(.playerActed)
                             if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
                         }
                         
@@ -521,6 +527,7 @@ struct GameView: View {
                     }
                 }
             } else {
+                // Fallback: shouldn't normally happen in waitingForAction
                 HStack(spacing: 4) {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -529,6 +536,16 @@ struct GameView: View {
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.5))
                 }
+            }
+            
+        case .betting:
+            HStack(spacing: 4) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .scaleEffect(0.7)
+                Text("AI Thinking...")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.5))
             }
         }
     }
@@ -635,6 +652,7 @@ struct GameView: View {
                     } else {
                         store.engine.processAction(.raise(currentRaiseTo))
                     }
+                    store.send(.playerActed)
                     if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
                     showRaisePanel = false
                 }) {

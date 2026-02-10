@@ -12,9 +12,20 @@ class PokerGameStore: ObservableObject {
     private var gameRecordSaved = false
     private var dealCompleteTimer: DispatchWorkItem?
     
+    /// 当前是否是人类玩家的回合
+    var isHumanTurn: Bool {
+        let idx = engine.activePlayerIndex
+        guard idx >= 0 && idx < engine.players.count else { return false }
+        return engine.players[idx].isHuman && engine.players[idx].status == .active
+    }
+    
     init() {
         self.engine = PokerEngine()
-        
+        subscribeToEngine()
+    }
+    
+    /// 订阅引擎的 Combine 事件
+    private func subscribeToEngine() {
         // Forward engine changes to SwiftUI
         engine.objectWillChange
             .sink { [weak self] _ in
@@ -28,6 +39,17 @@ class PokerGameStore: ObservableObject {
             .filter { $0 == true }
             .sink { [weak self] _ in
                 self?.send(.handOver)
+            }
+            .store(in: &cancellables)
+        
+        // When active player changes, check if we should transition to waitingForAction
+        engine.$activePlayerIndex
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                if self.state == .betting && self.isHumanTurn {
+                    self.state = .waitingForAction
+                }
             }
             .store(in: &cancellables)
     }
@@ -61,16 +83,33 @@ class PokerGameStore: ObservableObject {
         case (.dealing, .dealComplete):
             dealCompleteTimer?.cancel()
             dealCompleteTimer = nil
-            // If engine immediately set isHandOver (e.g. not enough players)
             if engine.isHandOver {
                 state = .showdown
+            } else if isHumanTurn {
+                state = .waitingForAction
+            } else {
+                state = .betting
+            }
+            
+        case (.waitingForAction, .playerActed):
+            // 人类玩家操作后，检查新状态
+            if engine.isHandOver {
+                state = .showdown
+            } else if isHumanTurn {
+                state = .waitingForAction
             } else {
                 state = .betting
             }
             
         case (.betting, .handOver):
             state = .showdown
-            // Check if game is over
+            if remainingPlayerCount <= 1 {
+                finishGame()
+            }
+            
+        case (.waitingForAction, .handOver):
+            // 人类操作导致一手结束
+            state = .showdown
             if remainingPlayerCount <= 1 {
                 finishGame()
             }
@@ -86,8 +125,12 @@ class PokerGameStore: ObservableObject {
             
         default:
             #if DEBUG
-            print("FSM: Invalid transition \(state) + \(event)")
+            print("FSM: Invalid transition \(state) + \(event) — recovering to safe state")
             #endif
+            // Error recovery: try to recover based on engine state
+            if engine.isHandOver && state != .showdown {
+                state = .showdown
+            }
         }
     }
     
@@ -137,17 +180,6 @@ class PokerGameStore: ObservableObject {
         
         // Re-subscribe
         cancellables.removeAll()
-        engine.objectWillChange
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &cancellables)
-        engine.$isHandOver
-            .removeDuplicates()
-            .filter { $0 == true }
-            .sink { [weak self] _ in
-                self?.send(.handOver)
-            }
-            .store(in: &cancellables)
+        subscribeToEngine()
     }
 }

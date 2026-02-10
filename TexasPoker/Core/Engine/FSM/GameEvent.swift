@@ -1,8 +1,9 @@
 import Foundation
 
 enum GameEvent {
-    case start          // Start a new hand
-    case dealComplete   // Deal animation finished
-    case handOver       // Hand has concluded (showdown or everyone folded)
-    case nextHand       // Player wants to start the next hand
+    case start          // 开始新一手
+    case dealComplete   // 发牌动画完成
+    case playerActed    // 人类玩家完成操作
+    case handOver       // 一手结束（摊牌或全员弃牌）
+    case nextHand       // 开始下一手
 }
