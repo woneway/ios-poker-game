@@ -304,16 +304,11 @@ class PokerEngine: ObservableObject {
     
     /// 重置 betting state（每条新街开始时调用）
     private func resetBettingState() {
-        currentBet = 0
-        minRaise = bigBlindAmount
+        let state = BettingManager.resetBettingState(players: &players, bigBlindAmount: bigBlindAmount)
+        currentBet = state.currentBet
+        minRaise = state.minRaise
+        hasActed = state.hasActed
         lastRaiserID = nil
-        hasActed = [:]
-        for i in 0..<players.count {
-            players[i].currentBet = 0
-        }
-        for player in players where player.status == .active {
-            hasActed[player.id] = false
-        }
     }
     
     /// 所有人 All-in 时，快速依次发完剩余公共牌然后结算
@@ -354,88 +349,48 @@ class PokerEngine: ObservableObject {
         guard players[activePlayerIndex].status == .active else { return }
         guard !isHandOver else { return }
         
-        var player = players[activePlayerIndex]
+        let player = players[activePlayerIndex]
         let playerID = player.id
         
-        switch action {
-        case .fold:
-            player.status = .folded
-            
-        case .check:
-            if player.currentBet != currentBet {
-                // Invalid check, fold instead
-                player.status = .folded
-            }
-            
-        case .call:
-            let amountNeeded = currentBet - player.currentBet
-            let actualAmount = min(amountNeeded, player.chips)
-            player.chips -= actualAmount
-            player.currentBet += actualAmount
-            player.totalBetThisHand += actualAmount
-            pot.add(actualAmount)
-            if player.chips == 0 { player.status = .allIn }
-            
-        case .raise(let raiseToAmount):
-            let minimumRaiseTo = currentBet + minRaise
-            let actualRaiseTo = max(raiseToAmount, minimumRaiseTo)
-            let amountNeeded = actualRaiseTo - player.currentBet
-            let actualAmount = min(amountNeeded, player.chips)
-            
-            player.chips -= actualAmount
-            player.currentBet += actualAmount
-            player.totalBetThisHand += actualAmount
-            pot.add(actualAmount)
-            
-            if player.currentBet > currentBet {
-                let raiseSize = player.currentBet - currentBet
-                minRaise = max(minRaise, raiseSize)
-                currentBet = player.currentBet
-                lastRaiserID = playerID
-                if currentStreet == .preFlop { preflopAggressorID = playerID }
-                
-                // Re-open action for all other active players
-                for p in players where p.status == .active && p.id != playerID {
-                    hasActed[p.id] = false
-                }
-            }
-            if player.chips == 0 { player.status = .allIn }
-            
-        case .allIn:
-            let amount = player.chips
-            player.chips = 0
-            player.currentBet += amount
-            player.totalBetThisHand += amount
-            pot.add(amount)
-            if player.currentBet > currentBet {
-                let raiseSize = player.currentBet - currentBet
-                minRaise = max(minRaise, raiseSize)
-                currentBet = player.currentBet
-                lastRaiserID = playerID
-                if currentStreet == .preFlop { preflopAggressorID = playerID }
-                for p in players where p.status == .active && p.id != playerID {
-                    hasActed[p.id] = false
-                }
-            }
-            player.status = .allIn
-        }
+        // Delegate betting logic to BettingManager
+        let result = BettingManager.processAction(
+            action,
+            player: player,
+            currentBet: currentBet,
+            minRaise: minRaise
+        )
         
-        // Write back
-        players[activePlayerIndex] = player
+        // Apply results back to engine state
+        players[activePlayerIndex] = result.playerUpdate
+        pot.add(result.potAddition)
+        currentBet = result.newCurrentBet
+        minRaise = result.newMinRaise
+        if let raiserID = result.newLastRaiserID {
+            lastRaiserID = raiserID
+        }
+        if result.isNewAggressor && currentStreet == .preFlop {
+            preflopAggressorID = playerID
+        }
+        if result.reopenAction {
+            for p in players where p.status == .active && p.id != playerID {
+                hasActed[p.id] = false
+            }
+        }
         hasActed[playerID] = true
         
         // 记录操作日志
+        let updatedPlayer = result.playerUpdate
         let logAmount: Int? = {
             switch action {
-            case .call: return player.currentBet
+            case .call: return updatedPlayer.currentBet
             case .raise(let to): return to
-            case .allIn: return player.currentBet
+            case .allIn: return updatedPlayer.currentBet
             default: return nil
             }
         }()
-        let avatar = player.aiProfile?.avatar ?? (player.isHuman ? "🤠" : "🤖")
+        let avatar = updatedPlayer.aiProfile?.avatar ?? (updatedPlayer.isHuman ? "🤠" : "🤖")
         let entry = ActionLogEntry(
-            playerName: player.name,
+            playerName: updatedPlayer.name,
             avatar: avatar,
             action: action,
             amount: logAmount,
@@ -447,7 +402,7 @@ class PokerEngine: ObservableObject {
         }
         
         #if DEBUG
-        print("  \(player.name): \(action.description) | chips=\(player.chips) bet=\(player.currentBet) pot=\(pot.total)")
+        print("  \(updatedPlayer.name): \(action.description) | chips=\(updatedPlayer.chips) bet=\(updatedPlayer.currentBet) pot=\(pot.total)")
         #endif
         
         // Check if only 1 non-folded player remains
@@ -457,24 +412,11 @@ class PokerEngine: ObservableObject {
             return
         }
         
-        if isRoundComplete() {
+        if BettingManager.isRoundComplete(players: players, hasActed: hasActed, currentBet: currentBet) {
             dealNextStreet()
         } else {
             advanceTurn()
         }
-    }
-    
-    // MARK: - Round Completion
-    
-    private func isRoundComplete() -> Bool {
-        let activePlayers = players.filter { $0.status == .active }
-        if activePlayers.isEmpty { return true }
-        
-        for player in activePlayers {
-            if hasActed[player.id] != true { return false }
-            if player.currentBet != currentBet { return false }
-        }
-        return true
     }
     
     // MARK: - Turn Management
@@ -616,16 +558,13 @@ class PokerEngine: ObservableObject {
     // MARK: - Helpers
     
     private func postBlind(playerIndex: Int, amount: Int) {
-        let actualBet = min(players[playerIndex].chips, amount)
-        players[playerIndex].chips -= actualBet
-        players[playerIndex].currentBet += actualBet
-        players[playerIndex].totalBetThisHand += actualBet
-        pot.add(actualBet)
-        if players[playerIndex].chips == 0 {
-            players[playerIndex].status = .allIn
-            // 盲注导致 All-in 的玩家标记为已行动，避免 isRoundComplete 卡死
-            hasActed[players[playerIndex].id] = true
-        }
+        BettingManager.postBlind(
+            playerIndex: playerIndex,
+            amount: amount,
+            players: &players,
+            pot: &pot,
+            hasActed: &hasActed
+        )
     }
     
     func nextActivePlayerIndex(after index: Int) -> Int {
