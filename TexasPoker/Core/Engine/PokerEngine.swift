@@ -584,12 +584,12 @@ class PokerEngine: ObservableObject {
             
             playerScores.sort { (lhs, rhs) in
                 if lhs.1 != rhs.1 { return lhs.1 > rhs.1 }
-                return compareKickers(lhs.2, rhs.2) > 0
+                return PokerUtils.compareKickers(lhs.2, rhs.2) > 0
             }
             
             guard let best = playerScores.first else { continue }
             let potWinners = playerScores.filter {
-                $0.1 == best.1 && compareKickers($0.2, best.2) == 0
+                $0.1 == best.1 && PokerUtils.compareKickers($0.2, best.2) == 0
             }.map { $0.0 }
             
             // 分配该池
@@ -708,11 +708,4 @@ class PokerEngine: ObservableObject {
         return next
     }
     
-    private func compareKickers(_ k1: [Int], _ k2: [Int]) -> Int {
-        for i in 0..<min(k1.count, k2.count) {
-            if k1[i] > k2[i] { return 1 }
-            if k1[i] < k2[i] { return -1 }
-        }
-        return 0
-    }
 }

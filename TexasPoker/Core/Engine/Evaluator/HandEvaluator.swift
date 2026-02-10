@@ -17,7 +17,7 @@ class HandEvaluator {
             if score.0 > bestScore.0 {
                 bestScore = score
             } else if score.0 == bestScore.0 {
-                if compareKickers(score.1, bestScore.1) > 0 {
+                if PokerUtils.compareKickers(score.1, bestScore.1) > 0 {
                     bestScore = score
                 }
             }
@@ -25,14 +25,6 @@ class HandEvaluator {
         return bestScore
     }
     
-    private static func compareKickers(_ k1: [Int], _ k2: [Int]) -> Int {
-        for i in 0..<min(k1.count, k2.count) {
-            if k1[i] > k2[i] { return 1 }
-            if k1[i] < k2[i] { return -1 }
-        }
-        return 0
-    }
-
     private static func eval5(cards: [Card]) -> (Int, [Int]) {
         // Sort by rank descending
         let sorted = cards.sorted { $0.rank.rawValue > $1.rank.rawValue }

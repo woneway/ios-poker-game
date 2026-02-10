@@ -35,7 +35,7 @@ class HandEvaluatorTests: XCTestCase {
         XCTAssertEqual(score2.0, 8)
         
         // Compare kickers
-        XCTAssertTrue(compareKickers(score1.1, score2.1) > 0, "Royal Flush should beat lower Straight Flush")
+        XCTAssertTrue(PokerUtils.compareKickers(score1.1, score2.1) > 0, "Royal Flush should beat lower Straight Flush")
     }
     
     func testFourOfAKindBeatsFullHouse() {
@@ -90,15 +90,7 @@ class HandEvaluatorTests: XCTestCase {
         XCTAssertEqual(score1.0, 1) // Pair
         XCTAssertEqual(score2.0, 1) // Pair
         
-        XCTAssertTrue(compareKickers(score1.1, score2.1) > 0, "King kicker should beat Queen kicker")
+        XCTAssertTrue(PokerUtils.compareKickers(score1.1, score2.1) > 0, "King kicker should beat Queen kicker")
     }
     
-    // Helper
-    private func compareKickers(_ k1: [Int], _ k2: [Int]) -> Int {
-        for i in 0..<min(k1.count, k2.count) {
-            if k1[i] > k2[i] { return 1 }
-            if k1[i] < k2[i] { return -1 }
-        }
-        return 0
-    }
 }

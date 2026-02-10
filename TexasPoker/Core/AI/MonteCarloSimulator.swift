@@ -57,7 +57,7 @@ class MonteCarloSimulator {
                     win = false; break
                 } else if opScore.0 == myScore.0 {
                     // Compare kickers
-                    let cmp = compareKickers(myScore.1, opScore.1)
+                    let cmp = PokerUtils.compareKickers(myScore.1, opScore.1)
                     if cmp < 0 { win = false; break } // I lost on kickers
                     if cmp == 0 { split = true } // Tie so far
                 }
@@ -73,11 +73,4 @@ class MonteCarloSimulator {
         return (Double(wins) + Double(splits) / 2.0) / Double(iterations)
     }
     
-    private static func compareKickers(_ k1: [Int], _ k2: [Int]) -> Int {
-        for i in 0..<min(k1.count, k2.count) {
-            if k1[i] > k2[i] { return 1 }
-            if k1[i] < k2[i] { return -1 }
-        }
-        return 0
-    }
 }
