@@ -200,17 +200,7 @@ class PokerEngine: ObservableObject {
         postBlind(playerIndex: bigBlindIndex, amount: bigBlindAmount)
         
         // Deal hole cards (2 to each active player)
-        for _ in 0..<2 {
-            var idx = nextActivePlayerIndex(after: dealerIndex)
-            for _ in 0..<players.count {
-                if players[idx].status == .active || players[idx].status == .allIn {
-                    if let card = deck.deal() {
-                        players[idx].holeCards.append(card)
-                    }
-                }
-                idx = (idx + 1) % players.count
-            }
-        }
+        DealingManager.dealHoleCards(deck: &deck, players: &players, dealerIndex: dealerIndex)
         
         // Set current bet to BB amount
         currentBet = bigBlindAmount
@@ -281,25 +271,9 @@ class PokerEngine: ObservableObject {
         checkBotTurn()
     }
     
-    /// 发当前街的公共牌（burn + deal）
+    /// 发当前街的公共牌（burn + deal）— 委托给 DealingManager
     private func dealStreetCards() {
-        _ = deck.deal() // burn card
-        
-        switch currentStreet {
-        case .preFlop:
-            currentStreet = .flop
-            if let c1 = deck.deal(), let c2 = deck.deal(), let c3 = deck.deal() {
-                communityCards.append(contentsOf: [c1, c2, c3])
-            }
-        case .flop:
-            currentStreet = .turn
-            if let c = deck.deal() { communityCards.append(c) }
-        case .turn:
-            currentStreet = .river
-            if let c = deck.deal() { communityCards.append(c) }
-        case .river:
-            break // already at river, nothing to deal
-        }
+        DealingManager.dealStreetCards(deck: &deck, communityCards: &communityCards, currentStreet: &currentStreet)
     }
     
     /// 重置 betting state（每条新街开始时调用）
@@ -314,13 +288,7 @@ class PokerEngine: ObservableObject {
     /// 所有人 All-in 时，快速依次发完剩余公共牌然后结算
     private func runOutBoard() {
         // 计算还需要发几条街
-        let streetsToGo: Int
-        switch currentStreet {
-        case .preFlop: streetsToGo = 3 // flop + turn + river（但 flop 已经在 dealNextStreet 中发了）
-        case .flop: streetsToGo = 2    // turn + river
-        case .turn: streetsToGo = 1    // river
-        case .river: streetsToGo = 0
-        }
+        let streetsToGo = DealingManager.streetsRemaining(from: currentStreet)
         
         guard streetsToGo > 0 else {
             endHand()
