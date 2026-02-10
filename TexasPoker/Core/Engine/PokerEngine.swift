@@ -510,16 +510,30 @@ class PokerEngine: ObservableObject {
         
         let eligible = players.filter { $0.status == .active || $0.status == .allIn }
         
+        let result: HandResult
         if eligible.count == 1 {
-            // 所有人弃牌，唯一存活者赢得全部
-            distributeSingleWinner(eligible[0])
+            result = ShowdownManager.distributeSingleWinner(
+                winner: eligible[0],
+                potTotal: pot.total,
+                players: &players
+            )
         } else if eligible.count > 1 {
-            // 计算边池
             pot.calculatePots(players: players)
-            // Showdown: 逐池结算
-            distributeWithSidePots(eligible: eligible)
+            result = ShowdownManager.distributeWithSidePots(
+                eligible: eligible,
+                pot: pot,
+                communityCards: communityCards,
+                players: &players
+            )
+        } else {
+            isHandOver = true
+            return
         }
         
+        winners = result.winnerIDs
+        winMessage = result.winMessage
+        lastHandLosers = result.loserIDs
+        lastPotSize = result.totalPot
         isHandOver = true
         
         // Track newly eliminated players
@@ -539,87 +553,6 @@ class PokerEngine: ObservableObject {
         #if DEBUG
         print("=== Hand #\(handNumber) Over: \(winMessage) ===\n")
         #endif
-    }
-    
-    /// 唯一存活者（所有人弃牌）赢得全部奖池
-    private func distributeSingleWinner(_ winner: Player) {
-        let totalPot = pot.total
-        if let index = players.firstIndex(where: { $0.id == winner.id }) {
-            players[index].chips += totalPot
-            winners.append(winner.id)
-            winMessage = "\(winner.name) 赢得 $\(totalPot)!"
-        }
-        trackLosers(winnerIDs: [winner.id])
-    }
-    
-    /// Showdown: 逐池结算（支持主池 + 多个边池）
-    private func distributeWithSidePots(eligible: [Player]) {
-        var message = ""
-        var allWinnerIDs = Set<UUID>()
-        
-        for (potIdx, portion) in pot.portions.enumerated() {
-            // 过滤出该池有资格的玩家
-            let potEligible = eligible.filter { portion.eligiblePlayerIDs.contains($0.id) }
-            guard !potEligible.isEmpty else { continue }
-            
-            // 如果只有一人有资格，直接获得
-            if potEligible.count == 1 {
-                let winner = potEligible[0]
-                if let index = players.firstIndex(where: { $0.id == winner.id }) {
-                    players[index].chips += portion.amount
-                    allWinnerIDs.insert(winner.id)
-                    if !winners.contains(winner.id) { winners.append(winner.id) }
-                    let potLabel = potIdx == 0 ? "主池" : "边池\(potIdx)"
-                    message += "\(winner.name) 赢得\(potLabel) $\(portion.amount)! "
-                }
-                continue
-            }
-            
-            // 评估手牌
-            var playerScores: [(Player, Int, [Int])] = []
-            for player in potEligible {
-                let score = HandEvaluator.evaluate(holeCards: player.holeCards, communityCards: communityCards)
-                playerScores.append((player, score.0, score.1))
-            }
-            
-            playerScores.sort { (lhs, rhs) in
-                if lhs.1 != rhs.1 { return lhs.1 > rhs.1 }
-                return PokerUtils.compareKickers(lhs.2, rhs.2) > 0
-            }
-            
-            guard let best = playerScores.first else { continue }
-            let potWinners = playerScores.filter {
-                $0.1 == best.1 && PokerUtils.compareKickers($0.2, best.2) == 0
-            }.map { $0.0 }
-            
-            // 分配该池
-            let winAmount = portion.amount / potWinners.count
-            let remainder = portion.amount % potWinners.count
-            
-            let potLabel = potIdx == 0 ? "主池" : "边池\(potIdx)"
-            
-            for (i, winner) in potWinners.enumerated() {
-                if let index = players.firstIndex(where: { $0.id == winner.id }) {
-                    let bonus = (i == 0) ? remainder : 0
-                    players[index].chips += winAmount + bonus
-                    allWinnerIDs.insert(winner.id)
-                    if !winners.contains(winner.id) { winners.append(winner.id) }
-                    message += "\(winner.name) 赢得\(potLabel) $\(winAmount + bonus)! "
-                }
-            }
-        }
-        
-        winMessage = message.trimmingCharacters(in: .whitespaces)
-        trackLosers(winnerIDs: allWinnerIDs)
-    }
-    
-    /// 追踪输家（用于 tilt 系统）
-    private func trackLosers(winnerIDs: Set<UUID>) {
-        lastHandLosers = Set(players.filter {
-            ($0.status == .active || $0.status == .allIn || $0.status == .folded) &&
-            !winnerIDs.contains($0.id) && $0.totalBetThisHand > 0
-        }.map { $0.id })
-        lastPotSize = pot.total
     }
     
     // MARK: - Tilt System
