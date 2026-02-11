@@ -19,8 +19,8 @@ class PokerGameStore: ObservableObject {
         return engine.players[idx].isHuman && engine.players[idx].status == .active
     }
     
-    init() {
-        self.engine = PokerEngine()
+    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
+        self.engine = PokerEngine(mode: mode, config: config)
         subscribeToEngine()
     }
     
@@ -155,6 +155,17 @@ class PokerGameStore: ObservableObject {
         
         // Generate final results
         finalResults = engine.generateFinalResults()
+        
+        // Calculate payouts for tournament mode
+        if engine.gameMode == .tournament,
+           let config = engine.tournamentConfig {
+            let totalPrizePool = engine.players.count * config.startingChips
+            for i in 0..<min(finalResults.count, config.payoutStructure.count) {
+                let payout = Int(Double(totalPrizePool) * config.payoutStructure[i])
+                finalResults[i].payout = payout
+            }
+        }
+        
         showRankings = true
         
         // Save to history
@@ -168,7 +179,7 @@ class PokerGameStore: ObservableObject {
         GameHistoryManager.shared.saveRecord(record)
     }
     
-    func resetGame() {
+    func resetGame(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         dealCompleteTimer?.cancel()
         dealCompleteTimer = nil
         isGameOver = false
@@ -176,7 +187,7 @@ class PokerGameStore: ObservableObject {
         finalResults = []
         gameRecordSaved = false
         state = .idle
-        engine = PokerEngine()
+        engine = PokerEngine(mode: mode, config: config)
         
         // Re-subscribe
         cancellables.removeAll()
