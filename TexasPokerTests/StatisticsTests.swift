@@ -45,23 +45,50 @@ class StatisticsTests: XCTestCase {
     
     private func createTestHand(handNumber: Int, gameMode: GameMode) -> UUID {
         let handId = UUID()
-        recorder.startNewHand(handId: handId, handNumber: handNumber, gameMode: gameMode)
+        // Note: ActionRecorder.startHand doesn't return handId, so we track it separately
+        recorder.startHand(handNumber: handNumber, gameMode: gameMode, players: [])
         return handId
     }
     
     private func recordAction(handId: UUID, playerName: String, action: String, amount: Int = 0, street: String = "preFlop", isVoluntary: Bool = false) {
+        // Convert string action to PlayerAction enum
+        let playerAction: PlayerAction
+        switch action.lowercased() {
+        case "fold": playerAction = .fold
+        case "call": playerAction = .call
+        case "raise": playerAction = .raise(amount)
+        case "allin": playerAction = .allIn
+        default: playerAction = .fold
+        }
+        
+        // Convert string street to Street enum
+        let streetEnum: Street
+        switch street.lowercased() {
+        case "preflop": streetEnum = .preFlop
+        case "flop": streetEnum = .flop
+        case "turn": streetEnum = .turn
+        case "river": streetEnum = .river
+        default: streetEnum = .preFlop
+        }
+        
         recorder.recordAction(
-            handId: handId,
             playerName: playerName,
-            action: action,
+            action: playerAction,
             amount: amount,
-            street: street,
-            isVoluntary: isVoluntary
+            street: streetEnum,
+            isVoluntary: isVoluntary,
+            position: "BTN"
         )
     }
     
     private func finishHand(handId: UUID, winnerNames: String, finalPot: Int) {
-        recorder.finishHand(handId: handId, winnerNames: winnerNames, finalPot: finalPot)
+        let winners = winnerNames.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        recorder.endHand(
+            finalPot: finalPot,
+            communityCards: [],
+            heroCards: [],
+            winners: winners
+        )
     }
     
     // MARK: - VPIP Tests
