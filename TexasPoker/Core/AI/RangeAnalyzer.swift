@@ -60,6 +60,17 @@ enum PreflopAction: String {
     case fourbet
 }
 
+// MARK: - Postflop Action Enum
+
+/// Postflop actions for range narrowing
+enum PostflopAction: String {
+    case check
+    case bet
+    case call
+    case raise
+    case fold
+}
+
 // MARK: - Hand Range Struct
 
 /// Represents a player's estimated hand range
@@ -67,8 +78,8 @@ struct HandRange {
     let position: Position
     let action: PreflopAction
     let street: Street
-    let rangeWidth: Double      // 0.0 to 1.0 (0% to 100% of hands)
-    let description: String
+    var rangeWidth: Double      // 0.0 to 1.0 (0% to 100% of hands)
+    var description: String
 }
 
 // MARK: - Range Analyzer
@@ -162,5 +173,61 @@ class RangeAnalyzer {
             rangeWidth: rangeWidth,
             description: description
         )
+    }
+}
+
+// MARK: - Postflop Range Narrowing Extension
+
+extension RangeAnalyzer {
+    
+    /// Narrow range based on postflop action and board texture
+    /// - Parameters:
+    ///   - range: The range to narrow (modified in place)
+    ///   - action: The postflop action taken
+    ///   - board: The board texture
+    static func narrowRange(
+        range: inout HandRange,
+        action: PostflopAction,
+        board: BoardTexture
+    ) {
+        let originalWidth = range.rangeWidth
+        
+        switch action {
+        case .bet:
+            // Bet: maintain or slightly strengthen range
+            if board.wetness > 0.6 {
+                // Wet board bet is tighter (more polarized)
+                range.rangeWidth *= 0.85
+                range.description += " → Bet on wet board (强化)"
+            } else {
+                // Dry board may include more bluffs
+                range.rangeWidth *= 0.95
+                range.description += " → Bet on dry board (可能诈唬)"
+            }
+            
+        case .check:
+            // Check: weaken range significantly
+            range.rangeWidth *= 0.70
+            range.description += " → Check (弱化)"
+            
+        case .raise:
+            // Raise: strengthen range significantly (strong hands + draws)
+            range.rangeWidth *= 0.50
+            range.description += " → Raise (强牌/听牌)"
+            
+        case .call:
+            // Call: medium strength (draws, medium pairs, showdown value)
+            range.rangeWidth *= 0.75
+            range.description += " → Call (中等牌力)"
+            
+        case .fold:
+            // Fold: range is eliminated
+            range.rangeWidth = 0.0
+            range.description = "已弃牌"
+        }
+        
+        #if DEBUG
+        print("📊 范围缩窄：\(Int(originalWidth * 100))% → \(Int(range.rangeWidth * 100))%")
+        #endif
     }
 }
