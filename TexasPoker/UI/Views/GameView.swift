@@ -3,8 +3,17 @@ import SpriteKit
 import Combine
 
 struct GameView: View {
-    @ObservedObject var store: PokerGameStore
-    @StateObject private var settings = GameSettings()
+    @ObservedObject var settings: GameSettings
+    @StateObject private var store: PokerGameStore
+    
+    init(settings: GameSettings) {
+        self.settings = settings
+        let config = settings.getTournamentConfig()
+        _store = StateObject(wrappedValue: PokerGameStore(
+            mode: settings.gameMode,
+            config: config
+        ))
+    }
     @State private var showSettings = false
     @State private var showRaisePanel = false
     @State private var raiseSliderValue: Double = 0  // 0..1 mapped to minRaise..allIn
@@ -65,6 +74,12 @@ struct GameView: View {
                         // Community cards (center of table)
                         communityCardsView
                             .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
+                        
+                        // Tournament info bar (only visible in tournament mode)
+                        if store.engine.gameMode == .tournament {
+                            tournamentInfoBar
+                                .position(x: geo.size.width / 2, y: geo.size.height * 0.22)
+                        }
                         
                         // Pot display
                         potDisplay
@@ -195,6 +210,65 @@ struct GameView: View {
             return formatter.string(from: NSNumber(value: amount)) ?? "\(amount)"
         }
         return "\(amount)"
+    }
+    
+    // MARK: - Tournament Info Bar
+    
+    private var tournamentInfoBar: some View {
+        HStack(spacing: 12) {
+            // Current blinds
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Blinds")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Text("\(store.engine.smallBlindAmount)/\(store.engine.bigBlindAmount)")
+                    .font(.system(size: 14, weight: .bold))
+            }
+            
+            Divider()
+                .frame(height: 30)
+            
+            // Level
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Level")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Text("\(store.engine.currentBlindLevel + 1)")
+                    .font(.system(size: 14, weight: .bold))
+            }
+            
+            Divider()
+                .frame(height: 30)
+            
+            // Hands until next level
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Next in")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                let remaining = (store.engine.tournamentConfig?.handsPerLevel ?? 10) - store.engine.handsAtCurrentLevel
+                Text("\(remaining) hands")
+                    .font(.system(size: 14, weight: .bold))
+            }
+            
+            if store.engine.anteAmount > 0 {
+                Divider()
+                    .frame(height: 30)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Ante")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text("\(store.engine.anteAmount)")
+                        .font(.system(size: 14, weight: .bold))
+                }
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.black.opacity(0.3))
+        .cornerRadius(8)
     }
     
     // MARK: - Community Cards
