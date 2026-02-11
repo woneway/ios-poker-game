@@ -275,8 +275,8 @@ struct GameView: View {
     
     private var communityCardsView: some View {
         HStack(spacing: 4) {
-            ForEach(store.engine.communityCards) { card in
-                CardView(card: card, width: 40)
+            ForEach(Array(store.engine.communityCards.enumerated()), id: \.offset) { index, card in
+                FlippingCard(card: card, delay: Double(index) * 0.15)
             }
             ForEach(0..<(5 - store.engine.communityCards.count), id: \.self) { _ in
                 RoundedRectangle(cornerRadius: 4)
