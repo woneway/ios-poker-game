@@ -524,6 +524,26 @@ class PokerEngine: ObservableObject {
         lastPotSize = result.totalPot
         isHandOver = true
         
+        // Trigger winner animations
+        for winnerID in result.winnerIDs {
+            if let winnerIndex = players.firstIndex(where: { $0.id == winnerID }) {
+                // Notify for highlight effect
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("PlayerWon"),
+                    object: nil,
+                    userInfo: ["playerID": winnerID]
+                )
+                
+                // Trigger chip animation
+                let winnerAmount = players[winnerIndex].chips - (players[winnerIndex].chips - result.totalPot / result.winnerIDs.count)
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("WinnerChipAnimation"),
+                    object: nil,
+                    userInfo: ["seatIndex": winnerIndex, "amount": winnerAmount]
+                )
+            }
+        }
+        
         // Record hand end for statistics
         let heroCards = players.first { $0.isHuman }?.holeCards ?? []
         let winnerNames = winners.compactMap { id in 

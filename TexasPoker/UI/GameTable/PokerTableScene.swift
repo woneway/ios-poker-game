@@ -122,6 +122,50 @@ class PokerTableScene: SKScene {
         chip.run(sequence)
         SoundManager.shared.playSound(.chip)
     }
+    
+    /// Animate chips from pot center to winner position
+    func animateWinnerChips(to seatIndex: Int, amount: Int) {
+        let seatAngles: [Double] = [270, 225, 180, 135, 90, 45, 0, 315]
+        
+        guard seatIndex >= 0 && seatIndex < seatAngles.count else { return }
+        
+        let centerX = size.width / 2
+        let centerY = size.height * 0.42
+        let radiusX = size.width * 0.38
+        let radiusY = size.height * 0.28
+        
+        let angle = seatAngles[seatIndex] * .pi / 180
+        let endX = centerX + radiusX * CGFloat(cos(angle))
+        let endY = centerY - radiusY * CGFloat(sin(angle))
+        
+        // Create 5 chips flying to winner
+        for i in 0..<5 {
+            let chip = ChipNode(amount: amount / 5)
+            chip.position = CGPoint(x: centerX, y: centerY * 0.3)
+            addChild(chip)
+            
+            let delay = Double(i) * 0.1
+            let moveAction = SKAction.move(
+                to: CGPoint(x: endX + CGFloat.random(in: -10...10), y: endY + CGFloat.random(in: -10...10)),
+                duration: 0.8
+            )
+            moveAction.timingMode = .easeOut
+            
+            let scaleAction = SKAction.scale(to: 0.8, duration: 0.8)
+            let group = SKAction.group([moveAction, scaleAction])
+            
+            let sequence = SKAction.sequence([
+                SKAction.wait(forDuration: delay),
+                group,
+                SKAction.fadeOut(withDuration: 0.3),
+                SKAction.removeFromParent()
+            ])
+            
+            chip.run(sequence)
+        }
+        
+        SoundManager.shared.playSound(.win)
+    }
 }
 
 // MARK: - ChipNode

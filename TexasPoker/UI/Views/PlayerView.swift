@@ -10,6 +10,7 @@ struct PlayerView: View {
     
     @State private var showProfile = false
     @State private var playerStats: PlayerStats? = nil
+    @State private var isWinner = false
     
     private var avatar: String {
         return player.aiProfile?.avatar ?? (player.isHuman ? "🤠" : "🤖")
@@ -61,6 +62,12 @@ struct PlayerView: View {
                             lineWidth: isActive ? 2.5 : 1
                         )
                     )
+                    .shadow(
+                        color: isWinner ? .yellow : .clear,
+                        radius: isWinner ? 20 : 0
+                    )
+                    .scaleEffect(isWinner ? 1.1 : 1.0)
+                    .animation(.easeInOut(duration: 0.5).repeatCount(3, autoreverses: true), value: isWinner)
                 
                 Text(avatar)
                     .font(.system(size: avatarSize * 0.5))
@@ -114,6 +121,14 @@ struct PlayerView: View {
             }
             .onAppear {
                 loadPlayerStats()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PlayerWon"))) { notification in
+                if let winnerID = notification.userInfo?["playerID"] as? UUID, winnerID == player.id {
+                    isWinner = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        isWinner = false
+                    }
+                }
             }
             
             // Name & Chips

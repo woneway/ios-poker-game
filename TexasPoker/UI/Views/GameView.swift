@@ -5,6 +5,7 @@ import Combine
 struct GameView: View {
     @ObservedObject var settings: GameSettings
     @StateObject private var store: PokerGameStore
+    @Environment(\.colorScheme) var colorScheme
     
     init(settings: GameSettings) {
         self.settings = settings
@@ -28,75 +29,11 @@ struct GameView: View {
     
     var body: some View {
         GeometryReader { geo in
-            ZStack {
-                // Background
-                RadialGradient(
-                    gradient: Gradient(colors: [Color(hex: "1a5c1a"), Color(hex: "0d3d0d")]),
-                    center: .center,
-                    startRadius: 50,
-                    endRadius: max(geo.size.width, geo.size.height) * 0.6
-                )
-                .edgesIgnoringSafeArea(.all)
-                
-                // Table felt ellipse
-                Ellipse()
-                    .fill(
-                        RadialGradient(
-                            gradient: Gradient(colors: [Color(hex: "1e6b1e"), Color(hex: "145214")]),
-                            center: .center,
-                            startRadius: 20,
-                            endRadius: 200
-                        )
-                    )
-                    .overlay(
-                        Ellipse()
-                            .strokeBorder(Color(hex: "8B4513").opacity(0.8), lineWidth: 6)
-                    )
-                    .frame(width: geo.size.width * 0.88, height: geo.size.height * 0.5)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
-                
-                // SpriteKit layer
-                SpriteView(scene: scene, options: [.allowsTransparency])
-                    .edgesIgnoringSafeArea(.all)
-                
-                // HUD
-                VStack(spacing: 0) {
-                    // Top bar
-                    topBar
-                        .padding(.horizontal, 12)
-                        .padding(.top, 8)
-                    
-                    // Main game area
-                    ZStack {
-                        // 8-player oval layout
-                        playerOvalLayout(geo: geo)
-                        
-                        // Community cards (center of table)
-                        communityCardsView
-                            .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
-                        
-                        // Tournament info bar (only visible in tournament mode)
-                        if store.engine.gameMode == .tournament {
-                            tournamentInfoBar
-                                .position(x: geo.size.width / 2, y: geo.size.height * 0.22)
-                        }
-                        
-                        // Pot display
-                        potDisplay
-                            .position(x: geo.size.width / 2, y: geo.size.height * 0.30)
-                        
-                        // Action log (right side)
-                        actionLogPanel
-                            .frame(width: 130, height: geo.size.height * 0.30)
-                            .position(x: geo.size.width - 72, y: geo.size.height * 0.42)
-                    }
-                    
-                    Spacer(minLength: 0)
-                    
-                    // Hero controls (bottom)
-                    heroControls
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
+            Group {
+                if DeviceHelper.isIPad && DeviceHelper.isLandscape(geo) {
+                    landscapeLayout(geo: geo)
+                } else {
+                    portraitLayout(geo: geo)
                 }
             }
         }
@@ -140,6 +77,166 @@ struct GameView: View {
         }
         .onChange(of: store.engine.isHandOver) { isOver in
             if isOver && settings.soundEnabled { SoundManager.shared.playSound(.win) }
+        }
+    }
+    
+    // MARK: - Layout Functions
+    
+    private func portraitLayout(geo: GeometryProxy) -> some View {
+        ZStack {
+            // Background
+            RadialGradient(
+                gradient: Gradient(colors: [Color(hex: "1a5c1a"), Color(hex: "0d3d0d")]),
+                center: .center,
+                startRadius: 50,
+                endRadius: max(geo.size.width, geo.size.height) * 0.6
+            )
+            .edgesIgnoringSafeArea(.all)
+            
+            // Table felt ellipse
+            Ellipse()
+                .fill(
+                    RadialGradient(
+                        gradient: Gradient(colors: [Color(hex: "1e6b1e"), Color(hex: "145214")]),
+                        center: .center,
+                        startRadius: 20,
+                        endRadius: 200
+                    )
+                )
+                .overlay(
+                    Ellipse()
+                        .strokeBorder(Color(hex: "8B4513").opacity(0.8), lineWidth: 6)
+                )
+                .frame(width: geo.size.width * 0.88, height: geo.size.height * 0.5)
+                .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+            
+            // SpriteKit layer
+            SpriteView(scene: scene, options: [.allowsTransparency])
+                .edgesIgnoringSafeArea(.all)
+            
+            // HUD
+            VStack(spacing: 0) {
+                // Top bar
+                topBar
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+                
+                // Main game area
+                ZStack {
+                    // 8-player oval layout
+                    playerOvalLayout(geo: geo)
+                    
+                    // Community cards (center of table)
+                    communityCardsView(geo: geo)
+                        .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
+                    
+                    // Tournament info bar (only visible in tournament mode)
+                    if store.engine.gameMode == .tournament {
+                        tournamentInfoBar
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.22)
+                    }
+                    
+                    // Pot display
+                    potDisplay
+                        .position(x: geo.size.width / 2, y: geo.size.height * 0.30)
+                    
+                    // Action log (right side)
+                    actionLogPanel
+                        .frame(width: 130, height: geo.size.height * 0.30)
+                        .position(x: geo.size.width - 72, y: geo.size.height * 0.42)
+                }
+                
+                Spacer(minLength: 0)
+                
+                // Hero controls (bottom)
+                heroControls
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+            }
+        }
+    }
+    
+    private func landscapeLayout(geo: GeometryProxy) -> some View {
+        ZStack {
+            // Background
+            RadialGradient(
+                gradient: Gradient(colors: [Color(hex: "1a5c1a"), Color(hex: "0d3d0d")]),
+                center: .center,
+                startRadius: 50,
+                endRadius: max(geo.size.width, geo.size.height) * 0.6
+            )
+            .edgesIgnoringSafeArea(.all)
+            
+            HStack(spacing: 0) {
+                // Left: Game area (75%)
+                ZStack {
+                    // Table felt ellipse (wider for landscape)
+                    Ellipse()
+                        .fill(
+                            RadialGradient(
+                                gradient: Gradient(colors: [Color(hex: "1e6b1e"), Color(hex: "145214")]),
+                                center: .center,
+                                startRadius: 20,
+                                endRadius: 300
+                            )
+                        )
+                        .overlay(
+                            Ellipse()
+                                .strokeBorder(Color(hex: "8B4513").opacity(0.8), lineWidth: 6)
+                        )
+                        .frame(width: geo.size.width * 0.60, height: geo.size.height * 0.7)
+                    
+                    // SpriteKit layer
+                    SpriteView(scene: scene, options: [.allowsTransparency])
+                    
+                    // Players and community cards
+                    VStack {
+                        topBar
+                            .padding(.horizontal, 12)
+                        
+                        Spacer()
+                        
+                        // Tournament info bar
+                        if store.engine.gameMode == .tournament {
+                            tournamentInfoBar
+                                .padding(.horizontal, 20)
+                        }
+                        
+                        Spacer()
+                        
+                        // Community cards (larger for iPad)
+                        communityCardsView(geo: geo)
+                            .scaleEffect(DeviceHelper.scaleFactor)
+                        
+                        Spacer()
+                        
+                        // Pot display
+                        potDisplay
+                        
+                        Spacer()
+                    }
+                    
+                    // 8-player oval layout
+                    playerOvalLayout(geo: geo)
+                }
+                .frame(width: geo.size.width * 0.75)
+                
+                // Right: Controls (25%)
+                VStack(spacing: 16) {
+                    // Action log
+                    actionLogPanel
+                        .frame(height: geo.size.height * 0.4)
+                    
+                    Spacer()
+                    
+                    // Hero controls
+                    heroControls
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
+                }
+                .frame(width: geo.size.width * 0.25)
+                .background(Color.black.opacity(0.3))
+            }
         }
     }
     
@@ -285,15 +382,18 @@ struct GameView: View {
     
     // MARK: - Community Cards
     
-    private var communityCardsView: some View {
-        HStack(spacing: 4) {
+    private func communityCardsView(geo: GeometryProxy) -> some View {
+        let cardWidth = DeviceHelper.cardWidth(for: geo)
+        let cardHeight = DeviceHelper.cardHeight(for: geo)
+        
+        return HStack(spacing: 4) {
             ForEach(Array(store.engine.communityCards.enumerated()), id: \.offset) { index, card in
-                FlippingCard(card: card, delay: Double(index) * 0.15)
+                FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth)
             }
             ForEach(0..<(5 - store.engine.communityCards.count), id: \.self) { _ in
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                    .frame(width: 40, height: 40)
+                    .frame(width: cardWidth, height: cardHeight)
             }
         }
     }
