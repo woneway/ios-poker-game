@@ -83,26 +83,106 @@ class DecisionEngine {
         // Is this player the preflop aggressor?
         let isPFR = engine.preflopAggressorID == player.id
         
+        // MARK: - Opponent Modeling & Strategy Adjustment
+        
+        // 1. Check if opponent modeling is enabled (based on difficulty)
+        let useOpponentModeling = difficultyManager.shouldUseOpponentModeling()
+        
+        // 2. Load opponent model (针对当前行动的对手)
+        var strategyAdjust = StrategyAdjustment.balanced
+        
+        if useOpponentModeling {
+            // Find the last bettor (the opponent we're facing)
+            if let lastBettor = findLastBettor(engine: engine), lastBettor.id != player.id {
+                let opponentModel = loadOpponentModel(
+                    playerName: lastBettor.name,
+                    gameMode: engine.gameMode
+                )
+                
+                // Only apply adjustments if confidence is sufficient
+                if opponentModel.confidence > 0.5 {
+                    strategyAdjust = OpponentModeler.getStrategyAdjustment(style: opponentModel.style)
+                    
+                    #if DEBUG
+                    print("🎯 \(player.name) 识别对手 \(lastBettor.name) 为 \(opponentModel.style.description)")
+                    print("   策略调整：偷盲\(String(format:"%.0f%%", strategyAdjust.stealFreqBonus*100)) 诈唬\(String(format:"%.0f%%", strategyAdjust.bluffFreqAdjust*100))")
+                    #endif
+                }
+            }
+        }
+        
+        // 3. Apply strategy adjustment to profile
+        let adjustedProfile = applyStrategyAdjustment(profile: profile, adjustment: strategyAdjust)
+        
         // MARK: - 1. PreFlop Decision
         if street == .preFlop {
             return preflopDecision(
-                player: player, profile: profile,
+                player: player, profile: adjustedProfile,
                 holeCards: holeCards, engine: engine,
                 callAmount: callAmount, potSize: potSize,
                 seatOffset: seatOffset, activePlayers: activePlayers,
-                spr: spr
+                spr: spr, strategyAdjust: strategyAdjust
             )
         }
         
         // MARK: - 2. PostFlop Decision (Flop/Turn/River)
         return postflopDecision(
-            player: player, profile: profile,
+            player: player, profile: adjustedProfile,
             holeCards: holeCards, community: community,
             engine: engine, street: street,
             callAmount: callAmount, potSize: potSize,
             seatOffset: seatOffset, activePlayers: activePlayers,
-            spr: spr, isPFR: isPFR
+            spr: spr, isPFR: isPFR, strategyAdjust: strategyAdjust
         )
+    }
+    
+    // MARK: - Helper Methods for Opponent Modeling
+    
+    /// Find the last player who bet/raised
+    private static func findLastBettor(engine: PokerEngine) -> Player? {
+        // Find the player with the highest currentBet who is still active
+        var lastBettor: Player? = nil
+        var highestBet = 0
+        
+        for player in engine.players {
+            if player.currentBet > highestBet && player.status == .active {
+                highestBet = player.currentBet
+                lastBettor = player
+            }
+        }
+        
+        return lastBettor
+    }
+    
+    /// Determine the last action taken by a player based on their bet
+    private static func determineLastAction(engine: PokerEngine, player: Player) -> PostflopAction {
+        // Check current bet to infer action
+        if player.currentBet == 0 {
+            return .check
+        } else if player.currentBet > engine.bigBlindAmount {
+            // If they have a bet out, they either bet or raised
+            return .raise
+        } else {
+            return .call
+        }
+    }
+    
+    /// Apply strategy adjustment to AI profile
+    private static func applyStrategyAdjustment(
+        profile: AIProfile,
+        adjustment: StrategyAdjustment
+    ) -> AIProfile {
+        var adjusted = profile
+        
+        // Adjust bluff frequency
+        adjusted.bluffFreq = max(0.01, min(0.80, profile.bluffFreq + adjustment.bluffFreqAdjust))
+        
+        // Adjust call-down tendency
+        adjusted.callDownTendency = max(0.05, min(0.95, profile.callDownTendency + adjustment.callDownAdjust))
+        
+        // Note: stealFreqBonus and valueSizeAdjust are applied in specific decision functions
+        
+        return adjusted
     }
     
     // MARK: - PreFlop Decision
@@ -112,7 +192,7 @@ class DecisionEngine {
         holeCards: [Card], engine: PokerEngine,
         callAmount: Int, potSize: Int,
         seatOffset: Int, activePlayers: Int,
-        spr: Double
+        spr: Double, strategyAdjust: StrategyAdjustment
     ) -> PlayerAction {
         
         let chenScore = chenFormula(holeCards)
@@ -195,7 +275,11 @@ class DecisionEngine {
         
         // Standard open (just facing blinds)
         if isPlayable {
-            if Double.random(in: 0...1) < profile.effectiveAggression {
+            // Apply steal frequency adjustment (针对 Rock 对手)
+            let stealBonus = strategyAdjust.stealFreqBonus
+            let adjustedAggression = profile.effectiveAggression + (seatOffset <= 1 ? stealBonus : 0.0)
+            
+            if Double.random(in: 0...1) < adjustedAggression {
                 // Open raise: 2.5-3BB + 0.5BB per limper
                 let openSize = engine.bigBlindAmount * 3 + engine.bigBlindAmount * max(0, activePlayers - 4) / 2
                 return .raise(openSize)
@@ -306,7 +390,7 @@ class DecisionEngine {
         engine: PokerEngine, street: Street,
         callAmount: Int, potSize: Int,
         seatOffset: Int, activePlayers: Int,
-        spr: Double, isPFR: Bool
+        spr: Double, isPFR: Bool, strategyAdjust: StrategyAdjustment
     ) -> PlayerAction {
         
         // Calculate equity via Monte Carlo
@@ -330,6 +414,38 @@ class DecisionEngine {
         
         // Board texture analysis
         let board = analyzeBoardTexture(community)
+        
+        // MARK: - Opponent Range Tracking (Task 4)
+        
+        var opponentRange: HandRange? = nil
+        
+        // Only use range thinking at hard/expert difficulty
+        if difficultyManager.shouldUseRangeThinking() {
+            if let lastBettor = findLastBettor(engine: engine), lastBettor.id != player.id {
+                // Get opponent's position
+                let opponentIndex = engine.players.firstIndex(where: { $0.id == lastBettor.id }) ?? 0
+                let opponentSeatOffset = engine.seatOffsetFromDealer(playerIndex: opponentIndex)
+                let opponentPosition = Position.from(seatOffset: opponentSeatOffset)
+                
+                // Estimate preflop range
+                opponentRange = RangeAnalyzer.estimateRange(
+                    position: opponentPosition,
+                    action: .raise,  // Assume they raised preflop
+                    facingRaise: false
+                )
+                
+                // Narrow based on postflop action
+                if var range = opponentRange {
+                    let lastAction = determineLastAction(engine: engine, player: lastBettor)
+                    RangeAnalyzer.narrowRange(range: &range, action: lastAction, board: board)
+                    opponentRange = range
+                    
+                    #if DEBUG
+                    print("📊 对手翻后范围：\(range.description)")
+                    #endif
+                }
+            }
+        }
         
         let hasMonster = category >= 5      // Flush or better
         let hasStrongHand = category >= 3   // Trips or better
@@ -359,7 +475,7 @@ class DecisionEngine {
                 hasDecentHand: hasDecentHand, draws: draws,
                 board: board, potSize: potSize, engine: engine,
                 seatOffset: seatOffset, spr: spr, isPFR: isPFR,
-                street: street
+                street: street, strategyAdjust: strategyAdjust
             )
         }
         
@@ -371,7 +487,7 @@ class DecisionEngine {
             hasDecentHand: hasDecentHand, draws: draws,
             board: board, callAmount: callAmount,
             potSize: potSize, engine: engine, spr: spr,
-            street: street
+            street: street, strategyAdjust: strategyAdjust
         )
     }
     
@@ -383,7 +499,8 @@ class DecisionEngine {
         hasDecentHand: Bool, draws: DrawInfo,
         board: BoardTexture, potSize: Int,
         engine: PokerEngine, seatOffset: Int,
-        spr: Double, isPFR: Bool, street: Street
+        spr: Double, isPFR: Bool, street: Street,
+        strategyAdjust: StrategyAdjustment
     ) -> PlayerAction {
         
         let bb = engine.bigBlindAmount
@@ -392,9 +509,10 @@ class DecisionEngine {
         if hasStrongHand {
             let betProb = profile.effectiveAggression * 0.9
             if Double.random(in: 0...1) < betProb {
-                // Bet size: larger on wet boards, smaller on dry boards
-                let sizeFactor = board.wetness > 0.6 ? 0.75 : 0.50
-                let betSize = max(bb, Int(Double(potSize) * sizeFactor))
+                // Apply value size adjustment
+                let baseSizeFactor = board.wetness > 0.6 ? 0.75 : 0.50
+                let adjustedSizeFactor = baseSizeFactor * (1.0 + strategyAdjust.valueSizeAdjust)
+                let betSize = max(bb, Int(Double(potSize) * adjustedSizeFactor))
                 return .raise(betSize)
             }
             // Slow-play (trap) occasionally with monsters
@@ -461,7 +579,8 @@ class DecisionEngine {
         hasDecentHand: Bool, draws: DrawInfo,
         board: BoardTexture, callAmount: Int,
         potSize: Int, engine: PokerEngine,
-        spr: Double, street: Street
+        spr: Double, street: Street,
+        strategyAdjust: StrategyAdjustment
     ) -> PlayerAction {
         
         // Monster hand: raise/re-raise
