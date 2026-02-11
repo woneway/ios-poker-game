@@ -6,8 +6,10 @@ struct PlayerView: View {
     let isDealer: Bool
     var showCards: Bool = false
     var compact: Bool = false
+    var gameMode: GameMode = .cashGame
     
     @State private var showProfile = false
+    @State private var playerStats: PlayerStats? = nil
     
     private var avatar: String {
         return player.aiProfile?.avatar ?? (player.isHuman ? "🤠" : "🤖")
@@ -74,6 +76,20 @@ struct PlayerView: View {
                         .offset(x: avatarSize * 0.4, y: -avatarSize * 0.35)
                 }
                 
+                // Statistics HUD Badge (VPIP/PFR)
+                if let stats = playerStats, stats.totalHands >= 10 {
+                    VStack(spacing: 0) {
+                        Text("\(Int(stats.vpip))/\(Int(stats.pfr))")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 1)
+                    .background(Color.blue.opacity(0.8))
+                    .cornerRadius(3)
+                    .offset(x: -avatarSize * 0.5, y: -avatarSize * 0.35)
+                }
+                
                 // Status Overlay
                 if player.status == .folded {
                     Text("FOLD")
@@ -95,6 +111,9 @@ struct PlayerView: View {
             }
             .onTapGesture {
                 showProfile = true
+            }
+            .onAppear {
+                loadPlayerStats()
             }
             
             // Name & Chips
@@ -127,8 +146,17 @@ struct PlayerView: View {
         .scaleEffect(isActive ? 1.05 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isActive)
         .popover(isPresented: $showProfile) {
-            ProfilePopover(player: player)
+            ProfilePopover(player: player, stats: playerStats)
         }
+    }
+    
+    // MARK: - Load Statistics
+    
+    private func loadPlayerStats() {
+        playerStats = StatisticsCalculator.shared.calculateStats(
+            playerName: player.name,
+            gameMode: gameMode
+        )
     }
 }
 
@@ -136,6 +164,7 @@ struct PlayerView: View {
 
 struct ProfilePopover: View {
     let player: Player
+    let stats: PlayerStats?
     
     var body: some View {
         VStack(spacing: 12) {
@@ -240,6 +269,48 @@ struct ProfilePopover: View {
                     }
                 }
             }
+            
+            // Statistics Section (for all players if available)
+            if let stats = stats, stats.totalHands > 0 {
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("统计数据 (\(stats.totalHands) 手)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                    
+                    HStack(spacing: 16) {
+                        statItem(label: "VPIP", value: String(format: "%.1f%%", stats.vpip), color: .blue)
+                        statItem(label: "PFR", value: String(format: "%.1f%%", stats.pfr), color: .purple)
+                        statItem(label: "AF", value: String(format: "%.2f", stats.af), color: .red)
+                    }
+                    
+                    HStack(spacing: 16) {
+                        statItem(label: "WTSD", value: String(format: "%.1f%%", stats.wtsd), color: .green)
+                        statItem(label: "W$SD", value: String(format: "%.1f%%", stats.wsd), color: .orange)
+                    }
+                    
+                    HStack {
+                        Text("胜率")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(stats.handsWon)/\(stats.totalHands) (\(String(format: "%.1f%%", Double(stats.handsWon) / Double(stats.totalHands) * 100)))")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.cyan)
+                    }
+                    
+                    HStack {
+                        Text("总盈利")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("$\(stats.totalWinnings)")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(stats.totalWinnings >= 0 ? .green : .red)
+                    }
+                }
+            }
         }
         .padding(16)
         .frame(width: 280)
@@ -340,6 +411,19 @@ struct ProfilePopover: View {
         if p.tiltSensitivity >= 0.30 { return "偶尔失控" }
         if p.tiltSensitivity >= 0.10 { return "心态稳定" }
         return "铁石心肠"
+    }
+    
+    // MARK: - Stat Item
+    
+    private func statItem(label: String, value: String, color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(color)
+        }
     }
     
     // MARK: - Strategy Tips
