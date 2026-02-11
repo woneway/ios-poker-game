@@ -20,8 +20,14 @@ struct PlayerView: View {
         return player.isHuman || showCards
     }
     
-    private var avatarSize: CGFloat { compact ? 44 : 56 }
-    private var cardWidth: CGFloat { compact ? 28 : 36 }
+    private var avatarSize: CGFloat { 
+        let base: CGFloat = compact ? 44 : 56
+        return base * DeviceHelper.scaleFactor
+    }
+    private var cardWidth: CGFloat { 
+        let base: CGFloat = compact ? 28 : 36
+        return base * DeviceHelper.scaleFactor
+    }
     
     var body: some View {
         VStack(spacing: 2) {

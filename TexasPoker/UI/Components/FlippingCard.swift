@@ -3,12 +3,13 @@ import SwiftUI
 struct FlippingCard: View {
     let card: Card
     let delay: Double
+    var width: CGFloat = 40
     @State private var isFlipped = false
     
     var body: some View {
         ZStack {
             // Card back
-            CardBackView()
+            CardBackView(width: width)
                 .opacity(isFlipped ? 0 : 1)
                 .rotation3DEffect(
                     .degrees(isFlipped ? 90 : 0),
@@ -16,7 +17,7 @@ struct FlippingCard: View {
                 )
             
             // Card front
-            CardView(card: card, width: 40)
+            CardView(card: card, width: width)
                 .opacity(isFlipped ? 1 : 0)
                 .rotation3DEffect(
                     .degrees(isFlipped ? 0 : -90),
@@ -36,6 +37,8 @@ struct FlippingCard: View {
 }
 
 struct CardBackView: View {
+    var width: CGFloat = 40
+    
     var body: some View {
         RoundedRectangle(cornerRadius: 4)
             .fill(
@@ -49,6 +52,6 @@ struct CardBackView: View {
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(Color.white.opacity(0.3), lineWidth: 2)
             )
-            .frame(width: 40, height: 40)
+            .frame(width: width, height: width)
     }
 }

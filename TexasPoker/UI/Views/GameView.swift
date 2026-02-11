@@ -84,20 +84,26 @@ struct GameView: View {
     
     private func portraitLayout(geo: GeometryProxy) -> some View {
         ZStack {
-            // Background
+            // Background - adaptive color
             RadialGradient(
-                gradient: Gradient(colors: [Color(hex: "1a5c1a"), Color(hex: "0d3d0d")]),
+                gradient: Gradient(colors: [
+                    Color.adaptiveTableBackground(colorScheme),
+                    Color.adaptiveTableBackground(colorScheme).opacity(0.8)
+                ]),
                 center: .center,
                 startRadius: 50,
                 endRadius: max(geo.size.width, geo.size.height) * 0.6
             )
             .edgesIgnoringSafeArea(.all)
             
-            // Table felt ellipse
+            // Table felt ellipse - adaptive color
             Ellipse()
                 .fill(
                     RadialGradient(
-                        gradient: Gradient(colors: [Color(hex: "1e6b1e"), Color(hex: "145214")]),
+                        gradient: Gradient(colors: [
+                            Color.adaptiveTableFelt(colorScheme),
+                            Color.adaptiveTableFelt(colorScheme).opacity(0.8)
+                        ]),
                         center: .center,
                         startRadius: 20,
                         endRadius: 200
@@ -158,9 +164,12 @@ struct GameView: View {
     
     private func landscapeLayout(geo: GeometryProxy) -> some View {
         ZStack {
-            // Background
+            // Background - adaptive color
             RadialGradient(
-                gradient: Gradient(colors: [Color(hex: "1a5c1a"), Color(hex: "0d3d0d")]),
+                gradient: Gradient(colors: [
+                    Color.adaptiveTableBackground(colorScheme),
+                    Color.adaptiveTableBackground(colorScheme).opacity(0.8)
+                ]),
                 center: .center,
                 startRadius: 50,
                 endRadius: max(geo.size.width, geo.size.height) * 0.6
@@ -170,11 +179,14 @@ struct GameView: View {
             HStack(spacing: 0) {
                 // Left: Game area (75%)
                 ZStack {
-                    // Table felt ellipse (wider for landscape)
+                    // Table felt ellipse (wider for landscape) - adaptive color
                     Ellipse()
                         .fill(
                             RadialGradient(
-                                gradient: Gradient(colors: [Color(hex: "1e6b1e"), Color(hex: "145214")]),
+                                gradient: Gradient(colors: [
+                                    Color.adaptiveTableFelt(colorScheme),
+                                    Color.adaptiveTableFelt(colorScheme).opacity(0.8)
+                                ]),
                                 center: .center,
                                 startRadius: 20,
                                 endRadius: 300
