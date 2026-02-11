@@ -16,7 +16,16 @@ class GameSettings: ObservableObject {
     
     // Sound
     @Published var soundEnabled: Bool {
-        didSet { UserDefaults.standard.set(soundEnabled, forKey: soundEnabledKey) }
+        didSet { 
+            UserDefaults.standard.set(soundEnabled, forKey: soundEnabledKey)
+            SoundManager.shared.isMuted = !soundEnabled
+        }
+    }
+    
+    @Published var soundVolume: Double {
+        didSet {
+            SoundManager.shared.volume = Float(soundVolume)
+        }
     }
     
     // Difficulty
@@ -53,6 +62,7 @@ class GameSettings: ObservableObject {
         // Load existing values or defaults
         self.gameSpeed = defaults.object(forKey: gameSpeedKey) as? Double ?? 1.0
         self.soundEnabled = defaults.object(forKey: soundEnabledKey) as? Bool ?? true
+        self.soundVolume = Double(SoundManager.shared.volume)
         
         let diffRaw = defaults.string(forKey: difficultyKey) ?? "Normal"
         self.difficulty = Difficulty(rawValue: diffRaw) ?? .normal
@@ -88,8 +98,6 @@ struct SettingsView: View {
         NavigationView {
             Form {
                 Section(header: Text("General")) {
-                    Toggle("Sound Effects", isOn: $settings.soundEnabled)
-                    
                     VStack(alignment: .leading) {
                         Text("Game Speed: \(String(format: "%.1fx", settings.gameSpeed))")
                         Slider(value: $settings.gameSpeed, in: 0.5...3.0, step: 0.5)
@@ -98,6 +106,22 @@ struct SettingsView: View {
                     Picker("Difficulty", selection: $settings.difficulty) {
                         ForEach(GameSettings.Difficulty.allCases) { diff in
                             Text(diff.rawValue).tag(diff)
+                        }
+                    }
+                }
+                
+                Section(header: Text("音效设置")) {
+                    Toggle("音效", isOn: $settings.soundEnabled)
+                    
+                    if settings.soundEnabled {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("音量")
+                                Spacer()
+                                Text("\(Int(settings.soundVolume * 100))%")
+                                    .foregroundColor(.secondary)
+                            }
+                            Slider(value: $settings.soundVolume, in: 0...1, step: 0.1)
                         }
                     }
                 }

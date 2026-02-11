@@ -389,6 +389,20 @@ class PokerEngine: ObservableObject {
         }
         hasActed[playerID] = true
         
+        // Play sound for action
+        switch action {
+        case .fold:
+            SoundManager.shared.playSound(.fold)
+        case .check:
+            SoundManager.shared.playSound(.check)
+        case .call:
+            SoundManager.shared.playSound(.call)
+        case .raise:
+            SoundManager.shared.playSound(.raise)
+        case .allIn:
+            SoundManager.shared.playSound(.allIn)
+        }
+        
         // 记录操作日志
         let updatedPlayer = result.playerUpdate
         let logAmount: Int? = {
@@ -410,6 +424,15 @@ class PokerEngine: ObservableObject {
         actionLog.append(entry)
         if actionLog.count > maxLogEntries {
             actionLog.removeFirst(actionLog.count - maxLogEntries)
+        }
+        
+        // Trigger chip animation for betting actions
+        if result.potAddition > 0 {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("ChipAnimation"),
+                object: nil,
+                userInfo: ["seatIndex": activePlayerIndex, "amount": result.potAddition]
+            )
         }
         
         #if DEBUG
