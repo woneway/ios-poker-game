@@ -59,4 +59,47 @@ class StatisticsCalculator {
         // TODO: Implement W$SD calculation
         return 0.0
     }
+    
+    // MARK: - Core Data Persistence
+    
+    /// Update or create PlayerStatsEntity in Core Data
+    func updatePlayerStatsEntity(stats: PlayerStats) {
+        let context = PersistenceController.shared.container.viewContext
+        
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
+        fetchRequest.predicate = NSPredicate(
+            format: "playerName == %@ AND gameMode == %@",
+            stats.playerName,
+            stats.gameMode.rawValue
+        )
+        
+        let entity: NSManagedObject
+        if let existing = try? context.fetch(fetchRequest).first {
+            entity = existing
+        } else {
+            entity = NSEntityDescription.insertNewObject(forEntityName: "PlayerStatsEntity", into: context)
+            entity.setValue(UUID(), forKey: "id")
+            entity.setValue(stats.playerName, forKey: "playerName")
+            entity.setValue(stats.gameMode.rawValue, forKey: "gameMode")
+        }
+        
+        entity.setValue(Int32(stats.totalHands), forKey: "totalHands")
+        entity.setValue(stats.vpip, forKey: "vpip")
+        entity.setValue(stats.pfr, forKey: "pfr")
+        entity.setValue(stats.af, forKey: "af")
+        entity.setValue(stats.wtsd, forKey: "wtsd")
+        entity.setValue(stats.wsd, forKey: "wsd")
+        entity.setValue(stats.threeBet, forKey: "threeBet")
+        entity.setValue(Int32(stats.handsWon), forKey: "handsWon")
+        entity.setValue(Int32(stats.totalWinnings), forKey: "totalWinnings")
+        entity.setValue(Date(), forKey: "lastUpdated")
+        
+        do {
+            try context.save()
+        } catch {
+            #if DEBUG
+            print("Failed to save player stats: \(error)")
+            #endif
+        }
+    }
 }
