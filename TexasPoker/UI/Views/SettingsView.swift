@@ -77,6 +77,7 @@ struct SettingsView: View {
     @ObservedObject var settings: GameSettings
     @Binding var isPresented: Bool
     @State private var showHistory = false
+    @State private var showStatistics = false
     @ObservedObject private var historyManager = GameHistoryManager.shared
     
     var body: some View {
@@ -133,7 +134,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                Section(header: Text("History")) {
+                Section(header: Text("History & Stats")) {
                     Button(action: { showHistory = true }) {
                         HStack {
                             Image(systemName: "clock.arrow.circlepath")
@@ -147,6 +148,20 @@ struct SettingsView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary.opacity(0.5))
+                        }
+                    }
+                    
+                    Button(action: { showStatistics = true }) {
+                        HStack {
+                            Image(systemName: "chart.bar.fill")
+                                .foregroundColor(.green)
+                            Text("Player Statistics")
+                                .foregroundColor(.primary)
+                            Spacer()
                             
                             Image(systemName: "chevron.right")
                                 .font(.caption)
@@ -182,6 +197,10 @@ struct SettingsView: View {
             })
             .sheet(isPresented: $showHistory) {
                 HistoryView(isPresented: $showHistory)
+            }
+            .sheet(isPresented: $showStatistics) {
+                StatisticsView()
+                    .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
             }
         }
     }
