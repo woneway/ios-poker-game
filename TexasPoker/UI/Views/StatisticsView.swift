@@ -11,7 +11,7 @@ struct StatisticsView: View {
     
     @State private var selectedMode: GameMode = .cashGame
     @State private var showExportSheet = false
-    @State private var exportedData: Data?
+    @State private var exportURL: URL?
     
     var body: some View {
         NavigationView {
@@ -68,8 +68,8 @@ struct StatisticsView: View {
                 }
             }
             .sheet(isPresented: $showExportSheet) {
-                if let data = exportedData {
-                    ShareSheet(activityItems: [data])
+                if let url = exportURL {
+                    ShareSheet(activityItems: [url])
                 }
             }
         }
@@ -78,36 +78,9 @@ struct StatisticsView: View {
     // MARK: - Export Statistics
     
     private func exportStatistics() {
-        let filteredStats = playerStats.filter { 
-            $0.gameMode == selectedMode.rawValue
-        }
-        
-        var exportArray: [[String: Any]] = []
-        
-        for stats in filteredStats {
-            let dict: [String: Any] = [
-                "playerName": stats.playerName ?? "Unknown",
-                "gameMode": stats.gameMode ?? "cashGame",
-                "totalHands": stats.totalHands,
-                "vpip": stats.vpip,
-                "pfr": stats.pfr,
-                "af": stats.af,
-                "wtsd": stats.wtsd,
-                "wsd": stats.wsd,
-                "threeBet": stats.threeBet,
-                "handsWon": stats.handsWon,
-                "totalWinnings": stats.totalWinnings,
-                "lastUpdated": (stats.lastUpdated ?? Date()).timeIntervalSince1970
-            ]
-            exportArray.append(dict)
-        }
-        
-        do {
-            let jsonData = try JSONSerialization.data(withJSONObject: exportArray, options: .prettyPrinted)
-            exportedData = jsonData
+        if let url = DataExporter.exportStatistics(gameMode: selectedMode) {
+            exportURL = url
             showExportSheet = true
-        } catch {
-            print("Failed to export statistics: \(error)")
         }
     }
 }
