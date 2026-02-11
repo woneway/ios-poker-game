@@ -258,6 +258,13 @@ class PokerEngine: ObservableObject {
         #endif
         
         checkBotTurn()
+        
+        // Record hand start
+        ActionRecorder.shared.startHand(
+            handNumber: handNumber,
+            gameMode: gameMode,
+            players: players
+        )
     }
     
     func dealNextStreet() {
@@ -409,6 +416,18 @@ class PokerEngine: ObservableObject {
         print("  \(updatedPlayer.name): \(action.description) | chips=\(updatedPlayer.chips) bet=\(updatedPlayer.currentBet) pot=\(pot.total)")
         #endif
         
+        // Record action for statistics
+        let isVoluntary = determineIfVoluntary(action: action, player: player)
+        let position = getPosition(playerIndex: activePlayerIndex)
+        ActionRecorder.shared.recordAction(
+            playerName: updatedPlayer.name,
+            action: action,
+            amount: result.potAddition,
+            street: currentStreet,
+            isVoluntary: isVoluntary,
+            position: position
+        )
+        
         // Check if only 1 non-folded player remains
         let nonFolded = players.filter { $0.status != .folded && $0.status != .eliminated }
         if nonFolded.count == 1 {
@@ -481,6 +500,18 @@ class PokerEngine: ObservableObject {
         lastHandLosers = result.loserIDs
         lastPotSize = result.totalPot
         isHandOver = true
+        
+        // Record hand end for statistics
+        let heroCards = players.first { $0.isHuman }?.holeCards ?? []
+        let winnerNames = winners.compactMap { id in 
+            players.first { $0.id == id }?.name 
+        }
+        ActionRecorder.shared.endHand(
+            finalPot: lastPotSize,
+            communityCards: communityCards,
+            heroCards: heroCards,
+            winners: winnerNames
+        )
         
         // Check for blind level up in tournaments
         checkBlindLevelUp()
@@ -619,6 +650,42 @@ class PokerEngine: ObservableObject {
             attempts += 1
         }
         return next
+    }
+    
+    // MARK: - Statistics Helpers
+    
+    private func determineIfVoluntary(action: PlayerAction, player: Player) -> Bool {
+        // Big blind passive call is not voluntary
+        if currentStreet == .preFlop && 
+           players[bigBlindIndex].id == player.id &&
+           case .call = action &&
+           currentBet == bigBlindAmount {
+            return false
+        }
+        // Fold and check are not voluntary investments
+        return action != .fold && action != .check
+    }
+    
+    private func getPosition(playerIndex: Int) -> String {
+        let offset = seatOffsetFromDealer(playerIndex: playerIndex)
+        let activeCount = players.filter { $0.status == .active || $0.status == .allIn }.count
+        
+        if activeCount == 2 {
+            // Heads-up
+            return offset == 0 ? "BTN/SB" : "BB"
+        }
+        
+        switch offset {
+        case 0: return "BTN"
+        case 1: return "SB"
+        case 2: return "BB"
+        case 3: return "UTG"
+        case 4: return "MP"
+        case 5: return activeCount <= 6 ? "CO" : "MP"
+        case 6: return "CO"
+        case 7: return "HJ"
+        default: return "EP"
+        }
     }
     
 }

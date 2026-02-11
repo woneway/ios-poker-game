@@ -1,6 +1,6 @@
 import Foundation
 
-enum Suit: String, CaseIterable, Comparable {
+enum Suit: String, CaseIterable, Comparable, Codable {
     case clubs = "♣️"
     case diamonds = "♦️"
     case hearts = "♥️"
@@ -21,7 +21,7 @@ enum Suit: String, CaseIterable, Comparable {
     }
 }
 
-enum Rank: Int, CaseIterable, Comparable {
+enum Rank: Int, CaseIterable, Comparable, Codable {
     case two = 0, three, four, five, six, seven, eight, nine, ten, jack, queen, king, ace
     
     var display: String {
@@ -66,7 +66,7 @@ enum Rank: Int, CaseIterable, Comparable {
     }
 }
 
-struct Card: Identifiable, Equatable, Hashable, CustomStringConvertible {
+struct Card: Identifiable, Equatable, Hashable, CustomStringConvertible, Codable {
     // id is derived from rank+suit for correct identity in SwiftUI lists
     var id: String { "\(rank.rawValue)-\(suit.rawValue)" }
     let rank: Rank
@@ -84,6 +84,24 @@ struct Card: Identifiable, Equatable, Hashable, CustomStringConvertible {
         let s = suit.value
         let b = Int32(1) << (16 + r)
         self.value = b | s | (r << 8) | p
+    }
+    
+    // Codable conformance
+    enum CodingKeys: String, CodingKey {
+        case rank, suit
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let rank = try container.decode(Rank.self, forKey: .rank)
+        let suit = try container.decode(Suit.self, forKey: .suit)
+        self.init(rank: rank, suit: suit)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(rank, forKey: .rank)
+        try container.encode(suit, forKey: .suit)
     }
     
     var description: String {
