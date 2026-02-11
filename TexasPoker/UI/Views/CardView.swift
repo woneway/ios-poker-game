@@ -6,50 +6,70 @@ struct CardView: View {
     @Environment(\.colorScheme) var colorScheme
     
     private var height: CGFloat { width * 1.0 }
+    
+    var body: some View {
+        ZStack {
+            if let card = card {
+                CardFaceView(card: card, width: width)
+            } else {
+                CardBackView(width: width)
+            }
+        }
+        .frame(width: width, height: height)
+    }
+}
+
+struct CardFaceView: View {
+    let card: Card
+    let width: CGFloat
+    @Environment(\.colorScheme) var colorScheme
+    
     private var isRed: Bool {
-        guard let card = card else { return false }
         return card.suit == .hearts || card.suit == .diamonds
     }
     
     var body: some View {
         ZStack {
-            if let card = card {
-                // Face Up - adaptive background
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(Color.adaptiveCardBackground(colorScheme))
-                    .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
-                
-                // Compact 2-row layout: rank on top, suit below
-                VStack(spacing: -1) {
-                    Text(card.rank.display)
-                        .font(.system(size: width * 0.38, weight: .black, design: .rounded))
-                    Text(card.suit.rawValue)
-                        .font(.system(size: width * 0.32))
-                }
-                .foregroundColor(isRed ? .red : .black)
-            } else {
-                // Face Down (Card Back)
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [Color.blue, Color(red: 0, green: 0, blue: 0.5)]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 5)
-                            .strokeBorder(Color.white, lineWidth: 1.5)
-                            .padding(3)
-                    )
-                    .overlay(
-                        Text("♠️")
-                            .font(.system(size: width * 0.35))
-                            .foregroundColor(.white.opacity(0.2))
-                    )
-                    .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
+            // Background
+            RoundedRectangle(cornerRadius: 5)
+                .fill(Color.adaptiveCardBackground(colorScheme))
+                .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
+            
+            // Inner Stroke
+            RoundedRectangle(cornerRadius: 5)
+                .strokeBorder(Color.black.opacity(0.1), lineWidth: 1)
+            
+            // Content
+            VStack(spacing: -1) {
+                Text(card.rank.display)
+                    .font(.system(size: width * 0.38, weight: .heavy, design: .rounded))
+                Text(card.suit.rawValue)
+                    .font(.system(size: width * 0.32))
             }
+            .foregroundColor(isRed ? .red : .black)
         }
-        .frame(width: width, height: height)
+    }
+}
+
+struct CardBackView: View {
+    let width: CGFloat
+    
+    var body: some View {
+        ZStack {
+            // Background with Gradient
+            RoundedRectangle(cornerRadius: 5)
+                .fill(Color.cardBackGradient)
+                .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
+            
+            // White Border
+            RoundedRectangle(cornerRadius: 5)
+                .strokeBorder(Color.white, lineWidth: 1.5)
+                .padding(3)
+            
+            // Center Icon
+            Text("♠️")
+                .font(.system(size: width * 0.35))
+                .foregroundColor(.white.opacity(0.2))
+        }
     }
 }

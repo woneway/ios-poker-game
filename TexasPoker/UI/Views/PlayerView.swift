@@ -150,7 +150,7 @@ struct PlayerView: View {
             }
             .padding(.horizontal, 4)
             .padding(.vertical, 2)
-            .background(Color.black.opacity(0.5))
+            .background(.ultraThinMaterial)
             .cornerRadius(4)
             
             // Statistics HUD

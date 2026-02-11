@@ -832,7 +832,6 @@ class DecisionEngine {
         
         // Facing a bet: use Minimum Defense Frequency (MDF)
         // MDF = 1 - bet_size / (pot + bet_size)
-        let betRelative = Double(callAmount) / max(1.0, Double(potSize))
         let mdf = 1.0 - Double(callAmount) / Double(potSize + callAmount)
         
         // Must defend at least MDF% of range to prevent opponent from profiting with any bluff

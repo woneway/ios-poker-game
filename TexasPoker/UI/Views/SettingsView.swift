@@ -91,6 +91,7 @@ class GameSettings: ObservableObject {
 struct SettingsView: View {
     @ObservedObject var settings: GameSettings
     @Binding var isPresented: Bool
+    var onQuit: (() -> Void)? = nil
     @State private var showHistory = false
     @State private var showStatistics = false
     @ObservedObject private var historyManager = GameHistoryManager.shared
@@ -253,6 +254,19 @@ struct SettingsView: View {
                 Section(header: Text("About")) {
                     Text("Texas Poker v1.1")
                     Text("Built with SwiftUI + SpriteKit")
+                }
+                
+                if let onQuit = onQuit {
+                    Section {
+                        Button(action: {
+                            onQuit()
+                            isPresented = false
+                        }) {
+                            Text("Quit Current Game")
+                                .foregroundColor(.red)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        }
+                    }
                 }
             }
             .navigationTitle("Settings")

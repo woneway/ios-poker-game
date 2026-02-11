@@ -48,13 +48,27 @@ struct GameView: View {
                 RankingsView(
                     results: store.finalResults,
                     totalHands: store.engine.handNumber,
-                    onNewGame: { store.resetGame() }
+                    onNewGame: {
+                        store.resetGame(
+                            mode: settings.gameMode,
+                            config: settings.getTournamentConfig()
+                        )
+                    }
                 )
                 .animation(.easeInOut(duration: 0.3), value: store.showRankings)
             }
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView(settings: settings, isPresented: $showSettings)
+            SettingsView(
+                settings: settings,
+                isPresented: $showSettings,
+                onQuit: {
+                    store.resetGame(
+                        mode: settings.gameMode,
+                        config: settings.getTournamentConfig()
+                    )
+                }
+            )
         }
         .onAppear {
             scene.onAnimationComplete = {
@@ -98,6 +112,22 @@ struct GameView: View {
             unreadLogCount += delta
             if let latest = store.engine.actionLog.last {
                 showToast(latest)
+            }
+        }
+        .onChange(of: settings.gameMode) { _, newMode in
+            if store.state == .idle {
+                store.resetGame(
+                    mode: newMode,
+                    config: settings.getTournamentConfig()
+                )
+            }
+        }
+        .onChange(of: settings.tournamentPreset) { _, _ in
+            if store.state == .idle && settings.gameMode == .tournament {
+                store.resetGame(
+                    mode: .tournament,
+                    config: settings.getTournamentConfig()
+                )
             }
         }
     }
@@ -714,7 +744,12 @@ struct GameView: View {
                         }
                         .padding(.horizontal, 40)
                         
-                        Button(action: { store.resetGame() }) {
+                        Button(action: {
+                            store.resetGame(
+                                mode: settings.gameMode,
+                                config: settings.getTournamentConfig()
+                            )
+                        }) {
                             Text("New Game")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(.white)
@@ -743,7 +778,12 @@ struct GameView: View {
                                     .frame(width: 100, height: 40)
                                     .background(Capsule().fill(Color.gray))
                             }
-                            Button(action: { store.resetGame() }) {
+                            Button(action: {
+                                store.resetGame(
+                                    mode: settings.gameMode,
+                                    config: settings.getTournamentConfig()
+                                )
+                            }) {
                                 Text("New Game")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.white)
@@ -960,33 +1000,6 @@ struct GameView: View {
     }
 }
 
-// MARK: - Color Hex Extension
-
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3:
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6:
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8:
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (1, 1, 1, 0)
-        }
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue:  Double(b) / 255,
-            opacity: Double(a) / 255
-        )
-    }
-}
 
 // MARK: - Action Button
 
