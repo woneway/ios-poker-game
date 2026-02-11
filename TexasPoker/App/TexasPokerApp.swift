@@ -5,6 +5,11 @@ struct TexasPokerApp: App {
     let persistenceController = PersistenceController.shared
     @StateObject private var settings = GameSettings()
     
+    init() {
+        // Run data migration on app startup
+        DataMigrationManager.shared.migrateIfNeeded()
+    }
+    
     var body: some Scene {
         WindowGroup {
             GameViewContainer(settings: settings)
