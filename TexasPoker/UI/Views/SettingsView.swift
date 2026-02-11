@@ -2,14 +2,36 @@ import SwiftUI
 import Combine
 
 class GameSettings: ObservableObject {
+    // Persistence keys
+    private let gameSpeedKey = "gameSpeed"
+    private let soundEnabledKey = "soundEnabled"
+    private let difficultyKey = "difficulty"
+    private let gameModeKey = "gameMode"
+    private let tournamentPresetKey = "tournamentPreset"
+    
+    // Game speed
     @Published var gameSpeed: Double {
-        didSet { UserDefaults.standard.set(gameSpeed, forKey: "gameSpeed") }
+        didSet { UserDefaults.standard.set(gameSpeed, forKey: gameSpeedKey) }
     }
+    
+    // Sound
     @Published var soundEnabled: Bool {
-        didSet { UserDefaults.standard.set(soundEnabled, forKey: "soundEnabled") }
+        didSet { UserDefaults.standard.set(soundEnabled, forKey: soundEnabledKey) }
     }
+    
+    // Difficulty
     @Published var difficulty: Difficulty {
-        didSet { UserDefaults.standard.set(difficulty.rawValue, forKey: "difficulty") }
+        didSet { UserDefaults.standard.set(difficulty.rawValue, forKey: difficultyKey) }
+    }
+    
+    // Game mode
+    @Published var gameMode: GameMode {
+        didSet { UserDefaults.standard.set(gameMode.rawValue, forKey: gameModeKey) }
+    }
+    
+    // Tournament preset
+    @Published var tournamentPreset: String {
+        didSet { UserDefaults.standard.set(tournamentPreset, forKey: tournamentPresetKey) }
     }
     
     enum Difficulty: String, CaseIterable, Identifiable {
@@ -23,10 +45,31 @@ class GameSettings: ObservableObject {
     
     init() {
         let defaults = UserDefaults.standard
-        self.gameSpeed = defaults.object(forKey: "gameSpeed") as? Double ?? 1.0
-        self.soundEnabled = defaults.object(forKey: "soundEnabled") as? Bool ?? true
-        let diffRaw = defaults.string(forKey: "difficulty") ?? "Normal"
+        
+        // Load existing values or defaults
+        self.gameSpeed = defaults.object(forKey: gameSpeedKey) as? Double ?? 1.0
+        self.soundEnabled = defaults.object(forKey: soundEnabledKey) as? Bool ?? true
+        
+        let diffRaw = defaults.string(forKey: difficultyKey) ?? "Normal"
         self.difficulty = Difficulty(rawValue: diffRaw) ?? .normal
+        
+        let modeRaw = defaults.string(forKey: gameModeKey) ?? GameMode.cashGame.rawValue
+        self.gameMode = GameMode(rawValue: modeRaw) ?? .cashGame
+        
+        self.tournamentPreset = defaults.string(forKey: tournamentPresetKey) ?? "Standard"
+    }
+    
+    /// Get the tournament config based on current preset selection
+    func getTournamentConfig() -> TournamentConfig? {
+        guard gameMode == .tournament else { return nil }
+        switch tournamentPreset {
+        case "Turbo":
+            return .turbo
+        case "Deep Stack":
+            return .deepStack
+        default:
+            return .standard
+        }
     }
 }
 
@@ -39,7 +82,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Game Options")) {
+                Section(header: Text("General")) {
                     Toggle("Sound Effects", isOn: $settings.soundEnabled)
                     
                     VStack(alignment: .leading) {
@@ -50,6 +93,42 @@ struct SettingsView: View {
                     Picker("Difficulty", selection: $settings.difficulty) {
                         ForEach(GameSettings.Difficulty.allCases) { diff in
                             Text(diff.rawValue).tag(diff)
+                        }
+                    }
+                }
+                
+                Section(header: Text("Game Mode")) {
+                    Picker("Mode", selection: $settings.gameMode) {
+                        Text("Cash Game").tag(GameMode.cashGame)
+                        Text("Tournament").tag(GameMode.tournament)
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                    .onChange(of: settings.gameMode) { _ in
+                        // Trigger UI update when mode changes
+                    }
+                    
+                    if settings.gameMode == .tournament {
+                        Picker("Tournament Type", selection: $settings.tournamentPreset) {
+                            Text("Turbo").tag("Turbo")
+                            Text("Standard").tag("Standard")
+                            Text("Deep Stack").tag("Deep Stack")
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        
+                        // Show preset details
+                        if let config = settings.getTournamentConfig() {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Starting Chips: \(config.startingChips)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("Hands per Level: \(config.handsPerLevel)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("Payouts: Top \(config.payoutStructure.count)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.top, 4)
                         }
                     }
                 }
