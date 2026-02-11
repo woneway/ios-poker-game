@@ -132,6 +132,9 @@ struct PlayerView: View {
             .background(Color.black.opacity(0.5))
             .cornerRadius(4)
             
+            // Statistics HUD
+            PlayerHUD(playerName: player.name, gameMode: gameMode)
+            
             // Current Bet
             if player.currentBet > 0 {
                 Text("$\(player.currentBet)")

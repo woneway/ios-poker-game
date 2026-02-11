@@ -328,7 +328,8 @@ struct GameView: View {
                         isActive: isActiveInPlay,
                         isDealer: store.engine.dealerIndex == i,
                         showCards: true,
-                        compact: false
+                        compact: false,
+                        gameMode: store.engine.gameMode
                     )
                     .position(x: x, y: y + 15)
                 } else {
@@ -339,7 +340,8 @@ struct GameView: View {
                         isActive: isActiveInPlay,
                         isDealer: store.engine.dealerIndex == i,
                         showCards: isShowdown,
-                        compact: true
+                        compact: true,
+                        gameMode: store.engine.gameMode
                     )
                     .position(x: x, y: y)
                 }
