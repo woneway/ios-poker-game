@@ -67,7 +67,7 @@ struct GameView: View {
                 }
             }
         }
-        .onChange(of: store.state) { newState in
+        .onChange(of: store.state) { _, newState in
             if newState == .dealing {
                 let activeSeats = store.engine.players.enumerated()
                     .filter { $0.element.status == .active || $0.element.status == .allIn }
@@ -75,7 +75,7 @@ struct GameView: View {
                 scene.playDealAnimation(activeSeatIndices: activeSeats)
             }
         }
-        .onChange(of: store.engine.isHandOver) { isOver in
+        .onChange(of: store.engine.isHandOver) { _, isOver in
             if isOver && settings.soundEnabled { SoundManager.shared.playSound(.win) }
         }
     }
@@ -516,7 +516,7 @@ struct GameView: View {
                             }
                         }
                     }
-                    .onChange(of: store.engine.actionLog.count) { _ in
+                    .onChange(of: store.engine.actionLog.count) {
                         if let last = store.engine.actionLog.last {
                             withAnimation(.easeOut(duration: 0.2)) {
                                 proxy.scrollTo(last.id, anchor: .bottom)

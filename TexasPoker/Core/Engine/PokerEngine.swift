@@ -558,7 +558,7 @@ class PokerEngine: ObservableObject {
         
         // Record Hero win/loss for difficulty adjustment
         if let hero = players.first(where: { $0.isHuman }) {
-            let heroWon = winners.contains(where: { $0.id == hero.id })
+            let heroWon = winners.contains(hero.id)
             DecisionEngine.difficultyManager.recordHand(heroWon: heroWon)
         }
         
@@ -631,7 +631,6 @@ class PokerEngine: ObservableObject {
     
     /// Generate final game results sorted by rank (1st place first)
     func generateFinalResults() -> [PlayerResult] {
-        let totalPlayers = players.count
         var results: [PlayerResult] = []
         
         // Winner(s) - players still with chips
@@ -705,9 +704,9 @@ class PokerEngine: ObservableObject {
     
     private func determineIfVoluntary(action: PlayerAction, player: Player) -> Bool {
         // Big blind passive call is not voluntary
-        if currentStreet == .preFlop && 
-           players[bigBlindIndex].id == player.id &&
-           case .call = action &&
+        if currentStreet == .preFlop,
+           players[bigBlindIndex].id == player.id,
+           case .call = action,
            currentBet == bigBlindAmount {
             return false
         }

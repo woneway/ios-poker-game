@@ -6,9 +6,9 @@ struct AIProfile: Equatable {
     let description: String
     
     // Core parameters (0.0 - 1.0)
-    let tightness: Double        // High = plays fewer hands (low VPIP)
-    let aggression: Double       // High = raises more, calls less (PFR/VPIP)
-    let bluffFreq: Double        // Probability to bet/raise with weak hand
+    var tightness: Double        // High = plays fewer hands (low VPIP)
+    var aggression: Double       // High = raises more, calls less (PFR/VPIP)
+    var bluffFreq: Double        // Probability to bet/raise with weak hand
     let foldTo3Bet: Double       // How often folds facing a re-raise
     let cbetFreq: Double         // Continuation bet frequency on flop
     let cbetTurnFreq: Double     // Turn c-bet frequency (barrel rate)
@@ -20,7 +20,7 @@ struct AIProfile: Equatable {
     let tiltSensitivity: Double
     
     // Call-down tendency: how willing to call bets without strong hand (for calling stations)
-    let callDownTendency: Double
+    var callDownTendency: Double
     
     // Current tilt level (mutable, adjusted after each hand)
     var currentTilt: Double = 0.0

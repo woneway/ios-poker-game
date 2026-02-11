@@ -1,4 +1,5 @@
 import Foundation
+import CoreData
 
 // MARK: - Draw & Board Analysis Helpers
 
@@ -441,7 +442,8 @@ class DecisionEngine {
         engine: PokerEngine, street: Street,
         callAmount: Int, potSize: Int,
         seatOffset: Int, activePlayers: Int,
-        spr: Double, isPFR: Bool, strategyAdjust: StrategyAdjustment
+        spr: Double, isPFR: Bool, strategyAdjust: StrategyAdjustment,
+        icmAdjust: ICMStrategyAdjustment?
     ) -> PlayerAction {
         
         // Calculate equity via Monte Carlo
@@ -498,10 +500,8 @@ class DecisionEngine {
             }
         }
         
-        let hasMonster = category >= 5      // Flush or better
         let hasStrongHand = category >= 3   // Trips or better
         let hasDecentHand = category >= 1   // At least a pair
-        let hasMadeHand = category >= 2     // Two pair or better
         
         print("🧠 \(player.name)[\(profile.name)] \(street.rawValue): eq=\(String(format:"%.2f",equity)) potOdds=\(String(format:"%.2f",potOdds)) hand=\(category) draws=\(draws.totalOuts)outs wet=\(String(format:"%.1f",board.wetness)) pfr=\(isPFR)")
         
@@ -959,7 +959,7 @@ class DecisionEngine {
         var rankSet = ranks
         if ranks.contains(12) { rankSet.insert(-1) }
         
-        let sortedRanks = rankSet.sorted()
+        _ = rankSet.sorted()  // Kept for potential future use
         var hasOESD = false     // Open-ended straight draw
         var hasGutshot = false   // Gutshot (1 card needed in the middle)
         var straightOuts = 0

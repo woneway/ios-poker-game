@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreData
 import Combine
 
 class GameSettings: ObservableObject {
@@ -132,7 +133,7 @@ struct SettingsView: View {
                         Text("Tournament").tag(GameMode.tournament)
                     }
                     .pickerStyle(SegmentedPickerStyle())
-                    .onChange(of: settings.gameMode) { _ in
+                    .onChange(of: settings.gameMode) {
                         // Trigger UI update when mode changes
                     }
                     
@@ -164,7 +165,7 @@ struct SettingsView: View {
                 
                 Section(header: Text("AI 难度")) {
                     Toggle("自动难度调整", isOn: $settings.autoDifficulty)
-                        .onChange(of: settings.autoDifficulty) { newValue in
+                        .onChange(of: settings.autoDifficulty) { _, newValue in
                             DecisionEngine.difficultyManager.isAutoDifficulty = newValue
                         }
                     
@@ -174,7 +175,7 @@ struct SettingsView: View {
                                 Text(level.description).tag(level)
                             }
                         }
-                        .onChange(of: settings.manualDifficulty) { newValue in
+                        .onChange(of: settings.manualDifficulty) { _, newValue in
                             DecisionEngine.difficultyManager.currentDifficulty = newValue
                         }
                     }
