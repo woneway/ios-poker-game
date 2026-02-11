@@ -3,6 +3,7 @@ import SwiftUI
 struct CardView: View {
     let card: Card? // Nil means face down
     let width: CGFloat
+    @Environment(\.colorScheme) var colorScheme
     
     private var height: CGFloat { width * 1.0 }
     private var isRed: Bool {
@@ -13,9 +14,9 @@ struct CardView: View {
     var body: some View {
         ZStack {
             if let card = card {
-                // Face Up
+                // Face Up - adaptive background
                 RoundedRectangle(cornerRadius: 5)
-                    .fill(Color.white)
+                    .fill(Color.adaptiveCardBackground(colorScheme))
                     .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
                 
                 // Compact 2-row layout: rank on top, suit below

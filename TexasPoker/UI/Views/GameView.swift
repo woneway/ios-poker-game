@@ -585,7 +585,7 @@ struct GameView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Capsule().fill(Color.blue))
+                    .background(Capsule().fill(Color.adaptiveButtonPrimary(colorScheme)))
                     .shadow(color: .blue.opacity(0.4), radius: 6, y: 3)
             }
             .padding(.horizontal, 40)
@@ -639,7 +639,7 @@ struct GameView: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
-                                .background(Capsule().fill(Color.blue))
+                                .background(Capsule().fill(Color.adaptiveButtonPrimary(colorScheme)))
                         }
                         .padding(.horizontal, 60)
                     }
@@ -667,7 +667,7 @@ struct GameView: View {
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.white)
                                     .frame(width: 100, height: 40)
-                                    .background(Capsule().fill(Color.blue))
+                                    .background(Capsule().fill(Color.adaptiveButtonPrimary(colorScheme)))
                             }
                         }
                     }
@@ -704,7 +704,7 @@ struct GameView: View {
                 } else {
                     // Main action buttons
                     HStack(spacing: 10) {
-                        ActionButton(title: "Fold", color: .red) {
+                        ActionButton(title: "Fold", color: Color.adaptiveButtonDanger(colorScheme)) {
                             store.engine.processAction(.fold)
                             store.send(.playerActed)
                             if settings.soundEnabled { SoundManager.shared.playSound(.fold) }
