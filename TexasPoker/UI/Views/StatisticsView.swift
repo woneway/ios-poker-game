@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import UniformTypeIdentifiers
 
 struct StatisticsView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -9,6 +10,8 @@ struct StatisticsView: View {
     ) private var playerStats: FetchedResults<PlayerStatsEntity>
     
     @State private var selectedMode: GameMode = .cashGame
+    @State private var showExportSheet = false
+    @State private var exportedData: Data?
     
     var body: some View {
         NavigationView {
@@ -57,8 +60,72 @@ struct StatisticsView: View {
                 }
             }
             .navigationTitle("Statistics")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: exportStatistics) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+            }
+            .sheet(isPresented: $showExportSheet) {
+                if let data = exportedData {
+                    ShareSheet(activityItems: [data])
+                }
+            }
         }
     }
+    
+    // MARK: - Export Statistics
+    
+    private func exportStatistics() {
+        let filteredStats = playerStats.filter { 
+            $0.gameMode == selectedMode.rawValue
+        }
+        
+        var exportArray: [[String: Any]] = []
+        
+        for stats in filteredStats {
+            let dict: [String: Any] = [
+                "playerName": stats.playerName ?? "Unknown",
+                "gameMode": stats.gameMode ?? "cashGame",
+                "totalHands": stats.totalHands,
+                "vpip": stats.vpip,
+                "pfr": stats.pfr,
+                "af": stats.af,
+                "wtsd": stats.wtsd,
+                "wsd": stats.wsd,
+                "threeBet": stats.threeBet,
+                "handsWon": stats.handsWon,
+                "totalWinnings": stats.totalWinnings,
+                "lastUpdated": (stats.lastUpdated ?? Date()).timeIntervalSince1970
+            ]
+            exportArray.append(dict)
+        }
+        
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: exportArray, options: .prettyPrinted)
+            exportedData = jsonData
+            showExportSheet = true
+        } catch {
+            print("Failed to export statistics: \(error)")
+        }
+    }
+}
+
+// MARK: - Share Sheet
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: nil
+        )
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 struct PlayerStatsRow: View {
@@ -66,10 +133,16 @@ struct PlayerStatsRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(statsEntity.playerName ?? "Unknown")
-                .font(.headline)
+            HStack {
+                Text(statsEntity.playerName ?? "Unknown")
+                    .font(.headline)
+                Spacer()
+                Text("$\(statsEntity.totalWinnings)")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(statsEntity.totalWinnings >= 0 ? .green : .red)
+            }
             
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 StatBadge(
                     label: "VPIP",
                     value: "\(Int(statsEntity.vpip))%",
@@ -90,6 +163,11 @@ struct PlayerStatsRow: View {
                     value: "\(Int(statsEntity.wtsd))%",
                     color: .green
                 )
+                StatBadge(
+                    label: "W$SD",
+                    value: "\(Int(statsEntity.wsd))%",
+                    color: .purple
+                )
             }
             
             HStack(spacing: 12) {
@@ -99,6 +177,12 @@ struct PlayerStatsRow: View {
                 Text("\(statsEntity.handsWon) wins")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                let winRate = statsEntity.totalHands > 0 
+                    ? Double(statsEntity.handsWon) / Double(statsEntity.totalHands) * 100 
+                    : 0.0
+                Text(String(format: "%.1f%% win rate", winRate))
+                    .font(.caption)
+                    .foregroundColor(.cyan)
             }
         }
         .padding(.vertical, 4)
