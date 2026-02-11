@@ -149,6 +149,13 @@ struct GameView: View {
                     .padding(.horizontal, 12)
                     .padding(.top, 8)
                 
+                // Tournament info bar (below top bar, above table)
+                if store.engine.gameMode == .tournament {
+                    tournamentInfoBar
+                        .padding(.horizontal, 16)
+                        .padding(.top, 4)
+                }
+                
                 // Main game area
                 ZStack {
                     // 8-player oval layout
@@ -157,12 +164,6 @@ struct GameView: View {
                     // Community cards (center of table)
                     communityCardsView(geo: geo)
                         .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
-                    
-                    // Tournament info bar (only visible in tournament mode)
-                    if store.engine.gameMode == .tournament {
-                        tournamentInfoBar
-                            .position(x: geo.size.width / 2, y: geo.size.height * 0.22)
-                    }
                     
                     // Pot display
                     potDisplay
@@ -441,8 +442,6 @@ struct GameView: View {
                         .font(.system(size: 14, weight: .bold))
                 }
             }
-            
-            Spacer()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

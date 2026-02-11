@@ -44,7 +44,6 @@ class PokerGameStore: ObservableObject {
         
         // When active player changes, check if we should transition to waitingForAction
         engine.$activePlayerIndex
-            .removeDuplicates()
             .sink { [weak self] _ in
                 guard let self = self else { return }
                 if self.state == .betting && self.isHumanTurn {
@@ -52,6 +51,28 @@ class PokerGameStore: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+        
+        // Safety net: whenever state becomes .betting, poll until human turn or state changes
+        // This handles the race condition where AI finishes during .dealing state
+        $state
+            .filter { $0 == .betting }
+            .sink { [weak self] _ in
+                self?.pollForHumanTurn()
+            }
+            .store(in: &cancellables)
+    }
+    
+    /// 轮询检查是否轮到人类玩家（解决 AI 在 dealing 期间已完成行动的竞态问题）
+    private func pollForHumanTurn() {
+        // 检查多次，覆盖 AI 延迟执行的时间窗口
+        for delay in [0.1, 0.5, 1.0, 2.0, 3.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self = self, self.state == .betting else { return }
+                if self.isHumanTurn {
+                    self.state = .waitingForAction
+                }
+            }
+        }
     }
     
     /// Number of players still in the game (chips > 0)
@@ -89,6 +110,7 @@ class PokerGameStore: ObservableObject {
                 state = .waitingForAction
             } else {
                 state = .betting
+                // pollForHumanTurn 会通过 $state 订阅自动触发
             }
             
         case (.waitingForAction, .playerActed):
