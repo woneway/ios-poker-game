@@ -1,7 +1,5 @@
-// import XCTest
-
-// Mocking the module import since we are in a file-based structure
-// In Xcode, this would be @testable import TexasPoker
+import XCTest
+@testable import TexasPoker
 
 class HandEvaluatorTests: XCTestCase {
     

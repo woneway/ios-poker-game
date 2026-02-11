@@ -17,11 +17,19 @@ class StatisticsTests: XCTestCase {
         
         calculator = StatisticsCalculator.shared
         recorder = ActionRecorder.shared
+        
+        // Inject test context so recorder and calculator share the same in-memory store
+        recorder.contextProvider = { [weak self] in self!.context }
+        calculator.contextProvider = { [weak self] in self!.context }
     }
     
     override func tearDown() {
         // Clean up test data
         clearAllEntities()
+        
+        // Restore default context providers
+        recorder.contextProvider = nil
+        calculator.contextProvider = nil
         
         persistenceController = nil
         context = nil
@@ -125,9 +133,9 @@ class StatisticsTests: XCTestCase {
         // Calculate stats
         let stats = calculator.calculateStats(playerName: "Alice", gameMode: gameMode)
         
-        XCTAssertNotNil(stats)
-        XCTAssertEqual(stats?.totalHands, 5)
-        XCTAssertEqual(stats?.vpip, 60.0, accuracy: 0.1) // 3/5 = 60%
+        guard let stats = stats else { return XCTFail("stats should not be nil") }
+        XCTAssertEqual(stats.totalHands, 5)
+        XCTAssertEqual(stats.vpip, 60.0, accuracy: 0.1) // 3/5 = 60%
     }
     
     // MARK: - PFR Tests
@@ -164,9 +172,9 @@ class StatisticsTests: XCTestCase {
         // Calculate stats
         let stats = calculator.calculateStats(playerName: "Bob", gameMode: gameMode)
         
-        XCTAssertNotNil(stats)
-        XCTAssertEqual(stats?.totalHands, 5)
-        XCTAssertEqual(stats?.pfr, 40.0, accuracy: 0.1) // 2/5 = 40%
+        guard let stats = stats else { return XCTFail("stats should not be nil") }
+        XCTAssertEqual(stats.totalHands, 5)
+        XCTAssertEqual(stats.pfr, 40.0, accuracy: 0.1) // 2/5 = 40%
     }
     
     // MARK: - AF Tests
@@ -205,8 +213,8 @@ class StatisticsTests: XCTestCase {
         // Calculate stats
         let stats = calculator.calculateStats(playerName: "Charlie", gameMode: gameMode)
         
-        XCTAssertNotNil(stats)
-        XCTAssertEqual(stats?.af, 2.0, accuracy: 0.1) // 6 aggressive / 3 calls = 2.0
+        guard let stats = stats else { return XCTFail("stats should not be nil") }
+        XCTAssertEqual(stats.af, 2.0, accuracy: 0.1) // 6 aggressive / 3 calls = 2.0
     }
     
     // MARK: - WTSD Tests
@@ -246,8 +254,8 @@ class StatisticsTests: XCTestCase {
         // Calculate stats
         let stats = calculator.calculateStats(playerName: "Dave", gameMode: gameMode)
         
-        XCTAssertNotNil(stats)
-        XCTAssertEqual(stats?.wtsd, 50.0, accuracy: 0.1) // 2/4 = 50%
+        guard let stats = stats else { return XCTFail("stats should not be nil") }
+        XCTAssertEqual(stats.wtsd, 50.0, accuracy: 0.1) // 2/4 = 50%
     }
     
     // MARK: - W$SD Tests
@@ -274,8 +282,8 @@ class StatisticsTests: XCTestCase {
         // Calculate stats
         let stats = calculator.calculateStats(playerName: "Eve", gameMode: gameMode)
         
-        XCTAssertNotNil(stats)
-        XCTAssertEqual(stats?.wsd, 66.7, accuracy: 0.1) // 2/3 = 66.7%
+        guard let stats = stats else { return XCTFail("stats should not be nil") }
+        XCTAssertEqual(stats.wsd, 66.7, accuracy: 0.1) // 2/3 = 66.7%
     }
     
     // MARK: - Winnings Tests

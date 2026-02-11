@@ -4,8 +4,11 @@ import CoreData
 class ActionRecorder {
     static let shared = ActionRecorder()
     
+    /// Overridable context for testing. Falls back to shared persistence controller.
+    var contextProvider: (() -> NSManagedObjectContext)?
+    
     private var context: NSManagedObjectContext {
-        PersistenceController.shared.container.viewContext
+        contextProvider?() ?? PersistenceController.shared.container.viewContext
     }
     
     private var currentHandHistory: NSManagedObject?

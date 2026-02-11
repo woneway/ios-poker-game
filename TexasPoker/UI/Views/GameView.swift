@@ -19,6 +19,12 @@ struct GameView: View {
     @State private var showRaisePanel = false
     @State private var raiseSliderValue: Double = 0  // 0..1 mapped to minRaise..allIn
     
+    // MARK: - Action Log State (Portrait)
+    @State private var isActionLogExpanded: Bool = false
+    @State private var unreadLogCount: Int = 0
+    @State private var toastEntry: ActionLogEntry? = nil
+    @State private var lastKnownLogCount: Int = 0
+    
     @State private var scene: PokerTableScene = {
         let scene = PokerTableScene()
         scene.size = CGSize(width: 300, height: 600)
@@ -77,6 +83,22 @@ struct GameView: View {
         }
         .onChange(of: store.engine.isHandOver) { _, isOver in
             if isOver && settings.soundEnabled { SoundManager.shared.playSound(.win) }
+        }
+        .onChange(of: store.engine.actionLog.count) { oldCount, newCount in
+            let delta = newCount - lastKnownLogCount
+            if delta <= 0 {
+                // 日志被清空（新一手牌开始）
+                lastKnownLogCount = newCount
+                unreadLogCount = 0
+                return
+            }
+            lastKnownLogCount = newCount
+            
+            guard !isActionLogExpanded else { return }
+            unreadLogCount += delta
+            if let latest = store.engine.actionLog.last {
+                showToast(latest)
+            }
         }
     }
     
@@ -145,11 +167,6 @@ struct GameView: View {
                     // Pot display
                     potDisplay
                         .position(x: geo.size.width / 2, y: geo.size.height * 0.30)
-                    
-                    // Action log (right side)
-                    actionLogPanel
-                        .frame(width: 130, height: geo.size.height * 0.30)
-                        .position(x: geo.size.width - 72, y: geo.size.height * 0.42)
                 }
                 
                 Spacer(minLength: 0)
@@ -158,6 +175,29 @@ struct GameView: View {
                 heroControls
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
+            }
+            
+            // 操作日志浮层（竖屏，条件渲染，从右侧滑入）
+            if isActionLogExpanded {
+                ActionLogOverlay(
+                    entries: store.engine.actionLog,
+                    panelWidth: min(160, geo.size.width * 0.38),
+                    onClose: { toggleActionLog() }
+                )
+                .frame(height: geo.size.height * 0.35)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.top, geo.size.height * 0.28)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .transition(.move(edge: .trailing))
+            }
+            
+            // Toast 即时提示（面板收起时）
+            if let entry = toastEntry, !isActionLogExpanded {
+                ActionLogToast(entry: entry)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, 12)
+                    .padding(.top, 44)
+                    .frame(maxHeight: .infinity, alignment: .top)
             }
         }
     }
@@ -276,6 +316,24 @@ struct GameView: View {
             Text("Hand #\(store.engine.handNumber)")
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.5))
+            
+            // 日志切换按钮（仅竖屏有效，横屏面板始终可见）
+            Button(action: { toggleActionLog() }) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.title3)
+                        .foregroundColor(.white.opacity(0.7))
+                    if unreadLogCount > 0 {
+                        Text("\(min(unreadLogCount, 99))")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(minWidth: 16, minHeight: 16)
+                            .background(Circle().fill(Color.red))
+                            .offset(x: 8, y: -8)
+                    }
+                }
+            }
+            .accessibilityLabel("操作日志，\(unreadLogCount)条未读")
         }
     }
     
@@ -473,7 +531,31 @@ struct GameView: View {
         }
     }
     
-    // MARK: - Action Log Panel
+    // MARK: - Action Log Toggle (Portrait)
+    
+    private func toggleActionLog() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isActionLogExpanded.toggle()
+        }
+        if isActionLogExpanded {
+            unreadLogCount = 0
+        }
+    }
+    
+    private func showToast(_ entry: ActionLogEntry) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            toastEntry = entry
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                if toastEntry?.id == entry.id {
+                    toastEntry = nil
+                }
+            }
+        }
+    }
+    
+    // MARK: - Action Log Panel (Landscape)
     
     private var actionLogPanel: some View {
         VStack(spacing: 0) {

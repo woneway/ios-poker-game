@@ -1,4 +1,5 @@
-// import XCTest
+import XCTest
+@testable import TexasPoker
 
 class TournamentTests: XCTestCase {
     
