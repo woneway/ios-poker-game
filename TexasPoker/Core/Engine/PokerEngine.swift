@@ -513,6 +513,12 @@ class PokerEngine: ObservableObject {
             winners: winnerNames
         )
         
+        // Record Hero win/loss for difficulty adjustment
+        if let hero = players.first(where: { $0.isHuman }) {
+            let heroWon = winners.contains(where: { $0.id == hero.id })
+            DecisionEngine.difficultyManager.recordHand(heroWon: heroWon)
+        }
+        
         // Check for blind level up in tournaments
         checkBlindLevelUp()
         

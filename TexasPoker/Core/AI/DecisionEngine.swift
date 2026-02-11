@@ -36,6 +36,33 @@ struct BoardTexture {
 
 class DecisionEngine {
     
+    // MARK: - Difficulty Manager
+    
+    static let difficultyManager = DifficultyManager()
+    
+    // MARK: - Opponent Modeling
+    
+    // 对手建模器（每局游戏一个实例）
+    static var opponentModels: [String: OpponentModel] = [:]
+    
+    /// 加载对手模型
+    private static func loadOpponentModel(playerName: String, gameMode: GameMode) -> OpponentModel {
+        let key = "\(playerName)_\(gameMode.rawValue)"
+        if let existing = opponentModels[key] {
+            return existing
+        }
+        
+        let model = OpponentModel(playerName: playerName, gameMode: gameMode)
+        model.loadStats(from: PersistenceController.shared.container.viewContext)
+        opponentModels[key] = model
+        return model
+    }
+    
+    /// 清空对手模型（新游戏开始时调用）
+    static func resetOpponentModels() {
+        opponentModels.removeAll()
+    }
+    
     // MARK: - Main Decision Entry Point
     
     static func makeDecision(player: Player, engine: PokerEngine) -> PlayerAction {

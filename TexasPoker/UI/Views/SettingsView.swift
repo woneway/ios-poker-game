@@ -34,6 +34,10 @@ class GameSettings: ObservableObject {
         didSet { UserDefaults.standard.set(tournamentPreset, forKey: tournamentPresetKey) }
     }
     
+    // Dynamic difficulty
+    @Published var autoDifficulty: Bool = true
+    @Published var manualDifficulty: DifficultyLevel = .medium
+    
     enum Difficulty: String, CaseIterable, Identifiable {
         case easy = "Easy"
         case normal = "Normal"
@@ -130,6 +134,41 @@ struct SettingsView: View {
                                     .foregroundColor(.secondary)
                             }
                             .padding(.top, 4)
+                        }
+                    }
+                }
+                
+                Section(header: Text("AI 难度")) {
+                    Toggle("自动难度调整", isOn: $settings.autoDifficulty)
+                        .onChange(of: settings.autoDifficulty) { newValue in
+                            DecisionEngine.difficultyManager.isAutoDifficulty = newValue
+                        }
+                    
+                    if !settings.autoDifficulty {
+                        Picker("难度等级", selection: $settings.manualDifficulty) {
+                            ForEach(DifficultyLevel.allCases, id: \.self) { level in
+                                Text(level.description).tag(level)
+                            }
+                        }
+                        .onChange(of: settings.manualDifficulty) { newValue in
+                            DecisionEngine.difficultyManager.currentDifficulty = newValue
+                        }
+                    }
+                    
+                    if settings.autoDifficulty {
+                        HStack {
+                            Text("当前难度")
+                            Spacer()
+                            Text(DecisionEngine.difficultyManager.currentDifficulty.description)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        HStack {
+                            Text("你的胜率")
+                            Spacer()
+                            let winRate = DecisionEngine.difficultyManager.heroWinRate
+                            Text(String(format: "%.1f%%", winRate * 100))
+                                .foregroundColor(winRate > 0.55 ? .green : (winRate < 0.45 ? .red : .orange))
                         }
                     }
                 }
