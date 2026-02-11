@@ -5,17 +5,22 @@ class SoundManager {
     static let shared = SoundManager()
     
     private var audioPlayers: [SoundType: AVAudioPlayer] = [:]
-    var isMuted: Bool = UserDefaults.standard.bool(forKey: "sound_muted")
-    var volume: Float = UserDefaults.standard.float(forKey: "sound_volume") {
+    var isMuted: Bool = UserDefaults.standard.bool(forKey: "soundMuted") {
         didSet {
-            UserDefaults.standard.set(volume, forKey: "sound_volume")
+            UserDefaults.standard.set(isMuted, forKey: "soundMuted")
+        }
+    }
+    var volume: Float = UserDefaults.standard.float(forKey: "soundVolume") {
+        didSet {
+            UserDefaults.standard.set(volume, forKey: "soundVolume")
         }
     }
     
     init() {
         // Set default volume if not set
-        if UserDefaults.standard.object(forKey: "sound_volume") == nil {
-            volume = 0.7
+        if UserDefaults.standard.object(forKey: "soundVolume") == nil {
+            volume = 1.0
+            UserDefaults.standard.set(1.0, forKey: "soundVolume")
         }
         loadSounds()
     }

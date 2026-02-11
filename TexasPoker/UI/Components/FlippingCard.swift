@@ -27,6 +27,10 @@ struct FlippingCard: View {
             withAnimation(.easeInOut(duration: 0.4).delay(delay)) {
                 isFlipped = true
             }
+            // Play flip sound with delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                SoundManager.shared.playSound(.flip)
+            }
         }
     }
 }
