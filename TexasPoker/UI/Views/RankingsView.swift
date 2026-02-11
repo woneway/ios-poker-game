@@ -106,7 +106,23 @@ struct RankingsView: View {
             }
             
             Spacer()
-            
+
+            // Payout indicator (tournament only)
+            if result.payout > 0 {
+                HStack(spacing: 4) {
+                    Image(systemName: "dollarsign.circle.fill")
+                        .foregroundColor(.yellow)
+                        .font(.system(size: 14))
+                    Text("$\(result.payout)")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.yellow)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(Color.yellow.opacity(0.15))
+                .cornerRadius(8)
+            }
+
             // Chips or eliminated indicator
             if result.rank == 1 {
                 Text("$\(result.finalChips)")
