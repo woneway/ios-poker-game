@@ -634,6 +634,52 @@ class DecisionEngine {
         strategyAdjust: StrategyAdjustment
     ) -> PlayerAction {
         
+        // MARK: - Bluff Detection (Expert difficulty only)
+        
+        var bluffIndicator: BluffIndicator? = nil
+        
+        if difficultyManager.shouldUseBluffDetection() {
+            if let lastBettor = findLastBettor(engine: engine), lastBettor.id != player.id {
+                let opponentModel = loadOpponentModel(
+                    playerName: lastBettor.name,
+                    gameMode: engine.gameMode
+                )
+                
+                if opponentModel.confidence > 0.5 {
+                    let betHistory = collectBetHistory(engine: engine, street: street)
+                    bluffIndicator = BluffDetector.calculateBluffProbability(
+                        opponent: opponentModel,
+                        board: board,
+                        betHistory: betHistory,
+                        potSize: potSize
+                    )
+                    
+                    #if DEBUG
+                    if let indicator = bluffIndicator {
+                        print("🎲 诈唬检测：概率 \(String(format:"%.1f%%", indicator.bluffProbability * 100))")
+                        print("   信号：\(indicator.signals.map { $0.rawValue }.joined(separator: ", "))")
+                        print("   建议：\(indicator.recommendation)")
+                    }
+                    #endif
+                }
+            }
+        }
+        
+        // Apply bluff detection to calling decision
+        if let indicator = bluffIndicator, indicator.confidence > 0.6 {
+            if indicator.bluffProbability > 0.6 {
+                // High bluff probability: widen calling range
+                if hasDecentHand || equity > potOdds * 0.7 {
+                    return .call
+                }
+            } else if indicator.bluffProbability < 0.3 {
+                // Low bluff probability: tighten calling range
+                if !hasStrongHand {
+                    return .fold
+                }
+            }
+        }
+        
         // Monster hand: raise/re-raise
         if category >= 5 {
             if spr < 3 || player.chips <= callAmount * 2 {
