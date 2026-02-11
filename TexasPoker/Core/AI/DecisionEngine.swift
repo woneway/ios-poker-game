@@ -111,8 +111,32 @@ class DecisionEngine {
             }
         }
         
-        // 3. Apply strategy adjustment to profile
-        let adjustedProfile = applyStrategyAdjustment(profile: profile, adjustment: strategyAdjust)
+        // 3. ICM adjustment (tournament mode only)
+        var icmAdjust: ICMStrategyAdjustment? = nil
+        if engine.gameMode == .tournament {
+            let situation = ICMCalculator.analyze(
+                myChips: player.chips,
+                allChips: engine.players.map { $0.chips },
+                payoutStructure: engine.tournamentConfig?.payoutStructure ?? []
+            )
+            icmAdjust = ICMCalculator.getStrategyAdjustment(situation: situation)
+            
+            #if DEBUG
+            if situation.isBubble {
+                print("💰 泡沫期！\(icmAdjust?.description ?? "")")
+                print("   筹码比率：\(String(format:"%.2f", situation.stackRatio))")
+            }
+            #endif
+        }
+        
+        // 4. Apply strategy adjustment to profile
+        var adjustedProfile = applyStrategyAdjustment(profile: profile, adjustment: strategyAdjust)
+        
+        // Apply ICM adjustment to profile
+        if let icmAdj = icmAdjust {
+            adjustedProfile.tightness -= icmAdj.vpipAdjust
+            adjustedProfile.aggression += icmAdj.aggressionAdjust
+        }
         
         // MARK: - 1. PreFlop Decision
         if street == .preFlop {
@@ -121,7 +145,8 @@ class DecisionEngine {
                 holeCards: holeCards, engine: engine,
                 callAmount: callAmount, potSize: potSize,
                 seatOffset: seatOffset, activePlayers: activePlayers,
-                spr: spr, strategyAdjust: strategyAdjust
+                spr: spr, strategyAdjust: strategyAdjust,
+                icmAdjust: icmAdjust
             )
         }
         
@@ -132,7 +157,8 @@ class DecisionEngine {
             engine: engine, street: street,
             callAmount: callAmount, potSize: potSize,
             seatOffset: seatOffset, activePlayers: activePlayers,
-            spr: spr, isPFR: isPFR, strategyAdjust: strategyAdjust
+            spr: spr, isPFR: isPFR, strategyAdjust: strategyAdjust,
+            icmAdjust: icmAdjust
         )
     }
     
@@ -185,6 +211,30 @@ class DecisionEngine {
         return adjusted
     }
     
+    /// Collect betting history for current hand
+    /// - Parameters:
+    ///   - engine: The poker engine
+    ///   - street: Current street
+    /// - Returns: Array of BetAction representing betting history
+    private static func collectBetHistory(engine: PokerEngine, street: Street) -> [BetAction] {
+        var history: [BetAction] = []
+        
+        // This is a simplified version - in production you'd track this in PokerEngine
+        // For now, just record the current street's action if there's a bet
+        if engine.currentBet > engine.bigBlindAmount {
+            history.append(BetAction(
+                street: street,
+                type: .bet,
+                amount: engine.currentBet
+            ))
+        }
+        
+        // TODO: In a full implementation, PokerEngine should track all betting actions
+        // across all streets for proper triple barrel detection
+        
+        return history
+    }
+    
     // MARK: - PreFlop Decision
     
     private static func preflopDecision(
@@ -192,7 +242,8 @@ class DecisionEngine {
         holeCards: [Card], engine: PokerEngine,
         callAmount: Int, potSize: Int,
         seatOffset: Int, activePlayers: Int,
-        spr: Double, strategyAdjust: StrategyAdjustment
+        spr: Double, strategyAdjust: StrategyAdjustment,
+        icmAdjust: ICMStrategyAdjustment?
     ) -> PlayerAction {
         
         let chenScore = chenFormula(holeCards)
@@ -275,8 +326,8 @@ class DecisionEngine {
         
         // Standard open (just facing blinds)
         if isPlayable {
-            // Apply steal frequency adjustment (针对 Rock 对手)
-            let stealBonus = strategyAdjust.stealFreqBonus
+            // Apply steal frequency adjustment (opponent + ICM)
+            let stealBonus = strategyAdjust.stealFreqBonus + (icmAdjust?.stealBonus ?? 0.0)
             let adjustedAggression = profile.effectiveAggression + (seatOffset <= 1 ? stealBonus : 0.0)
             
             if Double.random(in: 0...1) < adjustedAggression {
