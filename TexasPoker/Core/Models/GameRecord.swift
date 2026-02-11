@@ -10,6 +10,7 @@ struct PlayerResult: Codable, Identifiable {
     let finalChips: Int    // Chips when eliminated (0) or final chip count for winner
     let handsPlayed: Int   // Hand number when eliminated, or total hands for winner
     let isHuman: Bool
+    var payout: Int = 0    // Tournament payout (0 for cash games)
 }
 
 /// A complete game record

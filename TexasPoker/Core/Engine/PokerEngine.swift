@@ -88,10 +88,17 @@ class PokerEngine: ObservableObject {
     /// Records (playerName, avatar, eliminatedAtHand) in order of elimination (first eliminated = last place)
     @Published var eliminationOrder: [(name: String, avatar: String, hand: Int, isHuman: Bool)] = []
     
-    let smallBlindAmount = 10
-    let bigBlindAmount = 20
+    var smallBlindAmount: Int = 10
+    var bigBlindAmount: Int = 20
     
-    init() {
+    // Tournament support
+    @Published var gameMode: GameMode = .cashGame
+    @Published var tournamentConfig: TournamentConfig?
+    @Published var currentBlindLevel: Int = 0
+    @Published var handsAtCurrentLevel: Int = 0
+    @Published var anteAmount: Int = 0
+    
+    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         self.deck = Deck()
         self.players = []
         self.communityCards = []
@@ -101,6 +108,13 @@ class PokerEngine: ObservableObject {
         self.currentStreet = .preFlop
         
         setup8PlayerTable()
+        
+        self.gameMode = mode
+        self.tournamentConfig = config
+        
+        if mode == .tournament, let config = config {
+            applyTournamentConfig(config)
+        }
     }
     
     // MARK: - 8-Player Table Setup
@@ -124,6 +138,21 @@ class PokerEngine: ObservableObject {
             // Seat 7: 大卫 (bottom-right)
             Player(name: "大卫", chips: 1000, aiProfile: .tiltDavid)
         ]
+    }
+    
+    private func applyTournamentConfig(_ config: TournamentConfig) {
+        guard !config.blindSchedule.isEmpty else { return }
+        let firstLevel = config.blindSchedule[0]
+        self.smallBlindAmount = firstLevel.smallBlind
+        self.bigBlindAmount = firstLevel.bigBlind
+        self.anteAmount = firstLevel.ante
+        self.currentBlindLevel = 0
+        self.handsAtCurrentLevel = 0
+        
+        // Update starting chips for all players
+        for i in 0..<players.count {
+            players[i].chips = config.startingChips
+        }
     }
     
     // MARK: - Position Helpers
@@ -193,6 +222,13 @@ class PokerEngine: ObservableObject {
         if activePlayers.count == 2 {
             smallBlindIndex = dealerIndex
             bigBlindIndex = nextActivePlayerIndex(after: dealerIndex)
+        }
+        
+        // Post antes (if any)
+        if anteAmount > 0 {
+            for i in 0..<players.count where players[i].status == .active {
+                postAnte(playerIndex: i, amount: anteAmount)
+            }
         }
         
         // Post blinds
@@ -446,6 +482,9 @@ class PokerEngine: ObservableObject {
         lastPotSize = result.totalPot
         isHandOver = true
         
+        // Check for blind level up in tournaments
+        checkBlindLevelUp()
+        
         // Track newly eliminated players
         for player in players {
             if player.chips <= 0 &&
@@ -482,6 +521,29 @@ class PokerEngine: ObservableObject {
             }
             
             players[i].aiProfile = profile
+        }
+    }
+    
+    private func checkBlindLevelUp() {
+        guard gameMode == .tournament,
+              let config = tournamentConfig else { return }
+        
+        handsAtCurrentLevel += 1
+        
+        if handsAtCurrentLevel >= config.handsPerLevel {
+            let nextLevel = currentBlindLevel + 1
+            guard nextLevel < config.blindSchedule.count else { return }
+            
+            let level = config.blindSchedule[nextLevel]
+            smallBlindAmount = level.smallBlind
+            bigBlindAmount = level.bigBlind
+            anteAmount = level.ante
+            currentBlindLevel = nextLevel
+            handsAtCurrentLevel = 0
+            
+            #if DEBUG
+            print("🔔 Blinds increased to \(level.description)")
+            #endif
         }
     }
     
@@ -533,6 +595,17 @@ class PokerEngine: ObservableObject {
             pot: &pot,
             hasActed: &hasActed
         )
+    }
+    
+    private func postAnte(playerIndex: Int, amount: Int) {
+        let actualAnte = min(players[playerIndex].chips, amount)
+        players[playerIndex].chips -= actualAnte
+        players[playerIndex].totalBetThisHand += actualAnte
+        pot.add(actualAnte)
+        if players[playerIndex].chips == 0 {
+            players[playerIndex].status = .allIn
+            hasActed[players[playerIndex].id] = true
+        }
     }
     
     func nextActivePlayerIndex(after index: Int) -> Int {
