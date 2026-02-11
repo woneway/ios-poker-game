@@ -69,4 +69,85 @@ class PokerTableScene: SKScene {
         
         SoundManager.shared.playSound(.deal)
     }
+    
+    /// Animate chip from player position to pot center
+    func animateChipToPot(from seatIndex: Int, amount: Int) {
+        let seatAngles: [Double] = [270, 225, 180, 135, 90, 45, 0, 315]
+        
+        guard seatIndex >= 0 && seatIndex < seatAngles.count else { return }
+        
+        let centerX = size.width / 2
+        let centerY = size.height * 0.42
+        let radiusX = size.width * 0.38
+        let radiusY = size.height * 0.28
+        
+        let angle = seatAngles[seatIndex] * .pi / 180
+        let startX = centerX + radiusX * CGFloat(cos(angle))
+        let startY = centerY - radiusY * CGFloat(sin(angle))
+        
+        let chip = ChipNode(amount: amount)
+        chip.position = CGPoint(x: startX, y: startY)
+        addChild(chip)
+        
+        // Parabolic path
+        let controlPoint = CGPoint(
+            x: (startX + centerX) / 2,
+            y: min(startY, centerY * 0.3) - 50
+        )
+        
+        let path = UIBezierPath()
+        path.move(to: chip.position)
+        path.addQuadCurve(
+            to: CGPoint(x: centerX, y: centerY * 0.3),
+            controlPoint: controlPoint
+        )
+        
+        let moveAction = SKAction.follow(
+            path.cgPath,
+            asOffset: false,
+            orientToPath: false,
+            duration: 0.5
+        )
+        moveAction.timingMode = .easeOut
+        
+        let scaleAction = SKAction.scale(to: 0.7, duration: 0.5)
+        let group = SKAction.group([moveAction, scaleAction])
+        
+        let sequence = SKAction.sequence([
+            group,
+            SKAction.fadeOut(withDuration: 0.2),
+            SKAction.removeFromParent()
+        ])
+        
+        chip.run(sequence)
+        SoundManager.shared.playSound(.chip)
+    }
+}
+
+// MARK: - ChipNode
+
+class ChipNode: SKShapeNode {
+    init(amount: Int) {
+        super.init()
+        
+        // Create chip circle
+        let circle = SKShapeNode(circleOfRadius: 15)
+        circle.fillColor = .systemRed
+        circle.strokeColor = .white
+        circle.lineWidth = 2
+        
+        // Add amount label
+        let label = SKLabelNode(text: "\(amount)")
+        label.fontSize = 12
+        label.fontColor = .white
+        label.verticalAlignmentMode = .center
+        label.fontName = "HelveticaNeue-Bold"
+        
+        addChild(circle)
+        addChild(label)
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 }

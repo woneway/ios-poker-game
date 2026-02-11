@@ -117,6 +117,18 @@ struct GameView: View {
             scene.onAnimationComplete = {
                 DispatchQueue.main.async { store.send(.dealComplete) }
             }
+            
+            // Listen for chip animation notifications
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("ChipAnimation"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let seatIndex = notification.userInfo?["seatIndex"] as? Int,
+                   let amount = notification.userInfo?["amount"] as? Int {
+                    scene.animateChipToPot(from: seatIndex, amount: amount)
+                }
+            }
         }
         .onChange(of: store.state) { newState in
             if newState == .dealing {
