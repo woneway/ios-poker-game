@@ -5,12 +5,16 @@ import CoreData
 
 struct PlayerStats {
     let playerName: String
+    let gameMode: GameMode
     let totalHands: Int
     let vpip: Double
     let pfr: Double
     let af: Double
     let wtsd: Double
     let wsd: Double
+    let threeBet: Double
+    let handsWon: Int
+    let totalWinnings: Int
 }
 
 // MARK: - StatisticsCalculator
