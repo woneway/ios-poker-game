@@ -2,11 +2,13 @@ import SwiftUI
 
 @main
 struct TexasPokerApp: App {
+    let persistenceController = PersistenceController.shared
     @StateObject private var settings = GameSettings()
     
     var body: some Scene {
         WindowGroup {
             GameViewContainer(settings: settings)
+                .environment(\.managedObjectContext, persistenceController.container.viewContext)
         }
     }
 }
