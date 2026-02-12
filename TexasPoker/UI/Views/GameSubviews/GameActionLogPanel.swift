@@ -44,7 +44,8 @@ struct GameActionLogPanel: View {
                             }
                         }
                     }
-                    .onChange(of: store.engine.actionLog.count) {
+                    // iOS 15 compatibility: use the iOS 14+ onChange(of:perform:) overload
+                    .onChange(of: store.engine.actionLog.count) { _ in
                         if let last = store.engine.actionLog.last {
                             withAnimation(.easeOut(duration: 0.2)) {
                                 proxy.scrollTo(last.id, anchor: .bottom)
