@@ -20,7 +20,8 @@ final class ProfileManager: ObservableObject {
 
     @Published private(set) var profiles: [UserProfile] = []
 
-    @Published var currentProfileId: String {
+    // Provide a default so init can safely touch `profiles`/`self` before assigning.
+    @Published var currentProfileId: String = ProfileManager.defaultProfileId {
         didSet {
             if currentProfileId.isEmpty { currentProfileId = Self.defaultProfileId }
             UserDefaults.standard.set(currentProfileId, forKey: currentProfileKey)
@@ -57,7 +58,7 @@ final class ProfileManager: ObservableObject {
 
         // Load current profile
         let saved = UserDefaults.standard.string(forKey: currentProfileKey) ?? Self.defaultProfileId
-        self.currentProfileId = profiles.contains(where: { $0.id == saved }) ? saved : Self.defaultProfileId
+        currentProfileId = profiles.contains(where: { $0.id == saved }) ? saved : Self.defaultProfileId
 
         // Ensure GameHistory is aligned on launch
         GameHistoryManager.shared.setActiveProfile(id: currentProfileId)
