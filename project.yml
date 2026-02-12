@@ -23,6 +23,8 @@ targets:
           - "**/.DS_Store"
     settings:
       base:
+        PRODUCT_NAME: TexasPoker
+        EXECUTABLE_NAME: TexasPoker
         PRODUCT_BUNDLE_IDENTIFIER: smartegg.TexasPoker
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         GENERATE_INFOPLIST_FILE: YES
@@ -41,6 +43,8 @@ targets:
       - target: TexasPoker
     settings:
       base:
+        PRODUCT_NAME: TexasPokerTests
+        EXECUTABLE_NAME: TexasPokerTests
         PRODUCT_BUNDLE_IDENTIFIER: smartegg.TexasPokerTests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/TexasPoker.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TexasPoker"
