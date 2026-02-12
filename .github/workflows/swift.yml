@@ -1,0 +1,33 @@
+name: Swift
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        destination: ['generic/platform=iOS Simulator', 'generic/platform=macOS']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: actions/setup-xcode@v5
+        with:
+          xcode-version: '15.2'
+
+      - name: Build
+        run: |
+          xcodebuild -project TexasPoker.xcodeproj \
+                     -scheme TexasPoker \
+                     -destination '${{ matrix.destination }}' \
+                     -configuration Debug \
+                     build \
+                     CODE_SIGNING_ALLOWED=NO
