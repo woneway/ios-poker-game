@@ -112,10 +112,9 @@ struct PlayerView_Previews: PreviewProvider {
     static var previews: some View {
         PlayerView(
             player: Player(
-                id: UUID(),
                 name: "Test Player",
                 chips: 1000,
-                holeCards: [],
+                isHuman: true,
                 aiProfile: AIProfile(
                     name: "Test",
                     avatar: "🤖",
