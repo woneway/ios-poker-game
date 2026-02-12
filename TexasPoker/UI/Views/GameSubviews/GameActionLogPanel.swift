@@ -36,36 +36,18 @@ struct GameActionLogPanel: View {
                 Spacer()
             } else {
                 ScrollViewReader { proxy in
-                    if #available(iOS 17.0, *) {
-                        ScrollView(.vertical, showsIndicators: false) {
-                            LazyVStack(spacing: 0) {
-                                ForEach(store.engine.actionLog) { entry in
-                                    actionLogRow(entry)
-                                        .id(entry.id)
-                                }
+                    ScrollView(.vertical, showsIndicators: false) {
+                        LazyVStack(spacing: 0) {
+                            ForEach(store.engine.actionLog) { entry in
+                                actionLogRow(entry)
+                                    .id(entry.id)
                             }
                         }
-                        .onChange(of: store.engine.actionLog.count, initial: false) { _, _ in
-                            if let last = store.engine.actionLog.last {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    proxy.scrollTo(last.id, anchor: .bottom)
-                                }
-                            }
-                        }
-                    } else {
-                        ScrollView(.vertical, showsIndicators: false) {
-                            LazyVStack(spacing: 0) {
-                                ForEach(store.engine.actionLog) { entry in
-                                    actionLogRow(entry)
-                                        .id(entry.id)
-                                }
-                            }
-                        }
-                        .onChange(of: store.engine.actionLog.count) { _ in
-                            if let last = store.engine.actionLog.last {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    proxy.scrollTo(last.id, anchor: .bottom)
-                                }
+                    }
+                    .onChangeCompat(of: store.engine.actionLog.count) { _ in
+                        if let last = store.engine.actionLog.last {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                proxy.scrollTo(last.id, anchor: .bottom)
                             }
                         }
                     }

@@ -99,7 +99,7 @@ struct GameView: View {
                 }
             }
         }
-        .onChange(of: store.state) { _, newState in
+        .onChangeCompat(of: store.state) { newState in
             if newState == .dealing {
                 let activeSeats = store.engine.players.enumerated()
                     .filter { $0.element.status == .active || $0.element.status == .allIn }
@@ -107,10 +107,10 @@ struct GameView: View {
                 scene.playDealAnimation(activeSeatIndices: activeSeats)
             }
         }
-        .onChange(of: store.engine.isHandOver) { _, isOver in
+        .onChangeCompat(of: store.engine.isHandOver) { isOver in
             if isOver && settings.soundEnabled { SoundManager.shared.playSound(.win) }
         }
-        .onChange(of: store.engine.actionLog.count) { oldCount, newCount in
+        .onChangeCompat(of: store.engine.actionLog.count) { newCount in
             let delta = newCount - lastKnownLogCount
             if delta <= 0 {
                 // 日志被清空（新一手牌开始）
@@ -126,7 +126,7 @@ struct GameView: View {
                 showToast(latest)
             }
         }
-        .onChange(of: settings.gameMode) { _, newMode in
+        .onChangeCompat(of: settings.gameMode) { newMode in
             if store.state == .idle {
                 store.resetGame(
                     mode: newMode,
@@ -134,7 +134,7 @@ struct GameView: View {
                 )
             }
         }
-        .onChange(of: settings.tournamentPreset) { _, _ in
+        .onChangeCompat(of: settings.tournamentPreset) { _ in
             if store.state == .idle && settings.gameMode == .tournament {
                 store.resetGame(
                     mode: .tournament,

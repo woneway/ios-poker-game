@@ -156,9 +156,6 @@ struct SettingsView: View {
                         Text("Tournament").tag(GameMode.tournament)
                     }
                     .pickerStyle(SegmentedPickerStyle())
-                    .onChange(of: settings.gameMode) {
-                        // Trigger UI update when mode changes
-                    }
                     
                     if settings.gameMode == .tournament {
                         Picker("Tournament Type", selection: $settings.tournamentPreset) {
@@ -188,7 +185,7 @@ struct SettingsView: View {
                 
                 Section(header: Text("AI 难度")) {
                     Toggle("自动难度调整", isOn: $settings.autoDifficulty)
-                        .onChange(of: settings.autoDifficulty) { _, newValue in
+                        .onChangeCompat(of: settings.autoDifficulty) { newValue in
                             DecisionEngine.difficultyManager.isAutoDifficulty = newValue
                         }
                     
@@ -198,7 +195,7 @@ struct SettingsView: View {
                                 Text(level.description).tag(level)
                             }
                         }
-                        .onChange(of: settings.manualDifficulty) { _, newValue in
+                        .onChangeCompat(of: settings.manualDifficulty) { newValue in
                             DecisionEngine.difficultyManager.currentDifficulty = newValue
                         }
                     }
