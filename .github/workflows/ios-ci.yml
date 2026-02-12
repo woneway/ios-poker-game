@@ -15,9 +15,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode
+      - name: Install XcodeGen
         run: |
-          sudo xcode-select -s /Applications/Xcode_15.2.app
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
 
       - name: Build
         run: |
@@ -36,9 +41,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode
+      - name: Install XcodeGen
         run: |
-          sudo xcode-select -s /Applications/Xcode_15.2.app
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
 
       - name: Run Tests
         run: |

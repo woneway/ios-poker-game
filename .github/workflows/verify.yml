@@ -15,6 +15,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
       - name: List Project Files
         run: |
           ls -la TexasPoker.xcodeproj/
@@ -23,5 +32,4 @@ jobs:
 
       - name: Validate Xcode Project
         run: |
-          sudo xcode-select -s /Applications/Xcode_15.2.app
           xcodebuild -project TexasPoker.xcodeproj -list

@@ -15,14 +15,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+
+      - name: Generate Xcode Project
+        run: |
+          xcodegen generate
+          
       - name: Check Project File
         run: |
           echo "=== Project Structure ==="
           ls -la TexasPoker.xcodeproj/
-          
-          echo ""
-          echo "=== Project Info ==="
-          cat TexasPoker.xcodeproj/project.pbxproj | head -20
           
           echo ""
           echo "=== Swift Files ==="
@@ -30,4 +36,4 @@ jobs:
           
           echo ""
           echo "=== Tests ==="
-          find TexasPokerTests -name "*.swift" 2>/dev/null | wc -l
+          find TexasPokerTests -name "*.swift" | wc -l
