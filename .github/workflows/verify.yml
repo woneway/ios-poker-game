@@ -17,9 +17,12 @@ jobs:
 
       - name: Install XcodeGen
         run: |
-          if ! command -v xcodegen &> /dev/null; then
-            brew install xcodegen
-          fi
+          # Pin XcodeGen to avoid generating future Xcode project formats
+          XCODEGEN_VERSION="2.42.0"
+          curl -L -o /tmp/xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          unzip -o /tmp/xcodegen.zip -d /tmp/xcodegen
+          sudo mv /tmp/xcodegen/xcodegen /usr/local/bin/xcodegen
+          xcodegen --version
 
       - name: Generate Xcode Project
         run: xcodegen generate
