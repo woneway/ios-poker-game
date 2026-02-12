@@ -1,0 +1,33 @@
+name: Swift Project Check
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Verify Project
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Project File
+        run: |
+          echo "=== Project Structure ==="
+          ls -la TexasPoker.xcodeproj/
+          
+          echo ""
+          echo "=== Project Info ==="
+          cat TexasPoker.xcodeproj/project.pbxproj | head -20
+          
+          echo ""
+          echo "=== Swift Files ==="
+          find TexasPoker -name "*.swift" | wc -l
+          
+          echo ""
+          echo "=== Tests ==="
+          find TexasPokerTests -name "*.swift" 2>/dev/null | wc -l
