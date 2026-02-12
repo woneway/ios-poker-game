@@ -12,7 +12,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        destination: ['generic/platform=iOS Simulator', 'generic/platform=macOS']
+        destination: ['generic/platform=iOS Simulator']
 
     steps:
       - name: Checkout
