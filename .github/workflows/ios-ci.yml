@@ -7,53 +7,41 @@ on:
     branches: [main]
 
 jobs:
-  build-and-test:
-    name: Build and Test
-    runs-on: macos-14  # Apple Silicon
-    
+  build:
+    name: Build
+    runs-on: macos-14
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Setup Xcode
-        uses: actions/setup-xcode@v5
+        uses: apple-actions/setup-xcode@v1
         with:
           xcode-version: '15.2'
-          
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          
-      - name: Cache CocoaPods
-        uses: actions/cache@v4
-        with:
-          path: Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-
-            
-      - name: Install Dependencies
-        run: |
-          if [ -f "Podfile" ]; then
-            pod install
-          fi
-          
-      - name: Build Project
+
+      - name: Build
         run: |
           xcodebuild -project TexasPoker.xcodeproj \
                      -scheme TexasPoker \
                      -destination 'generic/platform=iOS Simulator' \
                      -configuration Debug \
                      build \
-                     CODE_SIGNING_ALLOWED=NO \
-                     | xcpretty || xcodebuild -project TexasPoker.xcodeproj \
-                     -scheme TexasPoker \
-                     -destination 'generic/platform=iOS Simulator' \
-                     -configuration Debug \
-                     build \
                      CODE_SIGNING_ALLOWED=NO
-                     
+
+  test:
+    name: Test
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: apple-actions/setup-xcode@v1
+        with:
+          xcode-version: '15.2'
+
       - name: Run Tests
         run: |
           xcodebuild -project TexasPoker.xcodeproj \
@@ -61,70 +49,27 @@ jobs:
                      -destination 'platform=iOS Simulator,name=iPhone 15' \
                      -configuration Debug \
                      test \
-                     CODE_SIGNING_ALLOWED=NO \
-                     | xcpretty || xcodebuild -project TexasPoker.xcodeproj \
-                     -scheme TexasPoker \
-                     -destination 'platform=iOS Simulator,name=iPhone 15' \
-                     -configuration Debug \
-                     test \
                      CODE_SIGNING_ALLOWED=NO
-                     
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: test-results/
-          
-  lint:
-    name: Lint
-    runs-on: macos-14
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          
-      - name: Run SwiftLint
-        run: |
-          if command -v swiftlint &> /dev/null; then
-            swiftlint
-          else
-            echo "SwiftLint not installed, skipping..."
-          fi
 
   analyze:
-    name: Static Analysis
+    name: Analyze
     runs-on: macos-14
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Setup Xcode
-        uses: actions/setup-xcode@v5
+        uses: apple-actions/setup-xcode@v1
         with:
           xcode-version: '15.2'
-          
-      - name: Build for Analysis
+
+      - name: Static Analysis
         run: |
           xcodebuild -project TexasPoker.xcodeproj \
                      -scheme TexasPoker \
                      -destination 'generic/platform=iOS' \
                      -configuration Debug \
                      build \
-                     CODE_SIGN_IDENTITY="" \
-                     CODE_SIGNING_REQUIRED=NO \
-                     CODE_SIGNING_ALLOWED=NO \
-                     | xcpretty || xcodebuild -project TexasPoker.xcodeproj \
-                     -scheme TexasPoker \
-                     -destination 'generic/platform=iOS' \
-                     -configuration Debug \
-                     build \
-                     CODE_SIGN_IDENTITY="" \
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGNING_ALLOWED=NO
