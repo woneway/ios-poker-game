@@ -266,7 +266,7 @@ Execute Action
 
 | Game Table | Player View | Statistics |
 |:----------:|:-----------:|:----------:|
-| ![Table](./docs/images/table.png) | ![Player](./docs/images/player.png) | ![Stats](./docs/images/stats.png) |
+| Game Table | Player View | Statistics |
 
 </div>
 
