@@ -144,7 +144,7 @@ struct PlayerInfoView: View {
 
 struct PlayerBetView: View {
     let bet: Int
-    
+
     var body: some View {
         Group {
             if bet > 0 {
@@ -155,6 +155,105 @@ struct PlayerBetView: View {
                     .padding(.vertical, 1)
                     .background(Capsule().fill(Color.orange.opacity(0.7)))
             }
+        }
+    }
+}
+
+// MARK: - Profile Popover
+
+struct ProfilePopover: View {
+    let player: Player
+    let stats: PlayerStats?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header
+            HStack {
+                Text(player.aiProfile?.avatar ?? (player.isHuman ? "🤠" : "🤖"))
+                    .font(.system(size: 40))
+                VStack(alignment: .leading) {
+                    Text(player.name)
+                        .font(.headline)
+                    if let aiProfile = player.aiProfile {
+                        Text(aiProfile.name)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            Divider()
+
+            // Stats Section
+            if let stats = stats {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Statistics")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    StatRow(label: "Total Hands", value: "\(stats.totalHands)")
+                    StatRow(label: "VPIP", value: String(format: "%.1f%%", stats.vpip))
+                    StatRow(label: "PFR", value: String(format: "%.1f%%", stats.pfr))
+                    StatRow(label: "3-Bet", value: String(format: "%.1f%%", stats.threeBet))
+                    StatRow(label: "WTSD", value: String(format: "%.1f%%", stats.wtsd))
+                    StatRow(label: "W$SD", value: String(format: "%.1f%%", stats.wsd))
+                }
+            } else {
+                Text("No statistics available")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+            }
+
+            // AI Profile Section
+            if let aiProfile = player.aiProfile {
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("AI Profile")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    StatRow(label: "Tightness", value: String(format: "%.0f%%", (1 - aiProfile.tightness) * 100))
+                    StatRow(label: "Aggression", value: String(format: "%.0f%%", aiProfile.aggression * 100))
+                    StatRow(label: "Bluff Freq", value: String(format: "%.0f%%", aiProfile.bluffFreq * 100))
+                    StatRow(label: "C-Bet Flop", value: String(format: "%.0f%%", aiProfile.cbetFreq * 100))
+                    StatRow(label: "C-Bet Turn", value: String(format: "%.0f%%", aiProfile.cbetTurnFreq * 100))
+                    StatRow(label: "Position Aware", value: String(format: "%.0f%%", aiProfile.positionAwareness * 100))
+                    StatRow(label: "Tilt Sensitivity", value: String(format: "%.0f%%", aiProfile.tiltSensitivity * 100))
+                    StatRow(label: "Call Down", value: String(format: "%.0f%%", aiProfile.callDownTendency * 100))
+                }
+            }
+
+            // Description
+            if let aiProfile = player.aiProfile {
+                Divider()
+
+                Text(aiProfile.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .italic()
+            }
+        }
+        .padding()
+        .frame(minWidth: 200)
+    }
+}
+
+// MARK: - Stat Row
+
+struct StatRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .font(.caption)
+                .fontWeight(.medium)
         }
     }
 }

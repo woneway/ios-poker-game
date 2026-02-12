@@ -122,9 +122,13 @@ struct PlayerView_Previews: PreviewProvider {
                     description: "Test AI",
                     tightness: 0.5,
                     aggression: 0.5,
-                    bluffFrequency: 0.2,
+                    bluffFreq: 0.2,
                     foldTo3Bet: 0.5,
-                    cbetFrequency: 0.6
+                    cbetFreq: 0.6,
+                    cbetTurnFreq: 0.45,
+                    positionAwareness: 0.5,
+                    tiltSensitivity: 0.2,
+                    callDownTendency: 0.3
                 )
             ),
             isActive: true,
