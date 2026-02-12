@@ -1,0 +1,27 @@
+name: Verify Project
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: Check Project Structure
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: List Project Files
+        run: |
+          ls -la TexasPoker.xcodeproj/
+          echo "---"
+          head -5 TexasPoker.xcodeproj/project.pbxproj
+
+      - name: Validate Xcode Project
+        run: |
+          sudo xcode-select -s /Applications/Xcode_15.2.app
+          xcodebuild -project TexasPoker.xcodeproj -list
