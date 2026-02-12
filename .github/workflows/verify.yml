@@ -21,7 +21,7 @@ jobs:
           XCODEGEN_VERSION="2.42.0"
           curl -L -o /tmp/xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
           unzip -o /tmp/xcodegen.zip -d /tmp/xcodegen
-          sudo mv /tmp/xcodegen/xcodegen /usr/local/bin/xcodegen
+          sudo install -m 0755 "/tmp/xcodegen/xcodegen/bin/xcodegen" /usr/local/bin/xcodegen
           xcodegen --version
 
       - name: Generate Xcode Project
