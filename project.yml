@@ -12,6 +12,13 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"
     DEVELOPMENT_TEAM: L7SX3PS3BS
     CODE_SIGN_STYLE: Automatic
+  configs:
+    Debug:
+      SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+      ENABLE_TESTABILITY: "YES"
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+      ENABLE_TESTABILITY: "NO"
 
 targets:
   TexasPoker:
