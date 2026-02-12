@@ -24,6 +24,7 @@ struct FlippingCard: View {
                     axis: (x: 0, y: 1, z: 0)
                 )
         }
+        .frame(width: width, height: width * 1.4)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.4).delay(delay)) {
                 isFlipped = true

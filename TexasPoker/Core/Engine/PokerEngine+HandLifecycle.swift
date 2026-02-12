@@ -101,6 +101,7 @@ extension PokerEngine {
                 players: &players
             )
         } else if eligible.count > 1 {
+            returnUncalledBets()
             pot.calculatePots(players: players)
             result = ShowdownManager.distributeWithSidePots(
                 eligible: eligible,
@@ -175,6 +176,48 @@ extension PokerEngine {
                 DealingManager.dealStreetCards(deck: &self.deck, communityCards: &self.communityCards, currentStreet: &self.currentStreet)
                 if i == streetsToGo - 1 {
                     self.endHand()
+                }
+            }
+        }
+    }
+    
+    /// 退还未被跟注的筹码
+    func returnUncalledBets() {
+        // 1. 找到投注最多的玩家（必须是 active 或 allIn）
+        let activePlayers = players.filter { $0.status == .active || $0.status == .allIn }
+        guard let maxBettor = activePlayers.max(by: { $0.totalBetThisHand < $1.totalBetThisHand }) else { return }
+        
+        let maxBet = maxBettor.totalBetThisHand
+        
+        // 2. 检查是否有其他人投了这么多（包括已弃牌的）
+        // 我们需要找第二高的投注额
+        var secondMaxBet = 0
+        var countWithMaxBet = 0
+        
+        for player in players {
+            if player.totalBetThisHand == maxBet {
+                countWithMaxBet += 1
+            } else if player.totalBetThisHand < maxBet {
+                if player.totalBetThisHand > secondMaxBet {
+                    secondMaxBet = player.totalBetThisHand
+                }
+            }
+        }
+        
+        // 如果只有一个人投了 maxBet，说明有多余部分未被跟注
+        if countWithMaxBet == 1 {
+            let refundAmount = maxBet - secondMaxBet
+            if refundAmount > 0 {
+                // 执行退款
+                if let index = players.firstIndex(where: { $0.id == maxBettor.id }) {
+                    players[index].chips += refundAmount
+                    players[index].totalBetThisHand -= refundAmount // 修正 totalBet 以便正确计算边池
+                    players[index].currentBet -= refundAmount       // 修正 currentBet
+                    pot.refund(refundAmount)
+                    
+                    #if DEBUG
+                    print("💰 Refund uncalled bet $\(refundAmount) to \(players[index].name)")
+                    #endif
                 }
             }
         }

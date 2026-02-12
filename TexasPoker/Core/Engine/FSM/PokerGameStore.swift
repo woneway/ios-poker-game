@@ -58,6 +58,7 @@ class PokerGameStore: ObservableObject {
             .filter { $0 == .betting }
             .sink { [weak self] _ in
                 self?.pollForHumanTurn()
+                self?.scheduleAIWatchdog()
             }
             .store(in: &cancellables)
     }
@@ -67,10 +68,43 @@ class PokerGameStore: ObservableObject {
         // 检查多次，覆盖 AI 延迟执行的时间窗口
         for delay in [0.1, 0.5, 1.0, 2.0, 3.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self = self, self.state == .betting else { return }
-                if self.isHumanTurn {
+                guard let self = self else { return }
+                guard self.state == .betting else { return }
+                
+                let isHuman = self.isHumanTurn
+                #if DEBUG
+                print("🔍 Poll: state=\(self.state), activeIdx=\(self.engine.activePlayerIndex), isHumanTurn=\(isHuman)")
+                if let player = self.engine.players.indices.contains(self.engine.activePlayerIndex) ? self.engine.players[self.engine.activePlayerIndex] : nil {
+                    print("   ActivePlayer: \(player.name), status=\(player.status), isHuman=\(player.isHuman)")
+                }
+                #endif
+                
+                if isHuman {
+                    print("✅ Poll detected human turn, switching to waitingForAction")
                     self.state = .waitingForAction
                 }
+            }
+        }
+    }
+    
+    /// 监控 AI 是否卡住，如果卡住则强制触发
+    private func scheduleAIWatchdog() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self = self, self.state == .betting else { return }
+            
+            // 如果依然是 AI 回合（非人类回合），尝试踢一下引擎
+            if !self.isHumanTurn {
+                #if DEBUG
+                print("⚠️ AI Watchdog: Kicking engine to check bot turn. ActiveIdx=\(self.engine.activePlayerIndex)")
+                #endif
+                self.engine.checkBotTurn()
+                
+                // 递归调度，直到状态改变
+                self.scheduleAIWatchdog()
+            } else {
+                // It IS human turn, but state is still betting? Force switch.
+                print("⚠️ AI Watchdog: It IS human turn but state is .betting. Forcing switch.")
+                self.state = .waitingForAction
             }
         }
     }

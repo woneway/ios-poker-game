@@ -23,10 +23,7 @@ struct DeviceHelper {
     }
     
     static func cardHeight(for geo: GeometryProxy) -> CGFloat {
-        let base: CGFloat = 40
-        if isIPad {
-            return base * 1.5
-        }
-        return base
+        let width = cardWidth(for: geo)
+        return width * 1.4 // Standard poker card aspect ratio
     }
 }

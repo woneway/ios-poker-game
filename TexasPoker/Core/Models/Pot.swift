@@ -30,6 +30,12 @@ struct Pot: Equatable {
         runningTotal += amount
     }
     
+    /// 退还筹码（用于退还未被跟注的金额）
+    mutating func refund(_ amount: Int) {
+        runningTotal -= amount
+        if runningTotal < 0 { runningTotal = 0 }
+    }
+    
     mutating func reset() {
         runningTotal = 0
         portions.removeAll()

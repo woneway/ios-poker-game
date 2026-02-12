@@ -45,7 +45,8 @@ extension Color {
     
     /// Adaptive card background color based on color scheme
     static func adaptiveCardBackground(_ colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark ? Color(hex: "2c2c2c") : Color.white
+        // Real cards are always white-ish, even in dark mode
+        return Color.white
     }
     
     /// Adaptive primary text color based on color scheme

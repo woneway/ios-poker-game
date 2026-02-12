@@ -111,6 +111,13 @@ class PokerEngine: ObservableObject {
             return
         }
         
+        // Fix: If we are already at River and dealNextStreet is called,
+        // it means the River betting round is complete. End the hand.
+        if currentStreet == .river {
+            endHand()
+            return
+        }
+        
         let canBet = players.filter { $0.status == .active }
         
         DealingManager.dealStreetCards(deck: &deck, communityCards: &communityCards, currentStreet: &currentStreet)
@@ -128,7 +135,7 @@ class PokerEngine: ObservableObject {
         
         resetBettingState()
         
-        if canBet.count == 0 {
+        if canBet.count <= 1 {
             runOutBoard()
             return
         }
@@ -260,6 +267,11 @@ class PokerEngine: ObservableObject {
             next = (next + 1) % players.count
             attempts += 1
         }
+        #if DEBUG
+        if attempts >= players.count {
+            print("⚠️ nextActivePlayerIndex: No active players found! Returning \(next)")
+        }
+        #endif
         return next
     }
     
