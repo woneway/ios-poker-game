@@ -38,6 +38,9 @@ class DataMigrationManager {
         
         // Migrate game history to hand history if needed
         migrateGameHistoryToHandHistory()
+
+        // Backfill new fields (e.g. profileId) for existing rows
+        backfillDefaultProfileIdIfMissing()
         
         // Mark migration as complete
         markMigrationCompleted()
@@ -111,11 +114,13 @@ class DataMigrationManager {
     }
     
     private func createOrUpdateStatsEntity(stats: PlayerStats) {
+        let defaultProfileId = ProfileManager.defaultProfileId
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
         fetchRequest.predicate = NSPredicate(
-            format: "playerName == %@ AND gameMode == %@",
+            format: "playerName == %@ AND gameMode == %@ AND (profileId == %@ OR profileId == nil)",
             stats.playerName,
-            stats.gameMode.rawValue
+            stats.gameMode.rawValue,
+            defaultProfileId
         )
         
         let entity: NSManagedObject
@@ -125,6 +130,7 @@ class DataMigrationManager {
             entity = NSEntityDescription.insertNewObject(forEntityName: "PlayerStatsEntity", into: context)
             entity.setValue(stats.playerName, forKey: "playerName")
             entity.setValue(stats.gameMode.rawValue, forKey: "gameMode")
+            entity.setValue(defaultProfileId, forKey: "profileId")
         }
         
         entity.setValue(Int32(stats.totalHands), forKey: "totalHands")
@@ -160,10 +166,11 @@ class DataMigrationManager {
             // Note: This is a basic migration since GameRecord doesn't have detailed hand data
             let entity = NSEntityDescription.insertNewObject(forEntityName: "HandHistoryEntity", into: context)
             
-            entity.setValue(UUID(), forKey: "handId")
-            entity.setValue(record.date, forKey: "timestamp")
+            entity.setValue(UUID(), forKey: "id")
+            entity.setValue(record.date, forKey: "date")
             entity.setValue(GameMode.cashGame.rawValue, forKey: "gameMode") // Default to cash game
             entity.setValue(Int32(record.totalHands), forKey: "handNumber")
+            entity.setValue(ProfileManager.defaultProfileId, forKey: "profileId")
             
             // Set winner from results
             if let winner = record.results.first(where: { $0.rank == 1 }) {
@@ -181,6 +188,60 @@ class DataMigrationManager {
             try? context.save()
             print("📝 Migrated \(migratedHands) game records to hand history")
         }
+    }
+
+    // MARK: - Backfill new fields
+
+    private func backfillDefaultProfileIdIfMissing() {
+        let pid = ProfileManager.defaultProfileId
+
+        do {
+            let req = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
+            req.predicate = NSPredicate(format: "profileId == nil")
+            let rows = try context.fetch(req)
+            for r in rows {
+                r.setValue(pid, forKey: "profileId")
+            }
+        } catch {
+            #if DEBUG
+            print("Failed to backfill HandHistoryEntity.profileId: \(error)")
+            #endif
+        }
+
+        // ActionEntity.profileId (best-effort: inherit from handHistory, else default)
+        do {
+            let req = NSFetchRequest<NSManagedObject>(entityName: "ActionEntity")
+            req.predicate = NSPredicate(format: "profileId == nil")
+            let rows = try context.fetch(req)
+            for r in rows {
+                if let hand = r.value(forKey: "handHistory") as? NSManagedObject,
+                   let handPid = hand.value(forKey: "profileId") as? String,
+                   !handPid.isEmpty {
+                    r.setValue(handPid, forKey: "profileId")
+                } else {
+                    r.setValue(pid, forKey: "profileId")
+                }
+            }
+        } catch {
+            #if DEBUG
+            print("Failed to backfill ActionEntity.profileId: \(error)")
+            #endif
+        }
+
+        do {
+            let req = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
+            req.predicate = NSPredicate(format: "profileId == nil")
+            let rows = try context.fetch(req)
+            for r in rows {
+                r.setValue(pid, forKey: "profileId")
+            }
+        } catch {
+            #if DEBUG
+            print("Failed to backfill PlayerStatsEntity.profileId: \(error)")
+            #endif
+        }
+
+        try? context.save()
     }
     
     // MARK: - Manual Migration Trigger

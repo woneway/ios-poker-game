@@ -6,6 +6,9 @@ class ActionRecorder {
     
     /// Overridable context for testing. Falls back to shared persistence controller.
     var contextProvider: (() -> NSManagedObjectContext)?
+
+    /// Overridable profile id for testing.
+    var profileIdProvider: (() -> String)?
     
     private var context: NSManagedObjectContext {
         contextProvider?() ?? PersistenceController.shared.container.viewContext
@@ -22,6 +25,7 @@ class ActionRecorder {
         hand.setValue(Int32(handNumber), forKey: "handNumber")
         hand.setValue(Date(), forKey: "date")
         hand.setValue(gameMode.rawValue, forKey: "gameMode")
+        hand.setValue(profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData, forKey: "profileId")
         hand.setValue(Int32(0), forKey: "finalPot")
         
         currentHandHistory = hand
@@ -39,6 +43,7 @@ class ActionRecorder {
         guard let hand = currentHandHistory else { return }
         
         let actionEntity = NSEntityDescription.insertNewObject(forEntityName: "ActionEntity", into: context)
+        let profileId = (profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData)
         actionEntity.setValue(UUID(), forKey: "id")
         actionEntity.setValue(hand, forKey: "handHistory")
         actionEntity.setValue(playerName, forKey: "playerName")
@@ -48,6 +53,7 @@ class ActionRecorder {
         actionEntity.setValue(Date(), forKey: "timestamp")
         actionEntity.setValue(isVoluntary, forKey: "isVoluntary")
         actionEntity.setValue(position, forKey: "position")
+        actionEntity.setValue(profileId, forKey: "profileId")
     }
     
     /// End the current hand and save all data

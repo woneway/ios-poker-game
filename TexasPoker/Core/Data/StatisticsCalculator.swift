@@ -24,22 +24,44 @@ class StatisticsCalculator {
     
     /// Overridable context for testing. Falls back to shared persistence controller.
     var contextProvider: (() -> NSManagedObjectContext)?
+
+    /// Overridable profile id for testing.
+    var profileIdProvider: (() -> String)?
     
     private var context: NSManagedObjectContext {
         contextProvider?() ?? PersistenceController.shared.container.viewContext
     }
     
     private init() {}
+
+    // MARK: - Public: Persisted Stats Lifecycle
+
+    /// Recompute and persist stats for the given players.
+    /// - Important: This will **delete** any existing `PlayerStatsEntity` for a player+mode
+    ///   when there is no backing hand/action data (i.e. `calculateStats(...) == nil`).
+    ///   This ensures a "fresh download" shows empty stats until real gameplay occurs.
+    func recomputeAndPersistStats(playerNames: [String], gameMode: GameMode, profileId: String? = nil) {
+        let uniqueNames = Array(Set(playerNames))
+        let pid = normalizeProfileId(profileId ?? profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData)
+        for name in uniqueNames {
+            if let stats = calculateStats(playerName: name, gameMode: gameMode, profileId: pid) {
+                updatePlayerStatsEntity(stats: stats, profileId: pid)
+            } else {
+                deletePlayerStatsEntity(playerName: name, gameMode: gameMode, profileId: pid)
+            }
+        }
+    }
     
     /// Calculate statistics for a specific player and game mode
     /// Returns nil if player has no data
-    func calculateStats(playerName: String, gameMode: GameMode) -> PlayerStats? {
+    func calculateStats(playerName: String, gameMode: GameMode, profileId: String? = nil) -> PlayerStats? {
+        let pid = normalizeProfileId(profileId ?? profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData)
         // Fetch all hands for this game mode
-        let hands = fetchHands(gameMode: gameMode)
+        let hands = fetchHands(gameMode: gameMode, profileId: pid)
         guard !hands.isEmpty else { return nil }
         
         // Fetch all actions for this player across those hands
-        let actions = fetchActions(playerName: playerName, gameMode: gameMode)
+        let actions = fetchActions(playerName: playerName, gameMode: gameMode, profileId: pid)
         
         // Find hands where this player participated (has at least one action)
         let handIDs = Set(actions.compactMap { ($0.value(forKey: "handHistory") as? NSManagedObject)?.value(forKey: "id") as? UUID })
@@ -77,19 +99,15 @@ class StatisticsCalculator {
     
     // MARK: - Core Data Queries
     
-    private func fetchHands(gameMode: GameMode) -> [NSManagedObject] {
+    private func fetchHands(gameMode: GameMode, profileId: String) -> [NSManagedObject] {
         let request = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
-        request.predicate = NSPredicate(format: "gameMode == %@", gameMode.rawValue)
+        request.predicate = predicateForHands(gameMode: gameMode, profileId: profileId)
         return (try? context.fetch(request)) ?? []
     }
     
-    private func fetchActions(playerName: String, gameMode: GameMode) -> [NSManagedObject] {
+    private func fetchActions(playerName: String, gameMode: GameMode, profileId: String) -> [NSManagedObject] {
         let request = NSFetchRequest<NSManagedObject>(entityName: "ActionEntity")
-        request.predicate = NSPredicate(
-            format: "playerName == %@ AND handHistory.gameMode == %@",
-            playerName,
-            gameMode.rawValue
-        )
+        request.predicate = predicateForActions(playerName: playerName, gameMode: gameMode, profileId: profileId)
         return (try? context.fetch(request)) ?? []
     }
     
@@ -244,13 +262,10 @@ class StatisticsCalculator {
     // MARK: - Core Data Persistence
     
     /// Update or create PlayerStatsEntity in Core Data
-    func updatePlayerStatsEntity(stats: PlayerStats) {
+    func updatePlayerStatsEntity(stats: PlayerStats, profileId: String? = nil) {
+        let pid = normalizeProfileId(profileId ?? profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData)
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
-        fetchRequest.predicate = NSPredicate(
-            format: "playerName == %@ AND gameMode == %@",
-            stats.playerName,
-            stats.gameMode.rawValue
-        )
+        fetchRequest.predicate = predicateForStats(playerName: stats.playerName, gameMode: stats.gameMode, profileId: pid)
         
         let entity: NSManagedObject
         if let existing = try? context.fetch(fetchRequest).first {
@@ -260,6 +275,12 @@ class StatisticsCalculator {
             entity.setValue(UUID(), forKey: "id")
             entity.setValue(stats.playerName, forKey: "playerName")
             entity.setValue(stats.gameMode.rawValue, forKey: "gameMode")
+            entity.setValue(pid, forKey: "profileId")
+        }
+
+        // Ensure we don't accidentally mix profiles on updates
+        if (entity.value(forKey: "profileId") as? String)?.isEmpty ?? true {
+            entity.setValue(pid, forKey: "profileId")
         }
         
         entity.setValue(Int32(stats.totalHands), forKey: "totalHands")
@@ -280,5 +301,74 @@ class StatisticsCalculator {
             print("Failed to save player stats: \(error)")
             #endif
         }
+    }
+
+    /// Delete PlayerStatsEntity for player+mode (if it exists).
+    private func deletePlayerStatsEntity(playerName: String, gameMode: GameMode, profileId: String) {
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
+        fetchRequest.predicate = predicateForStats(playerName: playerName, gameMode: gameMode, profileId: profileId)
+
+        guard let existing = try? context.fetch(fetchRequest) else { return }
+        guard !existing.isEmpty else { return }
+
+        for obj in existing {
+            context.delete(obj)
+        }
+
+        do {
+            try context.save()
+        } catch {
+            #if DEBUG
+            print("Failed to delete player stats: \(error)")
+            #endif
+        }
+    }
+
+    // MARK: - Predicates / Profile normalization
+
+    private func normalizeProfileId(_ profileId: String) -> String {
+        profileId.isEmpty ? ProfileManager.defaultProfileId : profileId
+    }
+
+    private func predicateForHands(gameMode: GameMode, profileId: String) -> NSPredicate {
+        if profileId == ProfileManager.defaultProfileId {
+            // Backward compatible: treat nil as default
+            return NSPredicate(format: "gameMode == %@ AND (profileId == %@ OR profileId == nil)", gameMode.rawValue, profileId)
+        }
+        return NSPredicate(format: "gameMode == %@ AND profileId == %@", gameMode.rawValue, profileId)
+    }
+
+    private func predicateForActions(playerName: String, gameMode: GameMode, profileId: String) -> NSPredicate {
+        if profileId == ProfileManager.defaultProfileId {
+            return NSPredicate(
+                format: "playerName == %@ AND handHistory.gameMode == %@ AND (handHistory.profileId == %@ OR handHistory.profileId == nil)",
+                playerName,
+                gameMode.rawValue,
+                profileId
+            )
+        }
+        return NSPredicate(
+            format: "playerName == %@ AND handHistory.gameMode == %@ AND handHistory.profileId == %@",
+            playerName,
+            gameMode.rawValue,
+            profileId
+        )
+    }
+
+    private func predicateForStats(playerName: String, gameMode: GameMode, profileId: String) -> NSPredicate {
+        if profileId == ProfileManager.defaultProfileId {
+            return NSPredicate(
+                format: "playerName == %@ AND gameMode == %@ AND (profileId == %@ OR profileId == nil)",
+                playerName,
+                gameMode.rawValue,
+                profileId
+            )
+        }
+        return NSPredicate(
+            format: "playerName == %@ AND gameMode == %@ AND profileId == %@",
+            playerName,
+            gameMode.rawValue,
+            profileId
+        )
     }
 }

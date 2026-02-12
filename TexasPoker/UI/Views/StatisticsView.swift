@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct StatisticsView: View {
     @Environment(\.managedObjectContext) private var viewContext
+    @ObservedObject private var profiles = ProfileManager.shared
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \PlayerStatsEntity.totalHands, ascending: false)],
         animation: .default
@@ -26,8 +27,9 @@ struct StatisticsView: View {
                 
                 // Stats list
                 List {
-                    let filteredStats = playerStats.filter { 
-                        $0.gameMode == selectedMode.rawValue
+                    let profileId = profiles.currentProfileIdForData
+                    let filteredStats = playerStats.filter {
+                        $0.gameMode == selectedMode.rawValue && matchesProfile($0, profileId: profileId)
                     }
                     
                     if filteredStats.isEmpty {
@@ -73,6 +75,14 @@ struct StatisticsView: View {
                 }
             }
         }
+    }
+
+    private func matchesProfile(_ stats: PlayerStatsEntity, profileId: String) -> Bool {
+        // Default profile is backward compatible: treat nil as default
+        if profileId == ProfileManager.defaultProfileId {
+            return stats.profileId == nil || stats.profileId == ProfileManager.defaultProfileId
+        }
+        return stats.profileId == profileId
     }
     
     // MARK: - Export Statistics

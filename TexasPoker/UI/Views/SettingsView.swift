@@ -95,10 +95,32 @@ struct SettingsView: View {
     @State private var showHistory = false
     @State private var showStatistics = false
     @ObservedObject private var historyManager = GameHistoryManager.shared
+    @ObservedObject private var profiles = ProfileManager.shared
+    @State private var showNewProfileAlert = false
+    @State private var newProfileName: String = ""
     
     var body: some View {
         NavigationView {
             Form {
+                Section(header: Text("Profile")) {
+                    Picker("Active Profile", selection: $profiles.currentProfileId) {
+                        ForEach(profiles.profiles) { p in
+                            Text(p.name).tag(p.id)
+                        }
+                    }
+
+                    Button(action: {
+                        newProfileName = ""
+                        showNewProfileAlert = true
+                    }) {
+                        HStack {
+                            Image(systemName: "person.badge.plus")
+                                .foregroundColor(.blue)
+                            Text("New Profile")
+                        }
+                    }
+                }
+
                 Section(header: Text("General")) {
                     VStack(alignment: .leading) {
                         Text("Game Speed: \(String(format: "%.1fx", settings.gameSpeed))")
@@ -273,6 +295,15 @@ struct SettingsView: View {
             .navigationBarItems(trailing: Button("Done") {
                 isPresented = false
             })
+            .alert("New Profile", isPresented: $showNewProfileAlert) {
+                TextField("Profile name", text: $newProfileName)
+                Button("Create") {
+                    _ = profiles.createProfile(name: newProfileName)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Statistics and history are isolated per profile.")
+            }
             .sheet(isPresented: $showHistory) {
                 HistoryView(isPresented: $showHistory)
             }

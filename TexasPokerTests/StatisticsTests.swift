@@ -21,6 +21,10 @@ class StatisticsTests: XCTestCase {
         // Inject test context so recorder and calculator share the same in-memory store
         recorder.contextProvider = { [weak self] in self!.context }
         calculator.contextProvider = { [weak self] in self!.context }
+
+        // Isolate profiles in tests
+        recorder.profileIdProvider = { "test-profile" }
+        calculator.profileIdProvider = { "test-profile" }
     }
     
     override func tearDown() {
@@ -30,6 +34,8 @@ class StatisticsTests: XCTestCase {
         // Restore default context providers
         recorder.contextProvider = nil
         calculator.contextProvider = nil
+        recorder.profileIdProvider = nil
+        calculator.profileIdProvider = nil
         
         persistenceController = nil
         context = nil
@@ -387,5 +393,45 @@ class StatisticsTests: XCTestCase {
         XCTAssertEqual(results?.count, 1)
         XCTAssertEqual(results?.first?.value(forKey: "totalHands") as? Int32, 1)
         XCTAssertEqual(results?.first?.value(forKey: "totalWinnings") as? Int32, 100)
+    }
+
+    func testRecomputeAndPersistStatsDoesNotCreateEntitiesWithoutHands() {
+        // Fresh install behavior: no hands => no persisted stats rows
+        calculator.recomputeAndPersistStats(playerNames: ["Hero", "石头"], gameMode: .cashGame, profileId: "test-profile")
+
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
+        let results = try? context.fetch(fetchRequest)
+        XCTAssertEqual(results?.count ?? 0, 0)
+    }
+
+    func testRecomputeAndPersistStatsDeletesStaleEntitiesWithoutBackingData() {
+        // Create a stale stats entity (simulates accidental pre-seeded data)
+        let entity = NSEntityDescription.insertNewObject(forEntityName: "PlayerStatsEntity", into: context)
+        entity.setValue(UUID(), forKey: "id")
+        entity.setValue("Hero", forKey: "playerName")
+        entity.setValue(GameMode.cashGame.rawValue, forKey: "gameMode")
+        entity.setValue("test-profile", forKey: "profileId")
+        entity.setValue(Int32(99), forKey: "totalHands")
+        entity.setValue(50.0, forKey: "vpip")
+        entity.setValue(30.0, forKey: "pfr")
+        entity.setValue(1.0, forKey: "af")
+        entity.setValue(25.0, forKey: "wtsd")
+        entity.setValue(50.0, forKey: "wsd")
+        entity.setValue(0.0, forKey: "threeBet")
+        entity.setValue(Int32(10), forKey: "handsWon")
+        entity.setValue(Int32(1234), forKey: "totalWinnings")
+        try? context.save()
+
+        // No hand/action data exists, so recompute should delete it
+        calculator.recomputeAndPersistStats(playerNames: ["Hero"], gameMode: .cashGame, profileId: "test-profile")
+
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
+        fetchRequest.predicate = NSPredicate(
+            format: "playerName == %@ AND gameMode == %@",
+            "Hero",
+            GameMode.cashGame.rawValue
+        )
+        let results = try? context.fetch(fetchRequest)
+        XCTAssertEqual(results?.count ?? 0, 0)
     }
 }

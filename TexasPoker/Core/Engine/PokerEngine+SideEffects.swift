@@ -60,6 +60,14 @@ extension PokerEngine {
             heroCards: heroCards,
             winners: winnerNames
         )
+
+        // Recompute persisted statistics for all table players.
+        // This keeps "download/new install" stats empty, and updates dynamically as the user plays.
+        StatisticsCalculator.shared.recomputeAndPersistStats(
+            playerNames: players.map { $0.name },
+            gameMode: gameMode,
+            profileId: ProfileManager.shared.currentProfileIdForData
+        )
     }
     
     func notifyWinnerAnimations(result: HandResult) {

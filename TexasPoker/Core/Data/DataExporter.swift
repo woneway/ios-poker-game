@@ -6,9 +6,14 @@ class DataExporter {
     /// Export player statistics as JSON
     static func exportStatistics(gameMode: GameMode) -> URL? {
         let context = PersistenceController.shared.container.viewContext
+        let profileId = ProfileManager.shared.currentProfileIdForData
         
         let request = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
-        request.predicate = NSPredicate(format: "gameMode == %@", gameMode.rawValue)
+        if profileId == ProfileManager.defaultProfileId {
+            request.predicate = NSPredicate(format: "gameMode == %@ AND (profileId == %@ OR profileId == nil)", gameMode.rawValue, profileId)
+        } else {
+            request.predicate = NSPredicate(format: "gameMode == %@ AND profileId == %@", gameMode.rawValue, profileId)
+        }
         request.sortDescriptors = [NSSortDescriptor(key: "totalHands", ascending: false)]
         
         guard let statsEntities = try? context.fetch(request) else { return nil }
@@ -17,6 +22,7 @@ class DataExporter {
         var statsArray: [[String: Any]] = []
         for entity in statsEntities {
             let dict: [String: Any] = [
+                "profileId": entity.value(forKey: "profileId") as? String ?? ProfileManager.defaultProfileId,
                 "playerName": entity.value(forKey: "playerName") as? String ?? "",
                 "gameMode": entity.value(forKey: "gameMode") as? String ?? "",
                 "totalHands": entity.value(forKey: "totalHands") as? Int32 ?? 0,
@@ -39,7 +45,7 @@ class DataExporter {
         }
         
         // Write to temp file
-        let fileName = "poker_stats_\(gameMode.rawValue)_\(Date().ISO8601Format()).json"
+        let fileName = "poker_stats_\(profileId)_\(gameMode.rawValue)_\(Date().ISO8601Format()).json"
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
         
         do {
@@ -56,9 +62,14 @@ class DataExporter {
     /// Export hand history as JSON
     static func exportHandHistory(limit: Int = 100, gameMode: GameMode) -> URL? {
         let context = PersistenceController.shared.container.viewContext
+        let profileId = ProfileManager.shared.currentProfileIdForData
         
         let request = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
-        request.predicate = NSPredicate(format: "gameMode == %@", gameMode.rawValue)
+        if profileId == ProfileManager.defaultProfileId {
+            request.predicate = NSPredicate(format: "gameMode == %@ AND (profileId == %@ OR profileId == nil)", gameMode.rawValue, profileId)
+        } else {
+            request.predicate = NSPredicate(format: "gameMode == %@ AND profileId == %@", gameMode.rawValue, profileId)
+        }
         request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
         request.fetchLimit = limit
         
@@ -67,6 +78,7 @@ class DataExporter {
         var handsArray: [[String: Any]] = []
         for hand in hands {
             let dict: [String: Any] = [
+                "profileId": hand.value(forKey: "profileId") as? String ?? ProfileManager.defaultProfileId,
                 "handNumber": hand.value(forKey: "handNumber") as? Int32 ?? 0,
                 "date": (hand.value(forKey: "date") as? Date)?.ISO8601Format() ?? "",
                 "finalPot": hand.value(forKey: "finalPot") as? Int32 ?? 0,
@@ -81,7 +93,7 @@ class DataExporter {
             return nil
         }
         
-        let fileName = "poker_history_\(gameMode.rawValue)_\(Date().ISO8601Format()).json"
+        let fileName = "poker_history_\(profileId)_\(gameMode.rawValue)_\(Date().ISO8601Format()).json"
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
         
         try? jsonData.write(to: tempURL)
