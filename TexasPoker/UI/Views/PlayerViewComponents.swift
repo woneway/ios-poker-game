@@ -17,16 +17,20 @@ struct PlayerCardsView: View {
             if player.isHuman {
                 HStack(spacing: -(cardWidth * 0.4)) {
                     ForEach(Array(player.holeCards.enumerated()), id: \.offset) { index, card in
-                        CardView(card: card, width: cardWidth)
+                        // Hero 使用 FlippingCard 并传入 isHero=true，始终显示正面
+                        FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth, isHero: true)
                             .rotationEffect(.degrees(Double.random(in: -3...3)))
                     }
                     // 占位符，确保 Hero 手牌区域始终显示
                     if player.holeCards.count == 1 {
-                        CardView(card: nil, width: cardWidth)
+                        FlippingCard(card: Card(suit: .spades, rank: .ace), delay: 0, width: cardWidth, isHero: true)
+                            .opacity(0)  // 占位但不可见
                     } else if player.holeCards.isEmpty {
                         // 发牌期间显示背面占位
-                        CardView(card: nil, width: cardWidth)
-                        CardView(card: nil, width: cardWidth)
+                        FlippingCard(card: Card(suit: .spades, rank: .ace), delay: 0, width: cardWidth, isHero: true)
+                            .opacity(0)
+                        FlippingCard(card: Card(suit: .spades, rank: .ace), delay: 0, width: cardWidth, isHero: true)
+                            .opacity(0)
                     }
                 }
                 .padding(.bottom, -6)

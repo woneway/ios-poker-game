@@ -391,24 +391,24 @@ struct GameView: View {
     
     private func communityCardsView(geo: GeometryProxy) -> some View {
         // 调整公共牌尺寸，避免过长
-        let cardWidth = DeviceHelper.cardWidth(for: geo) * 0.85
+        let cardWidth = DeviceHelper.cardWidth(for: geo) * 0.75  // 进一步缩小
         let cardHeight = cardWidth * 1.35
         
         // 计算总宽度，确保不超出牌桌
-        let spacing: CGFloat = 4  // 减小间距
+        let spacing: CGFloat = 3  // 进一步减小间距
         let totalWidth = (cardWidth * 5) + (spacing * 4)
-        let scale = totalWidth > geo.size.width * 0.6 ? (geo.size.width * 0.6) / totalWidth : 1.0
+        let scale = totalWidth > geo.size.width * 0.5 ? (geo.size.width * 0.5) / totalWidth : 0.9  // 缩小
         
         return HStack(spacing: spacing) {
             ForEach(Array(store.engine.communityCards.enumerated()), id: \.offset) { index, card in
                 FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth)
-                    .scaleEffect(0.9)  // 整体缩小
+                    .scaleEffect(0.85)  // 整体进一步缩小
             }
             ForEach(0..<(5 - store.engine.communityCards.count), id: \.self) { _ in
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
                     .frame(width: cardWidth, height: cardHeight)
-                    .scaleEffect(0.9)
+                    .scaleEffect(0.85)
             }
         }
         .scaleEffect(scale)
@@ -426,9 +426,9 @@ struct GameView: View {
         
         // 调整牌桌尺寸，避免过长
         let centerX = w / 2
-        let centerY = h * 0.35  // 向上移动
-        let radiusX = w * 0.35  // 收窄横向
-        let radiusY = h * 0.22  // 减小纵向
+        let centerY = h * 0.38  // 向上移动
+        let radiusX = w * 0.30  // 进一步收窄横向
+        let radiusY = h * 0.20  // 进一步减小纵向
         
         // Seat positions as angles (starting from bottom, going clockwise)
         // Seat 0: 270° (bottom), Seat 1: 225° (bottom-left), ...
