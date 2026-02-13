@@ -2,6 +2,10 @@ import Foundation
 
 // MARK: - Sound, Action Log, Statistics, Notifications
 extension PokerEngine {
+
+    enum EngineNotifications {
+        static let playerStatsUpdated = NSNotification.Name("PlayerStatsUpdated")
+    }
     
     func playSoundForAction(_ action: PlayerAction) {
         switch action {
@@ -67,6 +71,16 @@ extension PokerEngine {
             playerNames: players.map { $0.name },
             gameMode: gameMode,
             profileId: ProfileManager.shared.currentProfileIdForData
+        )
+
+        // Notify HUD/profile popovers to reload stats without requiring a view re-appear.
+        NotificationCenter.default.post(
+            name: EngineNotifications.playerStatsUpdated,
+            object: nil,
+            userInfo: [
+                "gameMode": gameMode.rawValue,
+                "profileId": ProfileManager.shared.currentProfileIdForData,
+            ]
         )
     }
     

@@ -24,6 +24,14 @@ struct PlayerHUD: View {
         .onAppear {
             loadStats()
         }
+        .onReceive(NotificationCenter.default.publisher(for: PokerEngine.EngineNotifications.playerStatsUpdated)) { notification in
+            // 只在同模式/同 profile 下刷新，避免切换模式时的误刷新
+            if let modeRaw = notification.userInfo?["gameMode"] as? String,
+               modeRaw != gameMode.rawValue {
+                return
+            }
+            loadStats()
+        }
     }
     
     func loadStats() {

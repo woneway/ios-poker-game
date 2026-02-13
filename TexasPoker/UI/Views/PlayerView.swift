@@ -52,6 +52,13 @@ struct PlayerView: View {
                 onTap: { showProfile = true }
             )
             .onAppear { loadPlayerStats() }
+            .onReceive(NotificationCenter.default.publisher(for: PokerEngine.EngineNotifications.playerStatsUpdated)) { notification in
+                if let modeRaw = notification.userInfo?["gameMode"] as? String,
+                   modeRaw != gameMode.rawValue {
+                    return
+                }
+                loadPlayerStats()
+            }
             .onReceiveWinnerNotification(for: player)
             
             // Name & Chips
