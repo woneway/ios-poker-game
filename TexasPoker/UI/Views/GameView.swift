@@ -390,22 +390,25 @@ struct GameView: View {
     // MARK: - Community Cards
     
     private func communityCardsView(geo: GeometryProxy) -> some View {
-        let cardWidth = DeviceHelper.cardWidth(for: geo)
-        let cardHeight = DeviceHelper.cardHeight(for: geo)
+        // 调整公共牌尺寸，避免过长
+        let cardWidth = DeviceHelper.cardWidth(for: geo) * 0.85
+        let cardHeight = cardWidth * 1.35
         
-        // Calculate total width to ensure it fits
-        let spacing: CGFloat = 6
+        // 计算总宽度，确保不超出牌桌
+        let spacing: CGFloat = 4  // 减小间距
         let totalWidth = (cardWidth * 5) + (spacing * 4)
-        let scale = totalWidth > geo.size.width * 0.8 ? (geo.size.width * 0.8) / totalWidth : 1.0
+        let scale = totalWidth > geo.size.width * 0.6 ? (geo.size.width * 0.6) / totalWidth : 1.0
         
         return HStack(spacing: spacing) {
             ForEach(Array(store.engine.communityCards.enumerated()), id: \.offset) { index, card in
                 FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth)
+                    .scaleEffect(0.9)  // 整体缩小
             }
             ForEach(0..<(5 - store.engine.communityCards.count), id: \.self) { _ in
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
                     .frame(width: cardWidth, height: cardHeight)
+                    .scaleEffect(0.9)
             }
         }
         .scaleEffect(scale)
@@ -421,11 +424,11 @@ struct GameView: View {
         let h = geo.size.height
         let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
         
-        // Adjust layout to pull Hero up and avoid overlap with bottom controls
+        // 调整牌桌尺寸，避免过长
         let centerX = w / 2
-        let centerY = h * 0.38  // Moved up from 0.42
-        let radiusX = w * 0.40  // Slightly narrower
-        let radiusY = h * 0.26  // Reduced from 0.30 to pull bottom player up
+        let centerY = h * 0.35  // 向上移动
+        let radiusX = w * 0.35  // 收窄横向
+        let radiusY = h * 0.22  // 减小纵向
         
         // Seat positions as angles (starting from bottom, going clockwise)
         // Seat 0: 270° (bottom), Seat 1: 225° (bottom-left), ...
