@@ -10,6 +10,9 @@ class ActionRecorder {
     /// Overridable profile id for testing.
     var profileIdProvider: (() -> String)?
     
+    /// Overridable isHuman check for testing.
+    var isHumanProvider: ((String) -> Bool)?
+    
     private var context: NSManagedObjectContext {
         contextProvider?() ?? PersistenceController.shared.container.viewContext
     }
@@ -32,13 +35,22 @@ class ActionRecorder {
     }
     
     /// Record a player action
+    /// - Parameters:
+    ///   - playerName: The name of the player
+    ///   - action: The action taken
+    ///   - amount: The amount bet/called/raised
+    ///   - street: The betting street
+    ///   - isVoluntary: Whether the action was voluntary (not blind)
+    ///   - position: Position name (BTN, SB, BB, etc.)
+    ///   - isHuman: Whether this player is a human (for stats isolation)
     func recordAction(
         playerName: String,
         action: PlayerAction,
         amount: Int,
         street: Street,
         isVoluntary: Bool,
-        position: String
+        position: String,
+        isHuman: Bool
     ) {
         guard let hand = currentHandHistory else { return }
         
@@ -54,6 +66,7 @@ class ActionRecorder {
         actionEntity.setValue(isVoluntary, forKey: "isVoluntary")
         actionEntity.setValue(position, forKey: "position")
         actionEntity.setValue(profileId, forKey: "profileId")
+        actionEntity.setValue(isHuman, forKey: "isHuman")
     }
     
     /// End the current hand and save all data

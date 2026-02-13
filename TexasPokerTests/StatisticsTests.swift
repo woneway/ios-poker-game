@@ -64,7 +64,7 @@ class StatisticsTests: XCTestCase {
         return handId
     }
     
-    private func recordAction(handId: UUID, playerName: String, action: String, amount: Int = 0, street: String = "preFlop", isVoluntary: Bool = false) {
+    private func recordAction(handId: UUID, playerName: String, action: String, amount: Int = 0, street: String = "preFlop", isVoluntary: Bool = false, isHuman: Bool = false) {
         // Convert string action to PlayerAction enum
         let playerAction: PlayerAction
         switch action.lowercased() {
@@ -91,7 +91,8 @@ class StatisticsTests: XCTestCase {
             amount: amount,
             street: streetEnum,
             isVoluntary: isVoluntary,
-            position: "BTN"
+            position: "BTN",
+            isHuman: isHuman
         )
     }
     

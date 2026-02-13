@@ -6,6 +6,7 @@ import CoreData
 struct PlayerStats {
     let playerName: String
     let gameMode: GameMode
+    let isHuman: Bool  // 标记是人类还是 AI
     let totalHands: Int
     let vpip: Double
     let pfr: Double
@@ -54,7 +55,8 @@ class StatisticsCalculator {
     
     /// Calculate statistics for a specific player and game mode
     /// Returns nil if player has no data
-    func calculateStats(playerName: String, gameMode: GameMode, profileId: String? = nil) -> PlayerStats? {
+    /// - Parameter isHumanOverride: Optional override to determine if player is human. Defaults to checking action records.
+    func calculateStats(playerName: String, gameMode: GameMode, profileId: String? = nil, isHumanOverride: Bool? = nil) -> PlayerStats? {
         let pid = normalizeProfileId(profileId ?? profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData)
         // Fetch all hands for this game mode
         let hands = fetchHands(gameMode: gameMode, profileId: pid)
@@ -82,9 +84,19 @@ class StatisticsCalculator {
         let handsWon = countHandsWon(playerName: playerName, playerHands: playerHands)
         let totalWinnings = calculateWinnings(playerName: playerName, playerHands: playerHands)
         
+        // Determine if player is human (from override or check actions)
+        let isHuman: Bool
+        if let override = isHumanOverride {
+            isHuman = override
+        } else {
+            // Check if any action for this player was marked as human
+            isHuman = actions.contains { ($0.value(forKey: "isHuman") as? Bool) == true }
+        }
+        
         return PlayerStats(
             playerName: playerName,
             gameMode: gameMode,
+            isHuman: isHuman,
             totalHands: totalHands,
             vpip: vpip,
             pfr: pfr,
@@ -283,6 +295,7 @@ class StatisticsCalculator {
             entity.setValue(pid, forKey: "profileId")
         }
         
+        entity.setValue(stats.isHuman, forKey: "isHuman")
         entity.setValue(Int32(stats.totalHands), forKey: "totalHands")
         entity.setValue(stats.vpip, forKey: "vpip")
         entity.setValue(stats.pfr, forKey: "pfr")
