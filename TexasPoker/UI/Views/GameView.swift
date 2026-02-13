@@ -393,7 +393,12 @@ struct GameView: View {
         let cardWidth = DeviceHelper.cardWidth(for: geo)
         let cardHeight = DeviceHelper.cardHeight(for: geo)
         
-        return HStack(spacing: 6) {
+        // Calculate total width to ensure it fits
+        let spacing: CGFloat = 6
+        let totalWidth = (cardWidth * 5) + (spacing * 4)
+        let scale = totalWidth > geo.size.width * 0.8 ? (geo.size.width * 0.8) / totalWidth : 1.0
+        
+        return HStack(spacing: spacing) {
             ForEach(Array(store.engine.communityCards.enumerated()), id: \.offset) { index, card in
                 FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth)
             }
@@ -403,6 +408,7 @@ struct GameView: View {
                     .frame(width: cardWidth, height: cardHeight)
             }
         }
+        .scaleEffect(scale)
     }
     
     // MARK: - 8-Player Oval Layout
@@ -413,10 +419,12 @@ struct GameView: View {
     private func playerOvalLayout(geo: GeometryProxy) -> some View {
         let w = geo.size.width
         let h = geo.size.height
+        
+        // Adjust layout to pull Hero up and avoid overlap with bottom controls
         let centerX = w / 2
-        let centerY = h * 0.42  // Slightly above vertical center
-        let radiusX = w * 0.42
-        let radiusY = h * 0.30
+        let centerY = h * 0.38  // Moved up from 0.42
+        let radiusX = w * 0.40  // Slightly narrower
+        let radiusY = h * 0.26  // Reduced from 0.30 to pull bottom player up
         
         // Seat positions as angles (starting from bottom, going clockwise)
         // Seat 0: 270° (bottom), Seat 1: 225° (bottom-left), ...
@@ -450,7 +458,8 @@ struct GameView: View {
                         compact: false,
                         gameMode: store.engine.gameMode
                     )
-                    .position(x: x, y: y + 15)
+                    .position(x: x, y: y) // Removed +15 offset to keep it higher
+                    .zIndex(100) // Ensure Hero is always on top
                 } else {
                     let isActiveInPlay = store.engine.activePlayerIndex == i
                         && (store.state == .waitingForAction || store.state == .betting)
@@ -463,6 +472,7 @@ struct GameView: View {
                         gameMode: store.engine.gameMode
                     )
                     .position(x: x, y: y)
+                    .zIndex(Double(10 - i)) // Lower z-index for background players
                 }
             }
         }

@@ -23,6 +23,7 @@ struct PlayerCardsView: View {
                 .padding(.bottom, -8)
                 .zIndex(1)
                 .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                .opacity(1.0) // Force opacity
             } else {
                 Color.clear.frame(height: 24)
             }
