@@ -11,13 +11,9 @@ extension View {
                 action(newValue)
             }
         } else {
-            _onChangeLegacy(of: value, perform: action)
+            // iOS 16 及更早：使用旧签名（iOS 17 才 deprecated）
+            onChange(of: value, perform: action)
         }
-    }
-
-    @available(iOS, introduced: 13.0, obsoleted: 17.0)
-    private func _onChangeLegacy<V: Equatable>(of value: V, perform action: @escaping (V) -> Void) -> some View {
-        onChange(of: value, perform: action)
     }
 }
 
