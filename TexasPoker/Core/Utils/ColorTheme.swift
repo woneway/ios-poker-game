@@ -19,14 +19,14 @@ extension Color {
     // MARK: - Gradients
     
     static let tableGradient = RadialGradient(
-        gradient: Gradient(colors: [Color(hex: "1a5c1a"), Color(hex: "0d3d0d")]),
+        gradient: Gradient(colors: [Color(hex: "0A3D0A"), Color(hex: "051F05")]),
         center: .center,
         startRadius: 100,
         endRadius: 500
     )
 
     static let cardBackGradient = LinearGradient(
-        gradient: Gradient(colors: [Color(hex: "b82e2e"), Color(hex: "8a1c1c")]),
+        gradient: Gradient(colors: [Color(hex: "B71C1C"), Color(hex: "880E4F")]),
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -35,12 +35,14 @@ extension Color {
     
     /// Adaptive table background color based on color scheme
     static func adaptiveTableBackground(_ colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark ? Color(hex: "0d3d0d") : Color(hex: "1a5c1a")
+        // Darker, more premium wood/felt tone
+        colorScheme == .dark ? Color(hex: "1B1B1B") : Color(hex: "2C2C2C")
     }
     
     /// Adaptive table felt color based on color scheme
     static func adaptiveTableFelt(_ colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark ? Color(hex: "145214") : Color(hex: "1e6b1e")
+        // Deep rich green
+        colorScheme == .dark ? Color(hex: "0D330D") : Color(hex: "144514")
     }
     
     /// Adaptive card background color based on color scheme
@@ -72,14 +74,34 @@ extension Color {
     
     // MARK: - Chip Colors
     
+    static let chipWhite = Color(hex: "E0E0E0")
+    static let chipRed = Color(hex: "D32F2F")
+    static let chipGreen = Color(hex: "388E3C")
+    static let chipBlue = Color(hex: "1976D2")
+    static let chipBlack = Color(hex: "212121")
+    static let chipPurple = Color(hex: "7B1FA2")
+    static let chipOrange = Color(hex: "F57C00")
+    
+    static func chipColor(for amount: Int) -> Color {
+        switch amount {
+        case 1...4: return chipWhite
+        case 5...24: return chipRed
+        case 25...99: return chipGreen
+        case 100...499: return chipBlue
+        case 500...999: return chipBlack
+        case 1000...4999: return chipPurple
+        default: return chipOrange
+        }
+    }
+    
     static let chipColors: [Int: Color] = [
-        1: Color(hex: "FFFFFF"),    // White
-        5: Color(hex: "FF3B30"),    // Red
-        25: Color(hex: "34C759"),   // Green
-        100: Color(hex: "007AFF"),  // Blue
-        500: Color(hex: "000000"),  // Black
-        1000: Color(hex: "AF52DE"), // Purple
-        5000: Color(hex: "FF9500")  // Orange
+        1: chipWhite,
+        5: chipRed,
+        25: chipGreen,
+        100: chipBlue,
+        500: chipBlack,
+        1000: chipPurple,
+        5000: chipOrange
     ]
 }
 

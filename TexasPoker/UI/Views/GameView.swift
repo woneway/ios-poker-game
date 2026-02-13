@@ -148,37 +148,65 @@ struct GameView: View {
     
     private func portraitLayout(geo: GeometryProxy) -> some View {
         ZStack {
-            // Background - adaptive color
+            // Background - Premium dark gradient
+            Color.adaptiveTableBackground(colorScheme)
+                .edgesIgnoringSafeArea(.all)
+            
             RadialGradient(
                 gradient: Gradient(colors: [
-                    Color.adaptiveTableBackground(colorScheme),
-                    Color.adaptiveTableBackground(colorScheme).opacity(0.8)
+                    Color.black.opacity(0.0),
+                    Color.black.opacity(0.8)
                 ]),
                 center: .center,
-                startRadius: 50,
-                endRadius: max(geo.size.width, geo.size.height) * 0.6
+                startRadius: 200,
+                endRadius: max(geo.size.width, geo.size.height)
             )
             .edgesIgnoringSafeArea(.all)
             
-            // Table felt ellipse - adaptive color
-            Ellipse()
-                .fill(
-                    RadialGradient(
-                        gradient: Gradient(colors: [
-                            Color.adaptiveTableFelt(colorScheme),
-                            Color.adaptiveTableFelt(colorScheme).opacity(0.8)
-                        ]),
-                        center: .center,
-                        startRadius: 20,
-                        endRadius: 200
+            // Table felt ellipse - Premium look
+            ZStack {
+                // Table Shadow
+                Ellipse()
+                    .fill(Color.black.opacity(0.5))
+                    .frame(width: geo.size.width * 0.92, height: geo.size.height * 0.52)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42 + 10)
+                    .blur(radius: 20)
+                
+                // Table Border (Wood/Leather)
+                Ellipse()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color(hex: "3E2723"), Color(hex: "1B0000")]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .overlay(
-                    Ellipse()
-                        .strokeBorder(Color(hex: "8B4513").opacity(0.8), lineWidth: 6)
-                )
-                .frame(width: geo.size.width * 0.88, height: geo.size.height * 0.5)
-                .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                    .frame(width: geo.size.width * 0.92, height: geo.size.height * 0.52)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                    .overlay(
+                        Ellipse()
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            .frame(width: geo.size.width * 0.92, height: geo.size.height * 0.52)
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                    )
+                
+                // Table Felt
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color.adaptiveTableFelt(colorScheme),
+                                Color.adaptiveTableFelt(colorScheme).opacity(0.8)
+                            ]),
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 200
+                        )
+                    )
+                    .frame(width: geo.size.width * 0.86, height: geo.size.height * 0.48)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                    .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5) // Inner shadow simulation
+            }
             
             // SpriteKit layer
             SpriteView(scene: scene, options: [.allowsTransparency])
@@ -211,6 +239,7 @@ struct GameView: View {
                     // Community cards (center of table)
                     communityCardsView(geo: geo)
                         .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
+                        .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 5)
                     
                     // Pot display
                     GamePotDisplay(store: store)
