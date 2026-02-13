@@ -27,7 +27,7 @@ struct GameView: View {
     
     @State private var scene: PokerTableScene = {
         let scene = PokerTableScene()
-        scene.size = CGSize(width: 300, height: 600)
+        scene.size = CGSize(width: 300, height: 600)  // 高度增加到 600
         scene.scaleMode = .resizeFill
         scene.backgroundColor = .clear
         return scene
@@ -168,7 +168,7 @@ struct GameView: View {
                 // Table Shadow
                 Ellipse()
                     .fill(Color.black.opacity(0.5))
-                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.58)
+                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)  // 增加高度到 68%
                     .position(x: geo.size.width / 2, y: geo.size.height * 0.45 + 10)
                     .blur(radius: 20)
                 
@@ -181,12 +181,12 @@ struct GameView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.58)
+                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)  // 增加高度到 68%
                     .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
                     .overlay(
                         Ellipse()
                             .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                            .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.58)
+                            .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)
                             .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
                     )
                 
@@ -203,7 +203,7 @@ struct GameView: View {
                             endRadius: 200
                         )
                     )
-                    .frame(width: geo.size.width * 0.85, height: geo.size.height * 0.54)
+                    .frame(width: geo.size.width * 0.85, height: geo.size.height * 0.64)  // 增加高度到 64%
                     .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
                     .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
             }
@@ -422,10 +422,11 @@ struct GameView: View {
         let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
         
         // 调整牌桌尺寸为更圆润的椭圆
+        // 玩家位置半径必须大于牌桌半径，才能让头像在牌桌外部
         let centerX = w / 2
         let centerY = h * 0.45
-        let radiusX = w * 0.32
-        let radiusY = h * 0.25
+        let radiusX = w * 0.48  // 大于 table radiusX (w * 0.45)
+        let radiusY = h * 0.32  // 大于 table radiusY (h * 0.29)
         
         // Seat positions as angles (starting from bottom, going clockwise)
         let seatAngles: [Double] = [

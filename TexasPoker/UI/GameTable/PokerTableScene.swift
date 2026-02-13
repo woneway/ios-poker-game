@@ -42,8 +42,8 @@ class PokerTableScene: SKScene {
         
         let centerX = size.width / 2
         let centerY = size.height * 0.42
-        let radiusX = size.width * 0.38
-        let radiusY = size.height * 0.28
+        let radiusX = size.width * 0.48  // 匹配 GameView 中的玩家位置半径
+        let radiusY = size.height * 0.32
         
         var cardIndex = 0
         for seatIdx in activeSeatIndices {
@@ -78,8 +78,8 @@ class PokerTableScene: SKScene {
         
         let centerX = size.width / 2
         let centerY = size.height * 0.42
-        let radiusX = size.width * 0.38
-        let radiusY = size.height * 0.28
+        let radiusX = size.width * 0.48  // 匹配 GameView 中的玩家位置半径
+        let radiusY = size.height * 0.32
         
         let angle = seatAngles[seatIndex] * .pi / 180
         let startX = centerX + radiusX * CGFloat(cos(angle))
@@ -136,8 +136,8 @@ class PokerTableScene: SKScene {
         
         let centerX = size.width / 2
         let centerY = size.height * 0.42
-        let radiusX = size.width * 0.38
-        let radiusY = size.height * 0.28
+        let radiusX = size.width * 0.48  // 匹配 GameView 中的玩家位置半径
+        let radiusY = size.height * 0.32
         
         let angle = seatAngles[seatIndex] * .pi / 180
         let endX = centerX + radiusX * CGFloat(cos(angle))
