@@ -13,28 +13,36 @@ struct PlayerCardsView: View {
     
     var body: some View {
         Group {
-            // Hero 总是显示手牌占位，确保 UI 布局正确
-            if player.isHuman {
-                HStack(spacing: -(cardWidth * 0.4)) {
+            // Hero 总是显示手牌正面
+            if player.isHuman && !player.holeCards.isEmpty {
+                HStack(spacing: -(cardWidth * 0.35)) {
                     ForEach(Array(player.holeCards.enumerated()), id: \.offset) { index, card in
                         // Hero 使用 FlippingCard 并传入 isHero=true，始终显示正面
                         FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth, isHero: true)
-                            .rotationEffect(.degrees(Double.random(in: -3...3)))
-                    }
-                    // 占位符，确保 Hero 手牌区域始终显示
-                    if player.holeCards.count == 1 {
-                        FlippingCard(card: Card(rank: .ace, suit: .spades), delay: 0, width: cardWidth, isHero: true)
-                            .opacity(0)  // 占位但不可见
-                    } else if player.holeCards.isEmpty {
-                        // 发牌期间显示背面占位
-                        FlippingCard(card: Card(rank: .ace, suit: .spades), delay: 0, width: cardWidth, isHero: true)
-                            .opacity(0)
-                        FlippingCard(card: Card(rank: .ace, suit: .spades), delay: 0, width: cardWidth, isHero: true)
-                            .opacity(0)
+                            .rotationEffect(.degrees(Double.random(in: -2...2)))
                     }
                 }
-                .padding(.bottom, -6)
+                .padding(.bottom, -4)
                 .zIndex(1)
+            } else if player.isHuman && player.holeCards.isEmpty {
+                // 发牌期间显示占位
+                Color.clear.frame(height: cardWidth * 0.5)
+            } else if !player.holeCards.isEmpty && player.status != .folded {
+                // 非 Hero 玩家
+                HStack(spacing: -(cardWidth * 0.35)) {
+                    ForEach(player.holeCards) { card in
+                        CardView(card: showCards ? card : nil, width: cardWidth)
+                            .rotationEffect(.degrees(Double.random(in: -2...2)))
+                    }
+                }
+                .padding(.bottom, -4)
+                .zIndex(1)
+            } else {
+                Color.clear.frame(height: cardWidth * 0.5)
+            }
+        }
+    }
+}
             } else if !player.holeCards.isEmpty && player.status != .folded {
                 // 非 Hero 玩家：按 showCards 决定是否显示
                 HStack(spacing: -(cardWidth * 0.4)) {
