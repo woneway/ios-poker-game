@@ -13,17 +13,34 @@ struct PlayerCardsView: View {
     
     var body: some View {
         Group {
-            if !player.holeCards.isEmpty && player.status != .folded {
+            // Hero 总是显示手牌占位，确保 UI 布局正确
+            if player.isHuman {
+                HStack(spacing: -(cardWidth * 0.4)) {
+                    ForEach(Array(player.holeCards.enumerated()), id: \.offset) { index, card in
+                        CardView(card: card, width: cardWidth)
+                            .rotationEffect(.degrees(Double.random(in: -3...3)))
+                    }
+                    // 占位符，确保 Hero 手牌区域始终显示
+                    if player.holeCards.count == 1 {
+                        CardView(card: nil, width: cardWidth)
+                    } else if player.holeCards.isEmpty {
+                        // 发牌期间显示背面占位
+                        CardView(card: nil, width: cardWidth)
+                        CardView(card: nil, width: cardWidth)
+                    }
+                }
+                .padding(.bottom, -6)
+                .zIndex(1)
+            } else if !player.holeCards.isEmpty && player.status != .folded {
+                // 非 Hero 玩家：按 showCards 决定是否显示
                 HStack(spacing: -(cardWidth * 0.4)) {
                     ForEach(player.holeCards) { card in
-                        CardView(card: shouldShowCardFace ? card : nil, width: cardWidth)
+                        CardView(card: showCards ? card : nil, width: cardWidth)
                             .rotationEffect(.degrees(Double.random(in: -3...3)))
                     }
                 }
-                .padding(.bottom, -8)
+                .padding(.bottom, -6)
                 .zIndex(1)
-                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                .opacity(1.0) // Force opacity
             } else {
                 Color.clear.frame(height: 24)
             }
