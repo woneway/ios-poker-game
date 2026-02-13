@@ -7,7 +7,7 @@ struct GameTournamentInfo: View {
         HStack(spacing: 12) {
             // Current blinds
             VStack(alignment: .leading, spacing: 2) {
-                Text("Blinds")
+                Text("盲注")
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 Text("\(store.engine.smallBlindAmount)/\(store.engine.bigBlindAmount)")
@@ -19,7 +19,7 @@ struct GameTournamentInfo: View {
             
             // Level
             VStack(alignment: .leading, spacing: 2) {
-                Text("Level")
+                Text("级别")
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 Text("\(store.engine.currentBlindLevel + 1)")
@@ -31,11 +31,11 @@ struct GameTournamentInfo: View {
             
             // Hands until next level
             VStack(alignment: .leading, spacing: 2) {
-                Text("Next in")
+                Text("下个级别")
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 let remaining = (store.engine.tournamentConfig?.handsPerLevel ?? 10) - store.engine.handsAtCurrentLevel
-                Text("\(remaining) hands")
+                Text("\(remaining) 手")
                     .font(.system(size: 14, weight: .bold))
             }
             
@@ -44,7 +44,7 @@ struct GameTournamentInfo: View {
                     .frame(height: 30)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Ante")
+                    Text("前注")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     Text("\(store.engine.anteAmount)")

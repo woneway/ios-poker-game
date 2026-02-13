@@ -14,10 +14,10 @@ struct HistoryView: View {
                         Image(systemName: "clock.badge.questionmark")
                             .font(.system(size: 50))
                             .foregroundColor(.gray.opacity(0.4))
-                        Text("No games played yet")
+                        Text("暂无游戏记录")
                             .font(.headline)
                             .foregroundColor(.gray)
-                        Text("Complete a game to see your history here")
+                        Text("完成游戏后即可在此查看历史记录")
                             .font(.subheadline)
                             .foregroundColor(.gray.opacity(0.6))
                     }
@@ -31,12 +31,12 @@ struct HistoryView: View {
                     }
                 }
             }
-            .navigationTitle("Game History")
+            .navigationTitle("游戏历史")
             .navigationBarItems(
-                leading: historyManager.records.isEmpty ? nil : Button("Clear") {
+                leading: historyManager.records.isEmpty ? nil : Button("清除") {
                     showClearConfirm = true
                 },
-                trailing: Button("Done") {
+                trailing: Button("完成") {
                     isPresented = false
                 }
             )
@@ -80,7 +80,7 @@ struct HistoryView: View {
                     .foregroundColor(.primary)
                 
                 HStack(spacing: 8) {
-                    Label("\(record.totalHands) hands", systemImage: "suit.spade.fill")
+                    Label("\(record.totalHands) 手", systemImage: "suit.spade.fill")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                     
@@ -104,35 +104,35 @@ struct HistoryView: View {
     private func historyDetail(_ record: GameRecord) -> some View {
         NavigationView {
             List {
-                Section(header: Text("Game Info")) {
+                Section(header: Text("游戏信息")) {
                     HStack {
-                        Text("Date")
+                        Text("日期")
                         Spacer()
                         Text(dateFormatted(record.date))
                             .foregroundColor(.secondary)
                     }
                     HStack {
-                        Text("Total Hands")
+                        Text("总局数")
                         Spacer()
                         Text("\(record.totalHands)")
                             .foregroundColor(.secondary)
                     }
                     HStack {
-                        Text("Players")
+                        Text("玩家数")
                         Spacer()
                         Text("\(record.totalPlayers)")
                             .foregroundColor(.secondary)
                     }
                     HStack {
-                        Text("Your Rank")
+                        Text("你的排名")
                         Spacer()
-                        Text("#\(record.heroRank) of \(record.totalPlayers)")
+                        Text("#\(record.heroRank) / \(record.totalPlayers)")
                             .foregroundColor(record.heroRank == 1 ? .green : .orange)
                             .fontWeight(.bold)
                     }
                 }
                 
-                Section(header: Text("Final Standings")) {
+                Section(header: Text("最终排名")) {
                     ForEach(record.results) { result in
                         HStack(spacing: 10) {
                             Text(rankEmoji(result.rank))
@@ -152,7 +152,7 @@ struct HistoryView: View {
                                     }
                                 }
                                 
-                                Text(result.rank == 1 ? "Winner" : "Out at Hand #\(result.handsPlayed)")
+                                Text(result.rank == 1 ? "获胜者" : "淘汰于第 \(result.handsPlayed) 手")
                                     .font(.system(size: 11))
                                     .foregroundColor(.secondary)
                             }
@@ -167,8 +167,8 @@ struct HistoryView: View {
                     }
                 }
             }
-            .navigationTitle("Game Detail")
-            .navigationBarItems(trailing: Button("Close") {
+            .navigationTitle("游戏详情")
+            .navigationBarItems(trailing: Button("关闭") {
                 selectedRecord = nil
             })
         }

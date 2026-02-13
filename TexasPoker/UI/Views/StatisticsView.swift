@@ -18,9 +18,9 @@ struct StatisticsView: View {
         NavigationView {
             VStack {
                 // Mode selector
-                Picker("Mode", selection: $selectedMode) {
-                    Text("Cash Game").tag(GameMode.cashGame)
-                    Text("Tournament").tag(GameMode.tournament)
+                Picker("模式", selection: $selectedMode) {
+                    Text("现金局").tag(GameMode.cashGame)
+                    Text("锦标赛").tag(GameMode.tournament)
                 }
                 .pickerStyle(SegmentedPickerStyle())
                 .padding()
@@ -33,7 +33,7 @@ struct StatisticsView: View {
                     }
                     
                     if filteredStats.isEmpty {
-                        Text("No statistics available yet")
+                        Text("暂无统计数据")
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding()
@@ -42,7 +42,7 @@ struct StatisticsView: View {
                         if let heroStats = filteredStats.first(where: { 
                             $0.playerName == "Hero"
                         }) {
-                            Section(header: Text("Hero")) {
+                            Section(header: Text("玩家")) {
                                 PlayerStatsRow(statsEntity: heroStats)
                             }
                         }
@@ -52,7 +52,7 @@ struct StatisticsView: View {
                             $0.playerName != "Hero"
                         }
                         if !aiStats.isEmpty {
-                            Section(header: Text("AI Opponents")) {
+                            Section(header: Text("AI 对手")) {
                                 ForEach(aiStats, id: \.self) { stats in
                                     PlayerStatsRow(statsEntity: stats)
                                 }
@@ -61,7 +61,7 @@ struct StatisticsView: View {
                     }
                 }
             }
-            .navigationTitle("Statistics")
+            .navigationTitle("统计")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: exportStatistics) {
@@ -154,16 +154,16 @@ struct PlayerStatsRow: View {
             }
             
             HStack(spacing: 12) {
-                Text("\(statsEntity.totalHands) hands")
+                Text("\(statsEntity.totalHands) 手")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("\(statsEntity.handsWon) wins")
+                Text("\(statsEntity.handsWon) 胜")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 let winRate = statsEntity.totalHands > 0 
                     ? Double(statsEntity.handsWon) / Double(statsEntity.totalHands) * 100 
                     : 0.0
-                Text(String(format: "%.1f%% win rate", winRate))
+                Text(String(format: "%.1f%% 胜率", winRate))
                     .font(.caption)
                     .foregroundColor(.cyan)
             }

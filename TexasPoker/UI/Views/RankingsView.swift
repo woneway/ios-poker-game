@@ -14,13 +14,13 @@ struct RankingsView: View {
             
             VStack(spacing: 16) {
                 // Title
-                Text("🏆 FINAL STANDINGS")
+                Text("🏆 最终排名")
                     .font(.system(size: 22, weight: .black, design: .rounded))
                     .foregroundColor(.yellow)
                     .shadow(color: .yellow.opacity(0.5), radius: 6)
                     .padding(.top, 30)
                 
-                Text("Total Hands: \(totalHands)")
+                Text("总局数: \(totalHands)")
                     .font(.system(size: 13))
                     .foregroundColor(.white.opacity(0.5))
                 
@@ -37,7 +37,7 @@ struct RankingsView: View {
                 
                 // New Game button
                 Button(action: onNewGame) {
-                    Text("NEW GAME")
+                    Text("新游戏")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -88,18 +88,18 @@ struct RankingsView: View {
                         .foregroundColor(result.isHuman ? .yellow : .white)
                     
                     if result.isHuman {
-                        Text("(You)")
+                        Text("(你)")
                             .font(.system(size: 11))
                             .foregroundColor(.yellow.opacity(0.7))
                     }
                 }
                 
                 if result.rank == 1 {
-                    Text("Winner · $\(result.finalChips)")
+                    Text("获胜 · $\(result.finalChips)")
                         .font(.system(size: 11))
                         .foregroundColor(.green)
                 } else {
-                    Text("Out at Hand #\(result.handsPlayed)")
+                    Text("淘汰于第 \(result.handsPlayed) 手")
                         .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.4))
                 }
@@ -129,7 +129,7 @@ struct RankingsView: View {
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundColor(.green)
             } else {
-                Text("Eliminated")
+                Text("淘汰")
                     .font(.system(size: 11))
                     .foregroundColor(.red.opacity(0.7))
             }

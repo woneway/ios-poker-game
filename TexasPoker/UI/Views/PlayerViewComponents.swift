@@ -245,19 +245,19 @@ struct ProfilePopover: View {
             // Stats Section
             if let stats = stats {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Statistics")
+                    Text("统计")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                    StatRow(label: "Total Hands", value: "\(stats.totalHands)")
-                    StatRow(label: "VPIP", value: String(format: "%.1f%%", stats.vpip))
-                    StatRow(label: "PFR", value: String(format: "%.1f%%", stats.pfr))
+                    StatRow(label: "总局数", value: "\(stats.totalHands)")
+                    StatRow(label: "入池率", value: String(format: "%.1f%%", stats.vpip))
+                    StatRow(label: "加注率", value: String(format: "%.1f%%", stats.pfr))
                     StatRow(label: "3-Bet", value: String(format: "%.1f%%", stats.threeBet))
-                    StatRow(label: "WTSD", value: String(format: "%.1f%%", stats.wtsd))
-                    StatRow(label: "W$SD", value: String(format: "%.1f%%", stats.wsd))
+                    StatRow(label: "看到摊牌", value: String(format: "%.1f%%", stats.wtsd))
+                    StatRow(label: "摊牌胜率", value: String(format: "%.1f%%", stats.wsd))
                 }
             } else {
-                Text("No statistics available")
+                Text("暂无统计数据")
                     .foregroundColor(.secondary)
                     .font(.caption)
             }
@@ -267,18 +267,18 @@ struct ProfilePopover: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("AI Profile")
+                    Text("AI 画像")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                    StatRow(label: "Tightness", value: String(format: "%.0f%%", (1 - aiProfile.tightness) * 100))
-                    StatRow(label: "Aggression", value: String(format: "%.0f%%", aiProfile.aggression * 100))
-                    StatRow(label: "Bluff Freq", value: String(format: "%.0f%%", aiProfile.bluffFreq * 100))
-                    StatRow(label: "C-Bet Flop", value: String(format: "%.0f%%", aiProfile.cbetFreq * 100))
-                    StatRow(label: "C-Bet Turn", value: String(format: "%.0f%%", aiProfile.cbetTurnFreq * 100))
-                    StatRow(label: "Position Aware", value: String(format: "%.0f%%", aiProfile.positionAwareness * 100))
-                    StatRow(label: "Tilt Sensitivity", value: String(format: "%.0f%%", aiProfile.tiltSensitivity * 100))
-                    StatRow(label: "Call Down", value: String(format: "%.0f%%", aiProfile.callDownTendency * 100))
+                    StatRow(label: "松紧度", value: String(format: "%.0f%%", (1 - aiProfile.tightness) * 100))
+                    StatRow(label: "侵略性", value: String(format: "%.0f%%", aiProfile.aggression * 100))
+                    StatRow(label: "诈唬频率", value: String(format: "%.0f%%", aiProfile.bluffFreq * 100))
+                    StatRow(label: "C-Bet翻牌", value: String(format: "%.0f%%", aiProfile.cbetFreq * 100))
+                    StatRow(label: "C-Bet转牌", value: String(format: "%.0f%%", aiProfile.cbetTurnFreq * 100))
+                    StatRow(label: "位置感知", value: String(format: "%.0f%%", aiProfile.positionAwareness * 100))
+                    StatRow(label: "上头敏感度", value: String(format: "%.0f%%", aiProfile.tiltSensitivity * 100))
+                    StatRow(label: "跟注到底", value: String(format: "%.0f%%", aiProfile.callDownTendency * 100))
                 }
             }
             
