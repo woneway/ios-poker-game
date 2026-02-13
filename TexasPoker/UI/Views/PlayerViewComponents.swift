@@ -43,22 +43,6 @@ struct PlayerCardsView: View {
         }
     }
 }
-            } else if !player.holeCards.isEmpty && player.status != .folded {
-                // 非 Hero 玩家：按 showCards 决定是否显示
-                HStack(spacing: -(cardWidth * 0.4)) {
-                    ForEach(player.holeCards) { card in
-                        CardView(card: showCards ? card : nil, width: cardWidth)
-                            .rotationEffect(.degrees(Double.random(in: -3...3)))
-                    }
-                }
-                .padding(.bottom, -6)
-                .zIndex(1)
-            } else {
-                Color.clear.frame(height: 24)
-            }
-        }
-    }
-}
 
 // MARK: - Player Avatar View
 
