@@ -186,7 +186,7 @@ class PokerTableScene: SKScene {
     private func createConfetti(at position: CGPoint) {
         let colors: [UIColor] = [.red, .green, .blue, .yellow, .cyan, .magenta, .orange]
         
-        for _ in 0..<30 {
+        for _ in 0..<15 {
             let confetti = SKShapeNode(rectOf: CGSize(width: 6, height: 6))
             confetti.fillColor = colors.randomElement()!
             confetti.strokeColor = .clear
@@ -240,28 +240,10 @@ class ChipNode: SKNode {
         default: baseColor = UIColor(hex: "F57C00") // Orange
         }
         
-        // Main chip body
+        // Main chip body - Simplified for performance
         mainCircle.fillColor = baseColor
         mainCircle.strokeColor = .white
-        mainCircle.lineWidth = 1.5
-        
-        // Add striped edge effect (dashed line)
-        let dashedCircle = SKShapeNode(circleOfRadius: 13)
-        dashedCircle.strokeColor = .white.withAlphaComponent(0.6)
-        dashedCircle.lineWidth = 2
-        let pattern: [NSNumber] = [4, 4]
-        let dashedPath = CGPath(ellipseIn: CGRect(x: -13, y: -13, width: 26, height: 26), transform: nil)
-            .copy(dashingWithPhase: 0, lengths: [4, 4])
-        dashedCircle.path = dashedPath
-        dashedCircle.fillColor = .clear
-        mainCircle.addChild(dashedCircle)
-        
-        // Add inner shadow/highlight effect
-        let innerCircle = SKShapeNode(circleOfRadius: 10)
-        innerCircle.fillColor = .clear
-        innerCircle.strokeColor = .white.withAlphaComponent(0.3)
-        innerCircle.lineWidth = 1
-        mainCircle.addChild(innerCircle)
+        mainCircle.lineWidth = 2
         
         // Label styling
         label.fontSize = amount >= 1000 ? 10 : 12
@@ -270,10 +252,11 @@ class ChipNode: SKNode {
         label.fontName = "HelveticaNeue-Bold"
         label.zPosition = 1
         
-        // Shadow for depth
-        let shadow = SKShapeNode(circleOfRadius: 15)
+        // Simple shadow
+        let shadow = SKShapeNode(circleOfRadius: 16)
         shadow.fillColor = .black
-        shadow.alpha = 0.3
+        shadow.alpha = 0.2
+        shadow.lineWidth = 0
         shadow.position = CGPoint(x: 2, y: -2)
         shadow.zPosition = -1
         addChild(shadow)

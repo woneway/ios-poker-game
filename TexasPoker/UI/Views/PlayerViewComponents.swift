@@ -259,11 +259,27 @@ struct ProfilePopover: View {
                     StatRow(label: "Tightness", value: String(format: "%.0f%%", (1 - aiProfile.tightness) * 100))
                     StatRow(label: "Aggression", value: String(format: "%.0f%%", aiProfile.aggression * 100))
                     StatRow(label: "Bluff Freq", value: String(format: "%.0f%%", aiProfile.bluffFreq * 100))
+                    StatRow(label: "C-Bet Flop", value: String(format: "%.0f%%", aiProfile.cbetFreq * 100))
+                    StatRow(label: "C-Bet Turn", value: String(format: "%.0f%%", aiProfile.cbetTurnFreq * 100))
+                    StatRow(label: "Position Aware", value: String(format: "%.0f%%", aiProfile.positionAwareness * 100))
+                    StatRow(label: "Tilt Sensitivity", value: String(format: "%.0f%%", aiProfile.tiltSensitivity * 100))
+                    StatRow(label: "Call Down", value: String(format: "%.0f%%", aiProfile.callDownTendency * 100))
                 }
+            }
+            
+            // Description
+            if let aiProfile = player.aiProfile {
+                Divider()
+
+                Text(aiProfile.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .italic()
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding()
-        .frame(minWidth: 220)
+        .frame(minWidth: 240)
         .background(.regularMaterial)
     }
 }

@@ -211,6 +211,22 @@ struct GameView: View {
             // SpriteKit layer
             SpriteView(scene: scene, options: [.allowsTransparency])
                 .edgesIgnoringSafeArea(.all)
+                .allowsHitTesting(false)
+            
+            // Main game area (Moved out of HUD VStack to fix coordinate system issues)
+            ZStack {
+                // 8-player oval layout
+                playerOvalLayout(geo: geo)
+                
+                // Community cards (center of table)
+                communityCardsView(geo: geo)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
+                    .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 5)
+                
+                // Pot display
+                GamePotDisplay(store: store)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.30)
+            }
             
             // HUD
             VStack(spacing: 0) {
@@ -229,21 +245,6 @@ struct GameView: View {
                     GameTournamentInfo(store: store)
                         .padding(.horizontal, 16)
                         .padding(.top, 4)
-                }
-                
-                // Main game area
-                ZStack {
-                    // 8-player oval layout
-                    playerOvalLayout(geo: geo)
-                    
-                    // Community cards (center of table)
-                    communityCardsView(geo: geo)
-                        .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
-                        .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 5)
-                    
-                    // Pot display
-                    GamePotDisplay(store: store)
-                        .position(x: geo.size.width / 2, y: geo.size.height * 0.30)
                 }
                 
                 Spacer(minLength: 0)
@@ -392,7 +393,7 @@ struct GameView: View {
         let cardWidth = DeviceHelper.cardWidth(for: geo)
         let cardHeight = DeviceHelper.cardHeight(for: geo)
         
-        return HStack(spacing: 4) {
+        return HStack(spacing: 6) {
             ForEach(Array(store.engine.communityCards.enumerated()), id: \.offset) { index, card in
                 FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth)
             }
