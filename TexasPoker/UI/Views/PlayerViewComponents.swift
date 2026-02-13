@@ -23,13 +23,13 @@ struct PlayerCardsView: View {
                     }
                     // 占位符，确保 Hero 手牌区域始终显示
                     if player.holeCards.count == 1 {
-                        FlippingCard(card: Card(suit: .spades, rank: .ace), delay: 0, width: cardWidth, isHero: true)
+                        FlippingCard(card: Card(rank: .ace, suit: .spades), delay: 0, width: cardWidth, isHero: true)
                             .opacity(0)  // 占位但不可见
                     } else if player.holeCards.isEmpty {
                         // 发牌期间显示背面占位
-                        FlippingCard(card: Card(suit: .spades, rank: .ace), delay: 0, width: cardWidth, isHero: true)
+                        FlippingCard(card: Card(rank: .ace, suit: .spades), delay: 0, width: cardWidth, isHero: true)
                             .opacity(0)
-                        FlippingCard(card: Card(suit: .spades, rank: .ace), delay: 0, width: cardWidth, isHero: true)
+                        FlippingCard(card: Card(rank: .ace, suit: .spades), delay: 0, width: cardWidth, isHero: true)
                             .opacity(0)
                     }
                 }
