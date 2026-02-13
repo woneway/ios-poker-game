@@ -168,8 +168,8 @@ struct GameView: View {
                 // Table Shadow
                 Ellipse()
                     .fill(Color.black.opacity(0.5))
-                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.50)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42 + 10)
+                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.58)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45 + 10)
                     .blur(radius: 20)
                 
                 // Table Border (Wood/Leather)
@@ -181,13 +181,13 @@ struct GameView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.50)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.58)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
                     .overlay(
                         Ellipse()
                             .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                            .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.50)
-                            .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                            .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.58)
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
                     )
                 
                 // Table Felt
@@ -203,8 +203,8 @@ struct GameView: View {
                             endRadius: 200
                         )
                     )
-                    .frame(width: geo.size.width * 0.85, height: geo.size.height * 0.46)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                    .frame(width: geo.size.width * 0.85, height: geo.size.height * 0.54)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
                     .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
             }
             
@@ -390,9 +390,9 @@ struct GameView: View {
     // MARK: - Community Cards
     
     private func communityCardsView(geo: GeometryProxy) -> some View {
-        // 调整公共牌尺寸，避免过长
+        // 调整公共牌尺寸
         let baseWidth = DeviceHelper.cardWidth(for: geo)
-        let cardWidth = min(baseWidth * 0.55, 32.0)  // 限制最大宽度
+        let cardWidth = min(baseWidth * 0.65, 38.0)  // 适度增大
         let cardHeight = cardWidth * 1.4
         
         // 紧凑间距
@@ -408,7 +408,7 @@ struct GameView: View {
                     .frame(width: cardWidth, height: cardHeight)
             }
         }
-        .scaleEffect(0.65)
+        .scaleEffect(0.75)
     }
     
     // MARK: - 8-Player Oval Layout
@@ -423,9 +423,9 @@ struct GameView: View {
         
         // 调整牌桌尺寸为更圆润的椭圆
         let centerX = w / 2
-        let centerY = h * 0.42
-        let radiusX = w * 0.30
-        let radiusY = h * 0.22
+        let centerY = h * 0.45
+        let radiusX = w * 0.32
+        let radiusY = h * 0.25
         
         // Seat positions as angles (starting from bottom, going clockwise)
         let seatAngles: [Double] = [
@@ -460,7 +460,7 @@ struct GameView: View {
                         gameMode: store.engine.gameMode
                     )
                     // Hero 位置向上偏移，避免与底部控制栏重叠
-                    .position(x: x, y: y - 40)
+                    .position(x: x, y: y - 15)
                     .zIndex(100) // Ensure Hero is always on top
                 } else {
                     let isActiveInPlay = store.engine.activePlayerIndex == i

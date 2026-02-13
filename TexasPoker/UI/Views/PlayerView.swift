@@ -26,7 +26,7 @@ struct PlayerView: View {
     }
     
     private var cardWidth: CGFloat {
-        let base: CGFloat = compact ? 28 : 36
+        let base: CGFloat = compact ? 32 : 42
         return base * DeviceHelper.scaleFactor
     }
     
