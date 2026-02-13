@@ -425,8 +425,8 @@ struct GameView: View {
         // 玩家位置半径必须大于牌桌半径，才能让头像在牌桌外部
         let centerX = w / 2
         let centerY = h * 0.45
-        let radiusX = w * 0.48  // 大于 table radiusX (w * 0.45)
-        let radiusY = h * 0.32  // 大于 table radiusY (h * 0.29)
+        let radiusX = w * 0.40  // 减小半径，确保在屏幕内 (之前是 0.48)
+        let radiusY = h * 0.26  // 减小半径，确保在屏幕内 (之前是 0.32)
         
         // Seat positions as angles (starting from bottom, going clockwise)
         let seatAngles: [Double] = [
@@ -446,7 +446,6 @@ struct GameView: View {
                 let x = centerX + radiusX * cos(angle)
                 let y = centerY - radiusY * sin(angle)
                 let isShowdown = store.state == .showdown
-                let isHeroTurn = i == heroIndex && store.engine.activePlayerIndex == heroIndex && store.state == .waitingForAction
                 
                 if i == heroIndex {
                     // Hero - slightly larger, always shows cards

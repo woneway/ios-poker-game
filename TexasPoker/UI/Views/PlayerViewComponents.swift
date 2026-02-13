@@ -4,6 +4,7 @@ import SwiftUI
 
 struct PlayerCardsView: View {
     let player: Player
+    let isHero: Bool
     let showCards: Bool
     let cardWidth: CGFloat
     
@@ -14,7 +15,7 @@ struct PlayerCardsView: View {
     var body: some View {
         Group {
             // Hero 总是显示手牌正面
-            if player.isHuman && !player.holeCards.isEmpty {
+            if isHero && !player.holeCards.isEmpty {
                 HStack(spacing: -(cardWidth * 0.35)) {
                     ForEach(Array(player.holeCards.enumerated()), id: \.offset) { index, card in
                         // Hero 使用 FlippingCard 并传入 isHero=true，始终显示正面
@@ -24,7 +25,7 @@ struct PlayerCardsView: View {
                 }
                 .padding(.bottom, -4)
                 .zIndex(1)
-            } else if player.isHuman && player.holeCards.isEmpty {
+            } else if isHero && player.holeCards.isEmpty {
                 // 发牌期间显示占位
                 Color.clear.frame(height: cardWidth * 0.5)
             } else if !player.holeCards.isEmpty && player.status != .folded {
