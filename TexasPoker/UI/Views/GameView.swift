@@ -419,6 +419,7 @@ struct GameView: View {
     private func playerOvalLayout(geo: GeometryProxy) -> some View {
         let w = geo.size.width
         let h = geo.size.height
+        let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
         
         // Adjust layout to pull Hero up and avoid overlap with bottom controls
         let centerX = w / 2
@@ -445,8 +446,9 @@ struct GameView: View {
                 let x = centerX + radiusX * cos(angle)
                 let y = centerY - radiusY * sin(angle)
                 let isShowdown = store.state == .showdown
+                let isHeroTurn = i == heroIndex && store.engine.activePlayerIndex == heroIndex && store.state == .waitingForAction
                 
-                if i == 0 {
+                if i == heroIndex {
                     // Hero - slightly larger, always shows cards
                     let isActiveInPlay = store.engine.activePlayerIndex == i
                         && (store.state == .waitingForAction || store.state == .betting)
@@ -458,7 +460,8 @@ struct GameView: View {
                         compact: false,
                         gameMode: store.engine.gameMode
                     )
-                    .position(x: x, y: y) // Removed +15 offset to keep it higher
+                    // Lift Hero further when it's player's turn to avoid bottom control overlap.
+                    .position(x: x, y: y - (isHeroTurn ? 60 : 20))
                     .zIndex(100) // Ensure Hero is always on top
                 } else {
                     let isActiveInPlay = store.engine.activePlayerIndex == i
