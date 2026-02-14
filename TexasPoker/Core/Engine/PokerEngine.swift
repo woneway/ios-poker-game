@@ -281,6 +281,7 @@ class PokerEngine: ObservableObject {
         #endif
         
         // Check if only 1 non-folded player remains
+        // allIn玩家仍然在参与手牌，应该被计入
         let nonFolded = players.filter { $0.status != .folded && $0.status != .eliminated }
         if nonFolded.count == 1 {
             endHand()
