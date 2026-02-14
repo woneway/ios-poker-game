@@ -18,6 +18,8 @@ struct SettingsView: View {
     @State private var showResetConfirmation = false
     @State private var showTournamentSetup = false
     @State private var selectedTab: SettingsTab = .game
+    @State private var showWeChatQR = false
+    @State private var showDonateQR = false
     
     enum SettingsTab {
         case game, sound, statistics, about
@@ -87,6 +89,24 @@ struct SettingsView: View {
                     settings.gameMode = .tournament
                     settings.aiDifficulty = difficulty
                 }
+            }
+            .sheet(isPresented: $showWeChatQR) {
+                QRCodeSheetView(
+                    title: "联系开发者",
+                    subtitle: "微信号: VVE_1001",
+                    imageName: "wechat_qr",
+                    description: "扫一扫添加好友，交流游戏心得",
+                    accentColor: .green
+                )
+            }
+            .sheet(isPresented: $showDonateQR) {
+                QRCodeSheetView(
+                    title: "赞赏支持",
+                    subtitle: nil,
+                    imageName: "donate_qr",
+                    description: "觉得好玩？给开发者 All-in 一杯咖啡吧！\n你的每一份支持，都是下一次更新的筹码。",
+                    accentColor: .pink
+                )
             }
         }
     }
@@ -351,12 +371,33 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
             
-            HStack {
-                Text("技术栈")
-                Spacer()
-                Text("SwiftUI + SpriteKit")
-                    .foregroundColor(.secondary)
-                    .font(.caption)
+            Button(action: { showWeChatQR = true }) {
+                HStack {
+                    Image(systemName: "message.fill")
+                        .foregroundColor(.green)
+                    Text("联系开发者")
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Text("微信: VVE_1001")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                    Image(systemName: "qrcode")
+                        .foregroundColor(.secondary.opacity(0.5))
+                        .font(.caption)
+                }
+            }
+            
+            Button(action: { showDonateQR = true }) {
+                HStack {
+                    Image(systemName: "heart.fill")
+                        .foregroundColor(.pink)
+                    Text("赞赏支持")
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Image(systemName: "qrcode")
+                        .foregroundColor(.secondary.opacity(0.5))
+                        .font(.caption)
+                }
             }
             
             Button(action: { showResetConfirmation = true }) {
@@ -370,6 +411,9 @@ struct SettingsView: View {
             
         } header: {
             Text("关于")
+        } footer: {
+            Text("独立开发不易，你的支持是持续更新的最大动力")
+                .font(.caption)
         }
     }
     
@@ -538,6 +582,76 @@ struct OpponentRow: View {
             .padding(.vertical, 4)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - QR Code Sheet View
+struct QRCodeSheetView: View {
+    let title: String
+    let subtitle: String?
+    let imageName: String
+    let description: String
+    let accentColor: Color
+    
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                Spacer()
+                
+                // Title
+                VStack(spacing: 8) {
+                    Text(title)
+                        .font(.title2.bold())
+                    
+                    if let subtitle = subtitle {
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                // QR Code Image
+                Image(imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 280, maxHeight: 280)
+                    .cornerRadius(16)
+                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
+                
+                // Description
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                
+                Spacer()
+                
+                // Close Button
+                Button(action: { dismiss() }) {
+                    Text("关闭")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(accentColor)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 20)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
     }
 }
 
