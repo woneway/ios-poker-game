@@ -7,10 +7,42 @@ class PokerGameStore: ObservableObject {
     @Published var isGameOver: Bool = false
     @Published var finalResults: [PlayerResult] = []
     @Published var showRankings: Bool = false
+    @Published var isBackgroundSimulating: Bool = false
+    
+    // MARK: - Spectating State
+    @Published var isSpectating: Bool = false
+    @Published var spectateSpeed: SpectateSpeed = .normal
+    @Published var spectatePaused: Bool = false
+    @Published var spectateHandCount: Int = 0
+    @Published var lastSpectateWinner: String = ""
+    @Published var lastSpectateWinAmount: Int = 0
+    
+    enum SpectateSpeed: Double, CaseIterable, Identifiable {
+        case slow = 0.5
+        case normal = 0.2
+        case fast = 0.05
+        
+        var id: Double { rawValue }
+        
+        var displayName: String {
+            switch self {
+            case .slow: return "慢速"
+            case .normal: return "正常"
+            case .fast: return "快速"
+            }
+        }
+    }
     
     private var cancellables = Set<AnyCancellable>()
     private var gameRecordSaved = false
     private var dealCompleteTimer: DispatchWorkItem?
+    private var backgroundSimulationTask: DispatchWorkItem?
+    private var spectateLoopTask: DispatchWorkItem?
+    
+    /// Number of background hands to simulate per batch
+    private let backgroundHandsPerBatch = 100
+    /// Number of batches to simulate
+    private let backgroundBatches = 10
     
     /// 当前是否是人类玩家的回合
     var isHumanTurn: Bool {
@@ -179,6 +211,19 @@ class PokerGameStore: ObservableObject {
             engine.startHand()
             scheduleDealCompleteTimer()
             
+        // MARK: - Spectating Transitions
+        case (.showdown, .startSpectating), (.idle, .startSpectating):
+            startSpectating()
+            
+        case (.spectating, .pauseSpectating):
+            pauseSpectating()
+            
+        case (.spectating, .resumeSpectating):
+            resumeSpectating()
+            
+        case (.spectating, .stopSpectating):
+            stopSpectating()
+            
         default:
             #if DEBUG
             print("FSM: Invalid transition \(state) + \(event) — recovering to safe state")
@@ -233,12 +278,204 @@ class PokerGameStore: ObservableObject {
             heroRank: heroRank
         )
         GameHistoryManager.shared.saveRecord(record)
+        
+        // 启动 AI 后台模拟（统计所有玩家数据）
+        startBackgroundAISimulation()
+    }
+    
+    // MARK: - AI Background Simulation
+    
+    /// 为 AI 玩家启动后台模拟任务，加快数据收集速度
+    private func startBackgroundAISimulation() {
+        guard !isBackgroundSimulating else { return }
+        isBackgroundSimulating = true
+        
+        #if DEBUG
+        print("🚀 开始 AI 后台模拟...")
+        #endif
+        
+        // 在后台队列执行模拟
+        let simulationQueue = DispatchQueue(label: "com.poker.ai.simulation", qos: .userInitiated)
+        
+        simulationQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            // 获取当前所有玩家名称（用于统计）
+            let playerNames = self.engine.players.map { $0.name }
+            let gameMode = self.engine.gameMode
+            
+            // 执行多批模拟
+            for batch in 0..<self.backgroundBatches {
+                self.runBatchSimulation(batch: batch + 1, totalBatches: self.backgroundBatches)
+            }
+            
+            // 模拟完成后更新统计数据
+            DispatchQueue.main.async {
+                self.updateAllPlayerStats(playerNames: playerNames, gameMode: gameMode)
+                self.isBackgroundSimulating = false
+                
+                #if DEBUG
+                print("✅ AI 后台模拟完成！")
+                #endif
+            }
+        }
+    }
+    
+    /// 执行一批后台模拟
+    private func runBatchSimulation(batch: Int, totalBatches: Int) {
+        // 为每批模拟创建独立的引擎实例，避免状态冲突
+        let simEngine = PokerEngine(mode: engine.gameMode, config: engine.tournamentConfig)
+        
+        // 使用同步方式快速完成多手牌
+        for _ in 0..<backgroundHandsPerBatch {
+            // 检查是否还有足够玩家继续
+            let activePlayers = simEngine.players.filter { $0.chips > 0 }
+            if activePlayers.count < 2 {
+                break
+            }
+            
+            // 快速模拟一手牌（不播放动画）
+            self.quickSimulateHand(engine: simEngine)
+        }
+        
+        #if DEBUG
+        print("📊 Batch \(batch)/\(totalBatches) 完成，已模拟 \(backgroundHandsPerBatch) 手牌")
+        #endif
+    }
+    
+    /// 快速模拟一手牌（无动画，无延迟）
+    private func quickSimulateHand(engine: PokerEngine) {
+        // 启动手牌
+        engine.startHand()
+        
+        // 快速进行到底（不使用延迟）
+        while !engine.isHandOver && engine.activePlayerIndex >= 0 && engine.activePlayerIndex < engine.players.count {
+            let player = engine.players[engine.activePlayerIndex]
+            
+            // AI 玩家快速决策（0 延迟）
+            if !player.isHuman && player.status == .active {
+                let action = DecisionEngine.makeDecision(player: player, engine: engine)
+                engine.processAction(action)
+            } else if player.isHuman && player.status == .active {
+                // 人类玩家跳过（不参与后台模拟）
+                // 直接推进到下一个活跃玩家
+                engine.activePlayerIndex = engine.nextActivePlayerIndex(after: engine.activePlayerIndex)
+            } else {
+                // 非活跃玩家，跳过
+                engine.activePlayerIndex = engine.nextActivePlayerIndex(after: engine.activePlayerIndex)
+            }
+        }
+    }
+    
+    /// 更新所有玩家（人类 + AI）的统计数据
+    private func updateAllPlayerStats(playerNames: [String], gameMode: GameMode) {
+        // 为所有玩家重新计算统计数据
+        StatisticsCalculator.shared.recomputeAndPersistStats(
+            playerNames: playerNames,
+            gameMode: gameMode
+        )
+    }
+    
+    // MARK: - Spectating Mode
+    
+    private func startSpectating() {
+        state = .spectating
+        isSpectating = true
+        spectatePaused = false
+        spectateHandCount = 0
+        lastSpectateWinner = ""
+        lastSpectateWinAmount = 0
+        spectateLoop()
+    }
+    
+    private func pauseSpectating() {
+        spectatePaused = true
+        spectateLoopTask?.cancel()
+        spectateLoopTask = nil
+    }
+    
+    private func resumeSpectating() {
+        spectatePaused = false
+        spectateLoop()
+    }
+    
+    private func stopSpectating() {
+        isSpectating = false
+        spectatePaused = false
+        spectateLoopTask?.cancel()
+        spectateLoopTask = nil
+        state = .idle
+    }
+    
+    private func spectateLoop() {
+        guard isSpectating && !spectatePaused else { return }
+        
+        // 检查结束条件
+        if remainingPlayerCount <= 1 {
+            stopSpectating()
+            finishGame()
+            return
+        }
+        
+        // 在主引擎上快速模拟一手
+        quickSimulateOnMainEngine()
+        spectateHandCount += 1
+        
+        // 按速度延迟后继续
+        let work = DispatchWorkItem { [weak self] in
+            self?.spectateLoop()
+        }
+        spectateLoopTask = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + spectateSpeed.rawValue, execute: work)
+    }
+    
+    /// 在主引擎上快速模拟一手（无动画，人类自动弃牌）
+    private func quickSimulateOnMainEngine() {
+        engine.startHand()
+        
+        var safetyCounter = 0
+        let maxIterations = 200 // 防止无限循环
+        
+        while !engine.isHandOver && safetyCounter < maxIterations {
+            safetyCounter += 1
+            
+            let idx = engine.activePlayerIndex
+            guard idx >= 0 && idx < engine.players.count else { break }
+            let player = engine.players[idx]
+            
+            if player.status == .active {
+                if player.isHuman {
+                    // 人类自动弃牌
+                    engine.processAction(.fold)
+                } else {
+                    let action = DecisionEngine.makeDecision(player: player, engine: engine)
+                    engine.processAction(action)
+                }
+            } else {
+                engine.activePlayerIndex = engine.nextActivePlayerIndex(after: idx)
+            }
+        }
+        
+        // 记录最近胜者
+        if let winnerId = engine.winners.first,
+           let winner = engine.players.first(where: { $0.id == winnerId }) {
+            lastSpectateWinner = winner.name
+            lastSpectateWinAmount = engine.pot.total
+        }
     }
     
     func resetGame(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         dealCompleteTimer?.cancel()
         dealCompleteTimer = nil
+        backgroundSimulationTask?.cancel()
+        backgroundSimulationTask = nil
+        spectateLoopTask?.cancel()
+        spectateLoopTask = nil
         isGameOver = false
+        isBackgroundSimulating = false
+        isSpectating = false
+        spectatePaused = false
+        spectateHandCount = 0
         showRankings = false
         finalResults = []
         gameRecordSaved = false

@@ -36,11 +36,20 @@ struct GameRecord: Codable, Identifiable {
 class GameHistoryManager: ObservableObject {
     static let shared = GameHistoryManager()
     
-    private let storageKey = "poker_game_history"
+    private let storageKeyPrefix = "poker_game_history"
+    private var activeProfileId: String = ProfileManager.defaultProfileId
     
     @Published var records: [GameRecord] = []
     
     private init() {
+        // Default to the legacy single-profile behavior.
+        // ProfileManager will call `setActiveProfile(...)` once it finishes initialization.
+        setActiveProfile(id: ProfileManager.defaultProfileId)
+    }
+
+    func setActiveProfile(id: String) {
+        let normalized = id.isEmpty ? ProfileManager.defaultProfileId : id
+        activeProfileId = normalized
         loadRecords()
     }
     
@@ -59,7 +68,7 @@ class GameHistoryManager: ObservableObject {
     }
     
     private func loadRecords() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+        guard let data = UserDefaults.standard.data(forKey: storageKey(for: activeProfileId)),
               let decoded = try? JSONDecoder().decode([GameRecord].self, from: data) else {
             records = []
             return
@@ -69,7 +78,15 @@ class GameHistoryManager: ObservableObject {
     
     private func persistRecords() {
         if let encoded = try? JSONEncoder().encode(records) {
-            UserDefaults.standard.set(encoded, forKey: storageKey)
+            UserDefaults.standard.set(encoded, forKey: storageKey(for: activeProfileId))
         }
+    }
+
+    private func storageKey(for profileId: String) -> String {
+        // Keep default profile compatible with legacy key (single-profile installs)
+        if profileId == ProfileManager.defaultProfileId {
+            return storageKeyPrefix
+        }
+        return "\(storageKeyPrefix)_\(profileId)"
     }
 }

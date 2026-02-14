@@ -9,14 +9,22 @@ struct GameHeroControls: View {
     
     @Environment(\.colorScheme) var colorScheme
     
+    // MARK: - Session Summary State
+    @State private var showSessionSummary = false
+    @State private var lastHandProfit: Int = 0
+    @State private var totalProfit: Int = 0
+    
     var body: some View {
         let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
         let hero = store.engine.players.count > heroIndex ? store.engine.players[heroIndex] : nil
         
         switch store.state {
         case .idle:
-            Button(action: { store.send(.start) }) {
-                Text("DEAL HAND")
+            Button(action: { 
+                HapticFeedback.buttonPress()
+                store.send(.start) 
+            }) {
+                Text("发牌")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -27,7 +35,7 @@ struct GameHeroControls: View {
             .padding(.horizontal, 40)
             
         case .dealing:
-            Text("Dealing...")
+            Text("发牌中...")
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.5))
             
@@ -48,18 +56,18 @@ struct GameHeroControls: View {
                     VStack(spacing: 8) {
                         if let winner = store.finalWinner {
                             if winner.isHuman {
-                                Text("🏆 YOU WIN!")
+                                Text("🏆 你赢了!")
                                     .font(.system(size: 22, weight: .black))
                                     .foregroundColor(.yellow)
                             } else {
-                                Text("🏆 \(winner.name) Wins!")
+                                Text("🏆 \(winner.name) 获胜!")
                                     .font(.system(size: 18, weight: .black))
                                     .foregroundColor(.orange)
                             }
                         }
                         
                         Button(action: { showRankings = true }) {
-                            Text("View Final Standings")
+                            Text("查看最终排名")
                                 .font(.system(size: 15, weight: .bold))
                                 .foregroundColor(.yellow)
                                 .frame(maxWidth: .infinity)
@@ -75,7 +83,7 @@ struct GameHeroControls: View {
                                 config: settings.getTournamentConfig()
                             )
                         }) {
-                            Text("New Game")
+                            Text("新游戏")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
@@ -87,17 +95,62 @@ struct GameHeroControls: View {
                 } else if let hero = hero, hero.chips <= 0 {
                     // Hero eliminated but game continues
                     VStack(spacing: 6) {
-                        Text("YOU'RE OUT!")
+                        Text("你被淘汰了!")
                             .font(.system(size: 18, weight: .black))
                             .foregroundColor(.red)
                         
-                        Text("Finished \(eliminatedRank)th of 8")
+                        Text("排名第 \(eliminatedRank) / 8")
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.6))
                         
+                        // Rebuy option (tournament only)
+                        if store.engine.gameMode == .tournament,
+                           let config = store.engine.tournamentConfig,
+                           config.rebuyEnabled {
+                            let rebuyChips = TournamentManager.calculateRebuyChips(
+                                baseChips: config.effectiveBaseRebuyChips,
+                                currentBlindLevel: store.engine.currentBlindLevel
+                            )
+                            
+                            VStack(spacing: 4) {
+                                Text("买入筹码: \(rebuyChips)")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.yellow)
+                                
+                                if store.engine.rebuyCount > 0 {
+                                    Text("已买入 \(store.engine.rebuyCount) 次")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.white.opacity(0.5))
+                                }
+                            }
+                            
+                            Button(action: {
+                                HapticFeedback.buttonPress()
+                                if let idx = store.engine.players.firstIndex(where: { $0.isHuman }) {
+                                    store.engine.rebuyPlayer(playerIndex: idx, chips: rebuyChips)
+                                    store.send(.nextHand)
+                                }
+                            }) {
+                                Text("💰 买入继续")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 40)
+                                    .background(Capsule().fill(Color.orange))
+                            }
+                            .padding(.horizontal, 40)
+                        }
+                        
                         HStack(spacing: 12) {
+                            Button(action: { store.send(.startSpectating) }) {
+                                Text("自动观战")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 100, height: 40)
+                                    .background(Capsule().fill(Color.purple.opacity(0.8)))
+                            }
                             Button(action: { store.send(.nextHand) }) {
-                                Text("Watch")
+                                Text("观战")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.white)
                                     .frame(width: 100, height: 40)
@@ -109,7 +162,7 @@ struct GameHeroControls: View {
                                     config: settings.getTournamentConfig()
                                 )
                             }) {
-                                Text("New Game")
+                                Text("新游戏")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.white)
                                     .frame(width: 100, height: 40)
@@ -119,15 +172,32 @@ struct GameHeroControls: View {
                     }
                 } else {
                     // Hero alive, continue
-                    Button(action: { store.send(.nextHand) }) {
-                        Text("Next Hand")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Capsule().fill(Color.green))
+                    HStack(spacing: 12) {
+                        Button(action: { 
+                            HapticFeedback.buttonPress()
+                            store.send(.nextHand) 
+                        }) {
+                            Text("下一手")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Capsule().fill(Color.green))
+                        }
+                        
+                        Button(action: {
+                            HapticFeedback.buttonPress()
+                            store.send(.startSpectating)
+                        }) {
+                            Text("观战")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(Capsule().fill(Color.purple.opacity(0.7)))
+                        }
                     }
-                    .padding(.horizontal, 60)
+                    .padding(.horizontal, 40)
                 }
             }
             
@@ -150,25 +220,43 @@ struct GameHeroControls: View {
                 } else {
                     // Main action buttons
                     HStack(spacing: 10) {
-                        ActionButton(title: "Fold", color: Color.adaptiveButtonDanger(colorScheme)) {
+                        Button(action: { 
+                            HapticFeedback.fold()
                             store.engine.processAction(.fold)
                             store.send(.playerActed)
                             if settings.soundEnabled { SoundManager.shared.playSound(.fold) }
+                        }) {
+                            Text("弃牌")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 80, height: 44)
+                                .background(Capsule().fill(Color.red.opacity(0.8)))
                         }
                         
-                        ActionButton(
-                            title: callAmount == 0 ? "Check" : "Call $\(callAmount)",
-                            color: .green
-                        ) {
+                        Button(action: { 
+                            HapticFeedback.buttonPress()
                             store.engine.processAction(callAmount == 0 ? .check : .call)
                             store.send(.playerActed)
                             if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
+                        }) {
+                            Text(callAmount == 0 ? "让牌" : "跟注 $\(callAmount)")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 100, height: 44)
+                                .background(Capsule().fill(Color.blue.opacity(0.8)))
                         }
                         
                         // Open raise panel
-                        ActionButton(title: "Raise", color: .orange) {
+                        Button(action: { 
+                            HapticFeedback.buttonPress()
                             raiseSliderValue = 0
                             showRaisePanel = true
+                        }) {
+                            Text("加注")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 80, height: 44)
+                                .background(Capsule().fill(Color.orange))
                         }
                     }
                 }
@@ -178,7 +266,7 @@ struct GameHeroControls: View {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         .scaleEffect(0.7)
-                    Text("Waiting...")
+                    Text("等待中...")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.5))
                 }
@@ -189,10 +277,14 @@ struct GameHeroControls: View {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     .scaleEffect(0.7)
-                Text("AI Thinking...")
+                Text("AI 思考中...")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.5))
             }
+            
+        case .spectating:
+            // 观战模式下控制区由 SpectatorOverlay 接管
+            EmptyView()
         }
     }
     
@@ -241,7 +333,7 @@ struct GameHeroControls: View {
             // Current raise amount display
             // If maxRaiseTo < minRaiseTo, user can only All-In, so show that amount
             let displayAmount = minRaiseTo > maxRaiseTo ? maxRaiseTo : currentRaiseTo
-            Text(minRaiseTo > maxRaiseTo ? "All In $\(displayAmount)" : "Raise to $\(displayAmount)")
+            Text(minRaiseTo > maxRaiseTo ? "全下 $\(displayAmount)" : "加注至 $\(displayAmount)")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.yellow)
             
@@ -276,6 +368,7 @@ struct GameHeroControls: View {
                 HStack(spacing: 6) {
                     ForEach(presets, id: \.0) { preset in
                         Button(action: {
+                            HapticFeedback.buttonPress()
                             if range > 0 {
                                 let normalizedValue = Double(preset.1 - minRaiseTo) / Double(max(1, range))
                                 raiseSliderValue = min(1.0, max(0.0, normalizedValue))
@@ -302,9 +395,10 @@ struct GameHeroControls: View {
             // Confirm / Cancel
             HStack(spacing: 12) {
                 Button(action: {
+                    HapticFeedback.fold()
                     showRaisePanel = false
                 }) {
-                    Text("Cancel")
+                    Text("取消")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                         .frame(width: 80, height: 38)
@@ -313,6 +407,12 @@ struct GameHeroControls: View {
                 }
                 
                 Button(action: {
+                    let isAllIn = currentRaiseTo >= maxRaiseTo || minRaiseTo > maxRaiseTo
+                    if isAllIn {
+                        HapticFeedback.allIn()
+                    } else {
+                        HapticFeedback.actionConfirm()
+                    }
                     if currentRaiseTo >= maxRaiseTo || minRaiseTo > maxRaiseTo {
                         store.engine.processAction(.allIn)
                     } else {
@@ -322,7 +422,7 @@ struct GameHeroControls: View {
                     if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
                     showRaisePanel = false
                 }) {
-                    Text(minRaiseTo > maxRaiseTo || currentRaiseTo >= maxRaiseTo ? "All In $\(maxRaiseTo)" : "Raise $\(currentRaiseTo)")
+                    Text(minRaiseTo > maxRaiseTo || currentRaiseTo >= maxRaiseTo ? "全下 $\(maxRaiseTo)" : "加注 $\(currentRaiseTo)")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                         .frame(minWidth: 120, minHeight: 38)

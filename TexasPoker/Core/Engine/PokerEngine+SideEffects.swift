@@ -2,6 +2,10 @@ import Foundation
 
 // MARK: - Sound, Action Log, Statistics, Notifications
 extension PokerEngine {
+
+    enum EngineNotifications {
+        static let playerStatsUpdated = NSNotification.Name("PlayerStatsUpdated")
+    }
     
     func playSoundForAction(_ action: PlayerAction) {
         switch action {
@@ -45,7 +49,8 @@ extension PokerEngine {
             amount: potAddition,
             street: currentStreet,
             isVoluntary: isVoluntary,
-            position: position
+            position: position,
+            isHuman: originalPlayer.isHuman
         )
     }
     
@@ -60,9 +65,27 @@ extension PokerEngine {
             heroCards: heroCards,
             winners: winnerNames
         )
+
+        // Recompute persisted statistics for all table players.
+        // This keeps "download/new install" stats empty, and updates dynamically as the user plays.
+        StatisticsCalculator.shared.recomputeAndPersistStats(
+            playerNames: players.map { $0.name },
+            gameMode: gameMode,
+            profileId: ProfileManager.shared.currentProfileIdForData
+        )
+
+        // Notify HUD/profile popovers to reload stats without requiring a view re-appear.
+        NotificationCenter.default.post(
+            name: EngineNotifications.playerStatsUpdated,
+            object: nil,
+            userInfo: [
+                "gameMode": gameMode.rawValue,
+                "profileId": ProfileManager.shared.currentProfileIdForData,
+            ]
+        )
     }
     
-    func notifyWinnerAnimations(result: HandResult) {
+    func notifyWinnerAnimations(result: ShowdownResult) {
         for winnerID in result.winnerIDs {
             if let winnerIndex = players.firstIndex(where: { $0.id == winnerID }) {
                 NotificationCenter.default.post(

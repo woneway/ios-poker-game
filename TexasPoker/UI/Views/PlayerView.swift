@@ -6,6 +6,7 @@ struct PlayerView: View {
     let player: Player
     let isActive: Bool
     let isDealer: Bool
+    var isHero: Bool = false
     var showCards: Bool = false
     var compact: Bool = false
     var gameMode: GameMode = .cashGame
@@ -26,7 +27,7 @@ struct PlayerView: View {
     }
     
     private var cardWidth: CGFloat {
-        let base: CGFloat = compact ? 28 : 36
+        let base: CGFloat = compact ? 32 : 42
         return base * DeviceHelper.scaleFactor
     }
     
@@ -37,6 +38,7 @@ struct PlayerView: View {
             // Cards
             PlayerCardsView(
                 player: player,
+                isHero: isHero,
                 showCards: showCards,
                 cardWidth: cardWidth
             )
@@ -52,7 +54,32 @@ struct PlayerView: View {
                 onTap: { showProfile = true }
             )
             .onAppear { loadPlayerStats() }
+            .onReceive(NotificationCenter.default.publisher(for: PokerEngine.EngineNotifications.playerStatsUpdated)) { notification in
+                if let modeRaw = notification.userInfo?["gameMode"] as? String,
+                   modeRaw != gameMode.rawValue {
+                    return
+                }
+                loadPlayerStats()
+            }
             .onReceiveWinnerNotification(for: player)
+            
+            // Stats Badge (VPIP/PFR) - between avatar and name so it occupies layout space
+            if let stats = playerStats, stats.totalHands >= 20, player.status != .folded {
+                HStack(spacing: 2) {
+                    Text("\(Int(stats.vpip))")
+                        .foregroundColor(.green)
+                    Text("/")
+                        .foregroundColor(.white.opacity(0.5))
+                    Text("\(Int(stats.pfr))")
+                        .foregroundColor(.orange)
+                }
+                .font(.system(size: 9, weight: .bold))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(Color.black.opacity(0.7))
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+            }
             
             // Name & Chips
             PlayerInfoView(
@@ -67,7 +94,7 @@ struct PlayerView: View {
             // Current Bet
             PlayerBetView(bet: player.currentBet)
         }
-        .opacity(player.status == .folded || player.status == .eliminated ? 0.45 : 1.0)
+        .opacity(player.status == .folded || player.status == .eliminated ? 0.55 : 1.0)
         .scaleEffect(isActive ? 1.05 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isActive)
         .popover(isPresented: $showProfile) {

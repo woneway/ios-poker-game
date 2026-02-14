@@ -49,11 +49,19 @@ class OpponentModel {
     
     /// 从 Core Data 加载统计数据
     func loadStats(from context: NSManagedObjectContext) {
+        let profileId = ProfileManager.shared.currentProfileIdForData
         let request = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
-        request.predicate = NSPredicate(
-            format: "playerName == %@ AND gameMode == %@",
-            playerName, gameMode.rawValue
-        )
+        if profileId == ProfileManager.defaultProfileId {
+            request.predicate = NSPredicate(
+                format: "playerName == %@ AND gameMode == %@ AND (profileId == %@ OR profileId == nil)",
+                playerName, gameMode.rawValue, profileId
+            )
+        } else {
+            request.predicate = NSPredicate(
+                format: "playerName == %@ AND gameMode == %@ AND profileId == %@",
+                playerName, gameMode.rawValue, profileId
+            )
+        }
         
         guard let results = try? context.fetch(request),
               let stats = results.first else {

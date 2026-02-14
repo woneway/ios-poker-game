@@ -25,9 +25,16 @@ struct GameView: View {
     @State private var toastEntry: ActionLogEntry? = nil
     @State private var lastKnownLogCount: Int = 0
     
+    // MARK: - Session Summary State
+    @State private var showSessionSummary = false
+    @State private var sessionSummaryData: SessionSummaryData?
+    
+    // MARK: - Tournament Leaderboard State
+    @State private var showTournamentLeaderboard = false
+    
     @State private var scene: PokerTableScene = {
         let scene = PokerTableScene()
-        scene.size = CGSize(width: 300, height: 600)
+        scene.size = CGSize(width: 300, height: 600)  // 高度增加到 600
         scene.scaleMode = .resizeFill
         scene.backgroundColor = .clear
         return scene
@@ -56,6 +63,22 @@ struct GameView: View {
                     }
                 )
                 .animation(.easeInOut(duration: 0.3), value: store.showRankings)
+            }
+            
+            // Tournament Leaderboard Overlay
+            if showTournamentLeaderboard {
+                TournamentLeaderboardOverlay(
+                    store: store,
+                    isPresented: $showTournamentLeaderboard
+                )
+                .transition(.move(edge: .trailing))
+            }
+            
+            // Spectator Overlay
+            if store.state == .spectating {
+                SpectatorOverlay(store: store)
+                    .transition(.move(edge: .bottom))
+                    .animation(.easeInOut(duration: 0.3), value: store.state)
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -99,7 +122,7 @@ struct GameView: View {
                 }
             }
         }
-        .onChange(of: store.state) { _, newState in
+        .onChangeCompat(of: store.state) { newState in
             if newState == .dealing {
                 let activeSeats = store.engine.players.enumerated()
                     .filter { $0.element.status == .active || $0.element.status == .allIn }
@@ -107,10 +130,22 @@ struct GameView: View {
                 scene.playDealAnimation(activeSeatIndices: activeSeats)
             }
         }
-        .onChange(of: store.engine.isHandOver) { _, isOver in
+        .onChangeCompat(of: store.engine.isHandOver) { isOver in
             if isOver && settings.soundEnabled { SoundManager.shared.playSound(.win) }
+            if isOver {
+                // Update tournament stats
+                if store.engine.gameMode == .tournament {
+                    TournamentStatsManager.shared.updateAfterHand(
+                        handNumber: store.engine.handNumber,
+                        players: store.engine.players,
+                        engine: store.engine
+                    )
+                }
+                // Trigger session summary
+                prepareSessionSummary()
+            }
         }
-        .onChange(of: store.engine.actionLog.count) { oldCount, newCount in
+        .onChangeCompat(of: store.engine.actionLog.count) { newCount in
             let delta = newCount - lastKnownLogCount
             if delta <= 0 {
                 // 日志被清空（新一手牌开始）
@@ -126,7 +161,7 @@ struct GameView: View {
                 showToast(latest)
             }
         }
-        .onChange(of: settings.gameMode) { _, newMode in
+        .onChangeCompat(of: settings.gameMode) { newMode in
             if store.state == .idle {
                 store.resetGame(
                     mode: newMode,
@@ -134,7 +169,7 @@ struct GameView: View {
                 )
             }
         }
-        .onChange(of: settings.tournamentPreset) { _, _ in
+        .onChangeCompat(of: settings.tournamentPreset) { _ in
             if store.state == .idle && settings.gameMode == .tournament {
                 store.resetGame(
                     mode: .tournament,
@@ -142,47 +177,154 @@ struct GameView: View {
                 )
             }
         }
+        .overlay(sessionSummaryOverlay)
+    }
+    
+    // MARK: - Session Summary
+    
+    private var sessionSummaryOverlay: some View {
+        Group {
+            if showSessionSummary, let data = sessionSummaryData {
+                SessionSummaryView(
+                    handNumber: data.handNumber,
+                    heroWinnings: data.winnings,
+                    heroCards: data.heroCards,
+                    communityCards: data.communityCards,
+                    handResult: data.result,
+                    totalHands: data.totalHands,
+                    totalProfit: data.totalProfit,
+                    onDismiss: {
+                        withAnimation { showSessionSummary = false }
+                    },
+                    onNextHand: {
+                        withAnimation { showSessionSummary = false }
+                        store.send(.nextHand)
+                    }
+                )
+                .transition(.opacity)
+            }
+        }
+    }
+    
+    private func prepareSessionSummary() {
+        guard let hero = store.engine.players.first(where: { $0.isHuman }) else { return }
+        
+        // Calculate winnings from the last hand
+        let heroWasWinner = store.engine.winners.contains(hero.id)
+        let winnings = heroWasWinner ? store.engine.pot.total : -hero.currentBet
+        
+        // Determine hand result
+        let result: SessionHandResult = {
+            if hero.status == .folded { return .fold }
+            if heroWasWinner { return .win }
+            return .loss
+        }()
+        
+        sessionSummaryData = SessionSummaryData(
+            handNumber: store.engine.handNumber,
+            winnings: winnings,
+            heroCards: hero.holeCards,
+            communityCards: store.engine.communityCards,
+            result: result,
+            totalHands: store.engine.handNumber,
+            totalProfit: calculateTotalProfit()
+        )
+        
+        // Delay showing the summary slightly for better UX
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation { showSessionSummary = true }
+        }
+    }
+    
+    private func calculateTotalProfit() -> Int {
+        // This would ideally calculate from hand history
+        // For now, return approximate value
+        return store.engine.players.first(where: { $0.isHuman })?.chips ?? 0 - 1000
     }
     
     // MARK: - Layout Functions
     
     private func portraitLayout(geo: GeometryProxy) -> some View {
         ZStack {
-            // Background - adaptive color
+            // Background - Premium dark gradient
+            Color.adaptiveTableBackground(colorScheme)
+                .edgesIgnoringSafeArea(.all)
+            
             RadialGradient(
                 gradient: Gradient(colors: [
-                    Color.adaptiveTableBackground(colorScheme),
-                    Color.adaptiveTableBackground(colorScheme).opacity(0.8)
+                    Color.black.opacity(0.0),
+                    Color.black.opacity(0.8)
                 ]),
                 center: .center,
-                startRadius: 50,
-                endRadius: max(geo.size.width, geo.size.height) * 0.6
+                startRadius: 200,
+                endRadius: max(geo.size.width, geo.size.height)
             )
             .edgesIgnoringSafeArea(.all)
             
-            // Table felt ellipse - adaptive color
-            Ellipse()
-                .fill(
-                    RadialGradient(
-                        gradient: Gradient(colors: [
-                            Color.adaptiveTableFelt(colorScheme),
-                            Color.adaptiveTableFelt(colorScheme).opacity(0.8)
-                        ]),
-                        center: .center,
-                        startRadius: 20,
-                        endRadius: 200
+            // Table felt ellipse - Premium look
+            ZStack {
+                // Table Shadow
+                Ellipse()
+                    .fill(Color.black.opacity(0.5))
+                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)  // 增加高度到 68%
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45 + 10)
+                    .blur(radius: 20)
+                
+                // Table Border (Wood/Leather)
+                Ellipse()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color(hex: "3E2723"), Color(hex: "1B0000")]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .overlay(
-                    Ellipse()
-                        .strokeBorder(Color(hex: "8B4513").opacity(0.8), lineWidth: 6)
-                )
-                .frame(width: geo.size.width * 0.88, height: geo.size.height * 0.5)
-                .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)  // 增加高度到 68%
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
+                    .overlay(
+                        Ellipse()
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
+                    )
+                
+                // Table Felt
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color.adaptiveTableFelt(colorScheme),
+                                Color.adaptiveTableFelt(colorScheme).opacity(0.8)
+                            ]),
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 200
+                        )
+                    )
+                    .frame(width: geo.size.width * 0.85, height: geo.size.height * 0.64)  // 增加高度到 64%
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
+                    .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
+            }
             
             // SpriteKit layer
             SpriteView(scene: scene, options: [.allowsTransparency])
                 .edgesIgnoringSafeArea(.all)
+                .allowsHitTesting(false)
+            
+            // Main game area (Moved out of HUD VStack to fix coordinate system issues)
+            ZStack {
+                // 8-player oval layout
+                playerOvalLayout(geo: geo)
+                
+                // Community cards (center of table)
+                communityCardsView(geo: geo)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
+                    .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 5)
+                
+                // Pot display
+                GamePotDisplay(store: store)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.30)
+            }
             
             // HUD
             VStack(spacing: 0) {
@@ -191,7 +333,10 @@ struct GameView: View {
                     store: store,
                     showSettings: $showSettings,
                     unreadLogCount: unreadLogCount,
-                    onToggleActionLog: toggleActionLog
+                    onToggleActionLog: toggleActionLog,
+                    onShowLeaderboard: {
+                        withAnimation { showTournamentLeaderboard = true }
+                    }
                 )
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
@@ -201,20 +346,6 @@ struct GameView: View {
                     GameTournamentInfo(store: store)
                         .padding(.horizontal, 16)
                         .padding(.top, 4)
-                }
-                
-                // Main game area
-                ZStack {
-                    // 8-player oval layout
-                    playerOvalLayout(geo: geo)
-                    
-                    // Community cards (center of table)
-                    communityCardsView(geo: geo)
-                        .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
-                    
-                    // Pot display
-                    GamePotDisplay(store: store)
-                        .position(x: geo.size.width / 2, y: geo.size.height * 0.30)
                 }
                 
                 Spacer(minLength: 0)
@@ -301,7 +432,10 @@ struct GameView: View {
                             store: store,
                             showSettings: $showSettings,
                             unreadLogCount: unreadLogCount,
-                            onToggleActionLog: toggleActionLog
+                            onToggleActionLog: toggleActionLog,
+                            onShowLeaderboard: {
+                                withAnimation { showTournamentLeaderboard = true }
+                            }
                         )
                         .padding(.horizontal, 12)
                         
@@ -360,10 +494,11 @@ struct GameView: View {
     // MARK: - Community Cards
     
     private func communityCardsView(geo: GeometryProxy) -> some View {
-        let cardWidth = DeviceHelper.cardWidth(for: geo)
-        let cardHeight = DeviceHelper.cardHeight(for: geo)
+        let cardWidth: CGFloat = DeviceHelper.isIPad ? 52 : 40
+        let cardHeight = cardWidth * 1.2
+        let spacing: CGFloat = 4
         
-        return HStack(spacing: 4) {
+        return HStack(spacing: spacing) {
             ForEach(Array(store.engine.communityCards.enumerated()), id: \.offset) { index, card in
                 FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth)
             }
@@ -383,13 +518,16 @@ struct GameView: View {
     private func playerOvalLayout(geo: GeometryProxy) -> some View {
         let w = geo.size.width
         let h = geo.size.height
+        let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
+        
+        // 牌桌边框椭圆: rx = w*0.45, ry = h*0.34, center = (w/2, h*0.45)
+        // 玩家头像中心应在边框外约 24pt
         let centerX = w / 2
-        let centerY = h * 0.42  // Slightly above vertical center
-        let radiusX = w * 0.42
-        let radiusY = h * 0.30
+        let centerY = h * 0.44
+        let radiusX = w * 0.45 + 24   // 桌布边框半径 + 外推
+        let radiusY = h * 0.34 + 24   // 桌布边框半径 + 外推
         
         // Seat positions as angles (starting from bottom, going clockwise)
-        // Seat 0: 270° (bottom), Seat 1: 225° (bottom-left), ...
         let seatAngles: [Double] = [
             270,  // 0: Hero (bottom center)
             225,  // 1: bottom-left
@@ -404,23 +542,27 @@ struct GameView: View {
         return ZStack {
             ForEach(0..<min(store.engine.players.count, 8), id: \.self) { i in
                 let angle = seatAngles[i] * .pi / 180
-                let x = centerX + radiusX * cos(angle)
-                let y = centerY - radiusY * sin(angle)
+                let rawX = centerX + radiusX * cos(angle)
+                let rawY = centerY - radiusY * sin(angle)
                 let isShowdown = store.state == .showdown
+                // 屏幕边界保护
+                let x = min(max(rawX, 52), w - 52)
+                let y = min(max(rawY, 60), h - 100)
                 
-                if i == 0 {
-                    // Hero - slightly larger, always shows cards
+                if i == heroIndex {
                     let isActiveInPlay = store.engine.activePlayerIndex == i
                         && (store.state == .waitingForAction || store.state == .betting)
                     PlayerView(
                         player: store.engine.players[i],
                         isActive: isActiveInPlay,
                         isDealer: store.engine.dealerIndex == i,
+                        isHero: true,
                         showCards: true,
                         compact: false,
                         gameMode: store.engine.gameMode
                     )
-                    .position(x: x, y: y + 15)
+                    .position(x: x, y: min(y, h - 180))
+                    .zIndex(100)
                 } else {
                     let isActiveInPlay = store.engine.activePlayerIndex == i
                         && (store.state == .waitingForAction || store.state == .betting)
@@ -433,9 +575,11 @@ struct GameView: View {
                         gameMode: store.engine.gameMode
                     )
                     .position(x: x, y: y)
+                    .zIndex(Double(10 - i))
                 }
             }
         }
+        .frame(width: w, height: h)
     }
     
     // MARK: - Action Log Toggle (Portrait)

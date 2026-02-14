@@ -15,20 +15,11 @@ struct ActionLogOverlay: View {
         }
         .frame(width: panelWidth)
         .background(Color.black.opacity(0.35))
-        .clipShape(UnevenRoundedRectangle(
-            topLeadingRadius: 12,
-            bottomLeadingRadius: 12,
-            bottomTrailingRadius: 0,
-            topTrailingRadius: 0
-        ))
+        // iOS 15 compatibility: avoid UnevenRoundedRectangle (iOS 16+)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
-            UnevenRoundedRectangle(
-                topLeadingRadius: 12,
-                bottomLeadingRadius: 12,
-                bottomTrailingRadius: 0,
-                topTrailingRadius: 0
-            )
-            .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
         )
         .offset(x: max(0, dragOffset))
         .gesture(dismissGesture)
@@ -85,7 +76,7 @@ struct ActionLogOverlay: View {
                         }
                     }
                 }
-                .onChange(of: entries.count) {
+                .onChangeCompat(of: entries.count) { _ in
                     if let last = entries.last {
                         withAnimation(.easeOut(duration: 0.2)) {
                             proxy.scrollTo(last.id, anchor: .bottom)

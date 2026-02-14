@@ -93,7 +93,7 @@ extension PokerEngine {
         
         let eligible = players.filter { $0.status == .active || $0.status == .allIn }
         
-        let result: HandResult
+        let result: ShowdownResult
         if eligible.count == 1 {
             result = ShowdownManager.distributeSingleWinner(
                 winner: eligible[0],
@@ -154,6 +154,32 @@ extension PokerEngine {
             handNumber: handNumber,
             eliminationOrder: &eliminationOrder
         )
+        
+        // AI 动态入场检查
+        let diffLevel = DecisionEngine.difficultyManager.currentDifficulty
+        let difficulty: AIProfile.Difficulty = {
+            switch diffLevel {
+            case .easy: return .easy
+            case .medium: return .normal
+            case .hard: return .hard
+            case .expert: return .expert
+            }
+        }()
+        let newEntries = TournamentManager.checkAndAddAIEntries(
+            players: &players,
+            handNumber: handNumber,
+            gameMode: gameMode,
+            difficulty: difficulty,
+            config: tournamentConfig,
+            currentBlindLevel: currentBlindLevel
+        )
+        for newPlayer in newEntries {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("TournamentNewEntry"),
+                object: nil,
+                userInfo: ["playerName": newPlayer.name, "chips": newPlayer.chips]
+            )
+        }
         
         #if DEBUG
         print("=== Hand #\(handNumber) Over: \(winMessage) ===\n")

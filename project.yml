@@ -3,8 +3,9 @@ name: TexasPoker
 options:
   bundleIdPrefix: smartegg
   deploymentTarget:
-    iOS: "15.0"
+    iOS: "17.0"
   xcodeVersion: "15.2"
+  createIntermediateGroups: true
 
 settings:
   base:
@@ -12,6 +13,13 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"
     DEVELOPMENT_TEAM: L7SX3PS3BS
     CODE_SIGN_STYLE: Automatic
+  configs:
+    Debug:
+      SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+      ENABLE_TESTABILITY: "YES"
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+      ENABLE_TESTABILITY: "NO"
 
 targets:
   TexasPoker:
@@ -23,6 +31,8 @@ targets:
           - "**/.DS_Store"
     settings:
       base:
+        PRODUCT_NAME: TexasPoker
+        EXECUTABLE_NAME: TexasPoker
         PRODUCT_BUNDLE_IDENTIFIER: smartegg.TexasPoker
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         GENERATE_INFOPLIST_FILE: YES
@@ -41,7 +51,19 @@ targets:
       - target: TexasPoker
     settings:
       base:
+        PRODUCT_NAME: TexasPokerTests
+        EXECUTABLE_NAME: TexasPokerTests
         PRODUCT_BUNDLE_IDENTIFIER: smartegg.TexasPokerTests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/TexasPoker.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TexasPoker"
         BUNDLE_LOADER: "$(TEST_HOST)"
+
+schemes:
+  TexasPoker:
+    build:
+      targets:
+        TexasPoker: all
+        TexasPokerTests: [test]
+    test:
+      targets:
+        - TexasPokerTests

@@ -5,6 +5,7 @@ struct GameTopBar: View {
     @Binding var showSettings: Bool
     let unreadLogCount: Int
     let onToggleActionLog: () -> Void
+    var onShowLeaderboard: (() -> Void)? = nil
     
     var body: some View {
         HStack {
@@ -25,7 +26,27 @@ struct GameTopBar: View {
             
             Spacer()
             
-            Text("Hand #\(store.engine.handNumber)")
+            // Tournament leaderboard button
+            if store.engine.gameMode == .tournament,
+               let onShowLeaderboard = onShowLeaderboard {
+                Button(action: onShowLeaderboard) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "list.number")
+                            .font(.system(size: 12))
+                        Text("\(store.engine.players.count)")
+                            .font(.system(size: 11))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.6))
+                    .cornerRadius(8)
+                }
+                
+                Spacer()
+            }
+            
+            Text("手牌 #\(store.engine.handNumber)")
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.5))
             
@@ -51,10 +72,10 @@ struct GameTopBar: View {
     
     private var streetName: String {
         switch store.engine.currentStreet {
-        case .preFlop: return "Pre-Flop"
-        case .flop: return "Flop"
-        case .turn: return "Turn"
-        case .river: return "River"
+        case .preFlop: return "翻牌前"
+        case .flop: return "翻牌圈"
+        case .turn: return "转牌圈"
+        case .river: return "河牌圈"
         }
     }
 }

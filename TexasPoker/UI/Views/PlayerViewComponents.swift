@@ -4,25 +4,32 @@ import SwiftUI
 
 struct PlayerCardsView: View {
     let player: Player
+    let isHero: Bool
     let showCards: Bool
     let cardWidth: CGFloat
     
-    private var shouldShowCardFace: Bool {
-        return player.isHuman || showCards
-    }
-    
     var body: some View {
         Group {
-            if !player.holeCards.isEmpty && player.status != .folded {
+            if isHero && !player.holeCards.isEmpty {
+                // Hero 始终显示正面
                 HStack(spacing: -(cardWidth * 0.35)) {
-                    ForEach(player.holeCards) { card in
-                        CardView(card: shouldShowCardFace ? card : nil, width: cardWidth)
+                    ForEach(Array(player.holeCards.enumerated()), id: \.offset) { index, card in
+                        FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth, isHero: true)
                     }
                 }
-                .padding(.bottom, -6)
+                .padding(.bottom, -4)
+                .zIndex(1)
+            } else if !player.holeCards.isEmpty && player.status != .folded {
+                // 非 Hero：有牌时显示牌背或正面
+                HStack(spacing: -(cardWidth * 0.35)) {
+                    ForEach(player.holeCards) { card in
+                        CardView(card: showCards ? card : nil, width: cardWidth)
+                    }
+                }
+                .padding(.bottom, -4)
                 .zIndex(1)
             } else {
-                Color.clear.frame(height: 24)
+                Color.clear.frame(width: cardWidth * 1.6, height: cardWidth * 1.2)
             }
         }
     }
@@ -41,74 +48,74 @@ struct PlayerAvatarView: View {
     
     var body: some View {
         ZStack {
-            // Active indicator
+            // Active Glow
             if isActive {
                 Circle()
-                    .fill(Color.yellow.opacity(0.5))
-                    .frame(width: avatarSize + 12, height: avatarSize + 12)
-                    .blur(radius: 4)
+                    .fill(Color.yellow.opacity(0.6))
+                    .frame(width: avatarSize + 16, height: avatarSize + 16)
+                    .blur(radius: 8)
+                    .scaleEffect(1.1)
+                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isActive)
             }
             
-            // Avatar circle
+            // Avatar Background & Border
             Circle()
-                .fill(Color(white: 0.15))
+                .fill(Material.ultraThin)
                 .frame(width: avatarSize, height: avatarSize)
                 .overlay(
-                    Circle().stroke(
-                        isActive ? Color.yellow : (playerStatus == .folded ? Color.gray.opacity(0.3) : Color.gray.opacity(0.6)),
-                        lineWidth: isActive ? 2.5 : 1
-                    )
+                    Circle()
+                        .strokeBorder(
+                            LinearGradient(
+                                gradient: Gradient(colors: isActive ? [.yellow, .orange] : [.white.opacity(0.3), .white.opacity(0.1)]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: isActive ? 3 : 1.5
+                        )
                 )
-                .shadow(
-                    color: .yellow,
-                    radius: 0
-                )
+                .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 2)
             
+            // Avatar Character
             Text(avatar)
-                .font(.system(size: avatarSize * 0.5))
+                .font(.system(size: avatarSize * 0.55))
+                .shadow(color: .black.opacity(0.2), radius: 2)
             
-            // Dealer button
+            // Dealer Button
             if isDealer {
-                Text("D")
-                    .font(.system(size: 8, weight: .black))
-                    .foregroundColor(.black)
-                    .frame(width: 14, height: 14)
-                    .background(Color.white)
-                    .clipShape(Circle())
-                    .offset(x: avatarSize * 0.4, y: -avatarSize * 0.35)
-            }
-            
-            // Stats badge
-            if let stats = playerStats, stats.totalHands >= 10 {
-                VStack(spacing: 0) {
-                    Text("\(Int(stats.vpip))/\(Int(stats.pfr))")
-                        .font(.system(size: 7, weight: .bold))
-                        .foregroundColor(.white)
+                ZStack {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 16, height: 16)
+                        .shadow(radius: 2)
+                    Text("D")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(.black)
                 }
-                .padding(.horizontal, 3)
-                .padding(.vertical, 1)
-                .background(Color.blue.opacity(0.8))
-                .cornerRadius(3)
-                .offset(x: -avatarSize * 0.5, y: -avatarSize * 0.35)
+                .offset(x: avatarSize * 0.35, y: -avatarSize * 0.35)
             }
             
-            // Status overlay
+            // Status Overlay (Fold/All-in)
             if playerStatus == .folded {
                 Text("FOLD")
-                    .font(.system(size: 7, weight: .black))
+                    .font(.system(size: 10, weight: .heavy))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 3)
-                    .padding(.vertical, 1)
-                    .background(Color.black.opacity(0.75))
-                    .cornerRadius(3)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.black.opacity(0.7))
+                    .cornerRadius(4)
+                    .rotationEffect(.degrees(-15))
             } else if playerStatus == .allIn {
                 Text("ALL IN")
-                    .font(.system(size: 7, weight: .black))
-                    .foregroundColor(.red)
-                    .padding(.horizontal, 3)
-                    .padding(.vertical, 1)
-                    .background(Color.black.opacity(0.75))
-                    .cornerRadius(3)
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        LinearGradient(gradient: Gradient(colors: [.red, .orange]), startPoint: .leading, endPoint: .trailing)
+                    )
+                    .cornerRadius(4)
+                    .shadow(color: .red.opacity(0.5), radius: 4)
+                    .scaleEffect(1.1)
             }
         }
         .onTapGesture(perform: onTap)
@@ -123,20 +130,29 @@ struct PlayerInfoView: View {
     let isActive: Bool
     
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 1) {
             Text(player.name)
-                .font(.system(size: compact ? 9 : 10))
+                .font(.system(size: compact ? 10 : 11, weight: .medium))
                 .foregroundColor(.white)
                 .lineLimit(1)
+                .shadow(color: .black, radius: 1)
             
             Text("$\(player.chips)")
-                .font(.system(size: compact ? 9 : 10, weight: .bold))
+                .font(.system(size: compact ? 10 : 11, weight: .bold, design: .monospaced))
                 .foregroundColor(.yellow)
+                .shadow(color: .black, radius: 1)
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 2)
-        .background(.ultraThinMaterial)
-        .cornerRadius(4)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(isActive ? 0.3 : 0.1), lineWidth: 1)
+                )
+        )
+        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
     }
 }
 
@@ -148,18 +164,28 @@ struct PlayerBetView: View {
     var body: some View {
         Group {
             if bet > 0 {
-                Text("$\(bet)")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(Color.orange.opacity(0.7)))
+                HStack(spacing: 2) {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 6))
+                        .foregroundColor(.yellow)
+                    Text("$\(bet)")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(0.6))
+                        .overlay(Capsule().stroke(Color.yellow.opacity(0.5), lineWidth: 1))
+                )
+                .shadow(radius: 2)
             }
         }
     }
 }
 
-// MARK: - Profile Popover
+// MARK: - Profile Popover (Unchanged mostly, just styling)
 
 struct ProfilePopover: View {
     let player: Player
@@ -171,6 +197,9 @@ struct ProfilePopover: View {
             HStack {
                 Text(player.aiProfile?.avatar ?? (player.isHuman ? "🤠" : "🤖"))
                     .font(.system(size: 40))
+                    .padding(4)
+                    .background(Circle().fill(Color.gray.opacity(0.1)))
+                
                 VStack(alignment: .leading) {
                     Text(player.name)
                         .font(.headline)
@@ -187,19 +216,19 @@ struct ProfilePopover: View {
             // Stats Section
             if let stats = stats {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Statistics")
+                    Text("统计")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                    StatRow(label: "Total Hands", value: "\(stats.totalHands)")
-                    StatRow(label: "VPIP", value: String(format: "%.1f%%", stats.vpip))
-                    StatRow(label: "PFR", value: String(format: "%.1f%%", stats.pfr))
+                    StatRow(label: "总局数", value: "\(stats.totalHands)")
+                    StatRow(label: "入池率", value: String(format: "%.1f%%", stats.vpip))
+                    StatRow(label: "加注率", value: String(format: "%.1f%%", stats.pfr))
                     StatRow(label: "3-Bet", value: String(format: "%.1f%%", stats.threeBet))
-                    StatRow(label: "WTSD", value: String(format: "%.1f%%", stats.wtsd))
-                    StatRow(label: "W$SD", value: String(format: "%.1f%%", stats.wsd))
+                    StatRow(label: "看到摊牌", value: String(format: "%.1f%%", stats.wtsd))
+                    StatRow(label: "摊牌胜率", value: String(format: "%.1f%%", stats.wsd))
                 }
             } else {
-                Text("No statistics available")
+                Text("暂无统计数据")
                     .foregroundColor(.secondary)
                     .font(.caption)
             }
@@ -209,21 +238,21 @@ struct ProfilePopover: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("AI Profile")
+                    Text("AI 画像")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                    StatRow(label: "Tightness", value: String(format: "%.0f%%", (1 - aiProfile.tightness) * 100))
-                    StatRow(label: "Aggression", value: String(format: "%.0f%%", aiProfile.aggression * 100))
-                    StatRow(label: "Bluff Freq", value: String(format: "%.0f%%", aiProfile.bluffFreq * 100))
-                    StatRow(label: "C-Bet Flop", value: String(format: "%.0f%%", aiProfile.cbetFreq * 100))
-                    StatRow(label: "C-Bet Turn", value: String(format: "%.0f%%", aiProfile.cbetTurnFreq * 100))
-                    StatRow(label: "Position Aware", value: String(format: "%.0f%%", aiProfile.positionAwareness * 100))
-                    StatRow(label: "Tilt Sensitivity", value: String(format: "%.0f%%", aiProfile.tiltSensitivity * 100))
-                    StatRow(label: "Call Down", value: String(format: "%.0f%%", aiProfile.callDownTendency * 100))
+                    StatRow(label: "松紧度", value: String(format: "%.0f%%", (1 - aiProfile.tightness) * 100))
+                    StatRow(label: "侵略性", value: String(format: "%.0f%%", aiProfile.aggression * 100))
+                    StatRow(label: "诈唬频率", value: String(format: "%.0f%%", aiProfile.bluffFreq * 100))
+                    StatRow(label: "C-Bet翻牌", value: String(format: "%.0f%%", aiProfile.cbetFreq * 100))
+                    StatRow(label: "C-Bet转牌", value: String(format: "%.0f%%", aiProfile.cbetTurnFreq * 100))
+                    StatRow(label: "位置感知", value: String(format: "%.0f%%", aiProfile.positionAwareness * 100))
+                    StatRow(label: "上头敏感度", value: String(format: "%.0f%%", aiProfile.tiltSensitivity * 100))
+                    StatRow(label: "跟注到底", value: String(format: "%.0f%%", aiProfile.callDownTendency * 100))
                 }
             }
-
+            
             // Description
             if let aiProfile = player.aiProfile {
                 Divider()
@@ -232,14 +261,14 @@ struct ProfilePopover: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .italic()
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding()
-        .frame(minWidth: 200)
+        .frame(minWidth: 240)
+        .background(.regularMaterial)
     }
 }
-
-// MARK: - Stat Row
 
 struct StatRow: View {
     let label: String
@@ -254,6 +283,7 @@ struct StatRow: View {
             Text(value)
                 .font(.caption)
                 .fontWeight(.medium)
+                .fontDesign(.monospaced)
         }
     }
 }

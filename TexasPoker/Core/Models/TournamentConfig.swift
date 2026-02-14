@@ -7,6 +7,22 @@ struct TournamentConfig: Codable {
     let handsPerLevel: Int
     let payoutStructure: [Double]  // [0.5, 0.3, 0.2] = 50%, 30%, 20%
     
+    /// Whether rebuy is allowed in this tournament
+    var rebuyEnabled: Bool = true
+    /// Base chips for rebuy (defaults to startingChips)
+    var baseRebuyChips: Int?
+    
+    /// Effective rebuy base chips (falls back to startingChips)
+    var effectiveBaseRebuyChips: Int {
+        baseRebuyChips ?? startingChips
+    }
+    
+    /// Current tournament implementation uses an 8-seat table.
+    /// Expose this as a config-level value for callers that need total entrants.
+    var totalEntrants: Int {
+        8
+    }
+    
     // MARK: - Presets
     
     static let turbo = TournamentConfig(

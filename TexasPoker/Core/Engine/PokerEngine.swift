@@ -51,6 +51,7 @@ class PokerEngine: ObservableObject {
     @Published var currentBlindLevel: Int = 0
     @Published var handsAtCurrentLevel: Int = 0
     @Published var anteAmount: Int = 0
+    @Published var rebuyCount: Int = 0
     
     init(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         self.deck = Deck()
@@ -77,18 +78,59 @@ class PokerEngine: ObservableObject {
     }
     
     // MARK: - 8-Player Table Setup
+    /// Sets up table with configurable difficulty and player count
+    func setupTable(
+        difficulty: AIProfile.Difficulty = .normal,
+        playerCount: Int = 8,
+        heroName: String = "Hero"
+    ) {
+        players = []
+        
+        // Add Hero
+        players.append(Player(name: heroName, chips: 1000, isHuman: true))
+        
+        // Add AI opponents based on difficulty
+        let aiCount = min(playerCount - 1, 7)
+        let profiles = difficulty.randomOpponents(count: aiCount)
+        
+        for profile in profiles {
+            players.append(Player(
+                name: profile.name,
+                chips: 1000,
+                isHuman: false,
+                aiProfile: profile
+            ))
+        }
+    }
     
+    /// Legacy setup for backward compatibility
     private func setup8PlayerTable() {
         players = [
             Player(name: "Hero", chips: 1000, isHuman: true),
-            Player(name: "石头", chips: 1000, aiProfile: .rock),
-            Player(name: "疯子麦克", chips: 1000, aiProfile: .maniac),
-            Player(name: "安娜", chips: 1000, aiProfile: .callingStation),
-            Player(name: "老狐狸", chips: 1000, aiProfile: .fox),
-            Player(name: "鲨鱼汤姆", chips: 1000, aiProfile: .shark),
-            Player(name: "艾米", chips: 1000, aiProfile: .academic),
-            Player(name: "大卫", chips: 1000, aiProfile: .tiltDavid),
+            Player(name: "石头", chips: 1000, isHuman: false, aiProfile: .rock),
+            Player(name: "疯子麦克", chips: 1000, isHuman: false, aiProfile: .maniac),
+            Player(name: "安娜", chips: 1000, isHuman: false, aiProfile: .callingStation),
+            Player(name: "老狐狸", chips: 1000, isHuman: false, aiProfile: .fox),
+            Player(name: "鲨鱼汤姆", chips: 1000, isHuman: false, aiProfile: .shark),
+            Player(name: "艾米", chips: 1000, isHuman: false, aiProfile: .academic),
+            Player(name: "大卫", chips: 1000, isHuman: false, aiProfile: .tiltDavid),
         ]
+    }
+    
+    // MARK: - Rebuy
+    
+    /// Rebuy：恢复玩家状态和筹码
+    func rebuyPlayer(playerIndex: Int, chips: Int) {
+        guard playerIndex >= 0 && playerIndex < players.count else { return }
+        guard players[playerIndex].status == .eliminated else { return }
+        
+        players[playerIndex].chips = chips
+        players[playerIndex].status = .active
+        rebuyCount += 1
+        
+        #if DEBUG
+        print("💰 \(players[playerIndex].name) Rebuy 成功，筹码: \(chips)，总 Rebuy 次数: \(rebuyCount)")
+        #endif
     }
     
     // MARK: - Position Helpers

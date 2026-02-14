@@ -13,27 +13,27 @@ class UncalledBetTests: XCTestCase {
         // Anna: 10 (Folded)
         // Fox: 20 (Folded)
         
-        var hero = Player(name: "Hero", chips: 0)
+        var hero = Player(name: "Hero", chips: 0, isHuman: false)
         hero.totalBetThisHand = 2658
         hero.currentBet = 2658
         hero.status = .allIn
         
-        var mike = Player(name: "Mike", chips: 0)
+        var mike = Player(name: "Mike", chips: 0, isHuman: false)
         mike.totalBetThisHand = 970
         mike.currentBet = 970
         mike.status = .allIn
         
-        var amy = Player(name: "Amy", chips: 0)
+        var amy = Player(name: "Amy", chips: 0, isHuman: false)
         amy.totalBetThisHand = 398
         amy.currentBet = 398
         amy.status = .allIn
         
-        var anna = Player(name: "Anna", chips: 990)
+        var anna = Player(name: "Anna", chips: 990, isHuman: false)
         anna.totalBetThisHand = 10
         anna.currentBet = 10
         anna.status = .folded
         
-        var fox = Player(name: "Fox", chips: 980)
+        var fox = Player(name: "Fox", chips: 980, isHuman: false)
         fox.totalBetThisHand = 20
         fox.currentBet = 20
         fox.status = .folded
@@ -86,11 +86,11 @@ class UncalledBetTests: XCTestCase {
         
         let engine = PokerEngine()
         
-        var pA = Player(name: "A", chips: 1000)
+        var pA = Player(name: "A", chips: 1000, isHuman: false)
         pA.totalBetThisHand = 1000
         pA.status = .folded
         
-        var pB = Player(name: "B", chips: 1000)
+        var pB = Player(name: "B", chips: 1000, isHuman: false)
         pB.totalBetThisHand = 2000
         pB.status = .active
         
