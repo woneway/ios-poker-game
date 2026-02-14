@@ -107,7 +107,7 @@ struct SpectatorOverlay: View {
     }
     
     // MARK: - Chips Bars
-    
+
     private var chipsBarsView: some View {
         let alivePlayers = store.engine.players.filter { $0.chips > 0 }
         let maxChips = alivePlayers.map(\.chips).max() ?? 1
@@ -116,6 +116,7 @@ struct SpectatorOverlay: View {
             ForEach(store.engine.players.indices, id: \.self) { i in
                 let player = store.engine.players[i]
                 if player.chips > 0 {
+                    // 存活玩家显示筹码条
                     HStack(spacing: 6) {
                         Text(player.aiProfile?.avatar ?? (player.isHuman ? "🧑" : "🤖"))
                             .font(.system(size: 12))
@@ -137,6 +138,31 @@ struct SpectatorOverlay: View {
                         Text("$\(player.chips)")
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
                             .foregroundColor(.white.opacity(0.7))
+                            .frame(width: 50, alignment: .trailing)
+                    }
+                } else {
+                    // 已淘汰玩家显示为空座位占位符
+                    HStack(spacing: 6) {
+                        Text("💺")
+                            .font(.system(size: 12))
+                            .opacity(0.5)
+                        
+                        Text("空座位")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.white.opacity(0.3))
+                            .frame(width: 60, alignment: .leading)
+                            .lineLimit(1)
+                        
+                        GeometryReader { geo in
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.gray.opacity(0.2))
+                                .frame(width: 0)
+                        }
+                        .frame(height: 8)
+                        
+                        Text("淘汰")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.red.opacity(0.5))
                             .frame(width: 50, alignment: .trailing)
                     }
                 }

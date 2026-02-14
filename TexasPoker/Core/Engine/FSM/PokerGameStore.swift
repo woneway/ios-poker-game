@@ -242,6 +242,14 @@ class PokerGameStore: ObservableObject {
         case (.showdown, .startSpectating), (.idle, .startSpectating):
             startSpectating()
             
+        case (.waitingForAction, .startSpectating):
+            // 玩家在等待操作时选择观战，先自动弃牌当前手牌
+            if let heroIndex = engine.players.firstIndex(where: { $0.isHuman }),
+               engine.players[heroIndex].status == .active {
+                engine.processAction(.fold)
+            }
+            startSpectating()
+            
         case (.spectating, .pauseSpectating):
             pauseSpectating()
             
@@ -436,7 +444,16 @@ class PokerGameStore: ObservableObject {
         spectatePaused = false
         spectateLoopTask?.cancel()
         spectateLoopTask = nil
-        state = .idle
+
+        // 根据人类玩家是否有筹码决定返回状态
+        if let hero = engine.players.first(where: { $0.isHuman }),
+           hero.chips > 0 {
+            // 玩家还有筹码，返回 showdown 继续游戏
+            state = .showdown
+        } else {
+            // 玩家已淘汰，返回 idle 回到主界面
+            state = .idle
+        }
     }
     
     private func spectateLoop() {

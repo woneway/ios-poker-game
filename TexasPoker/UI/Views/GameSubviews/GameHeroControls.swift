@@ -309,6 +309,22 @@ struct GameHeroControls: View {
                             }
                         }
                         
+                        // 观战按钮（允许玩家在游戏进行中进入观战）
+                        Button(action: {
+                            HapticFeedback.buttonPress()
+                            store.send(.startSpectating)
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "eye")
+                                Text("观战")
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.purple)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(Color.purple.opacity(0.15)))
+                        }
+                        
                         LeaveTableButton(store: store, isInHand: true)
                     }
                 }

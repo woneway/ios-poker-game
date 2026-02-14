@@ -137,11 +137,20 @@ class PokerEngine: ObservableObject {
     }
     
     // MARK: - Rebuy
-    
+
     /// Rebuy：恢复玩家状态和筹码
+    /// 注意：此方法仅在锦标赛模式下有效，现金局不应调用
     func rebuyPlayer(playerIndex: Int, chips: Int) {
+        // 安全检查：锦标赛模式强制检查
+        guard gameMode == .tournament else {
+            #if DEBUG
+            print("⚠️ Rebuy attempted in non-tournament mode - blocked for safety")
+            #endif
+            return
+        }
         guard playerIndex >= 0 && playerIndex < players.count else { return }
         guard players[playerIndex].status == .eliminated else { return }
+        guard chips > 0 else { return }
         
         players[playerIndex].chips = chips
         players[playerIndex].status = .active
