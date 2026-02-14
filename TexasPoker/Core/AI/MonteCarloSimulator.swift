@@ -24,6 +24,13 @@ class MonteCarloSimulator {
         let knownCards = Set(holeCards + communityCards)
         let availableCards = baseDeck.cards.filter { !knownCards.contains($0) }
         
+        // 计算需要的牌数：每个对手2张 + 5张公共牌
+        let neededCards = (playerCount - 1) * 2 + 5
+        guard availableCards.count >= neededCards else {
+            // 牌数不足，无法进行有效的蒙特卡洛模拟
+            return 0.5 // 返回默认值
+        }
+        
         for _ in 0..<iterations {
             var deckCards = availableCards
             deckCards.shuffle()
