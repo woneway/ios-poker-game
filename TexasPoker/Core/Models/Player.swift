@@ -34,5 +34,6 @@ struct Player: Identifiable, Equatable {
             && lhs.holeCards == rhs.holeCards
             && lhs.status == rhs.status
             && lhs.currentBet == rhs.currentBet
+            && lhs.totalBetThisHand == rhs.totalBetThisHand  // 修复：确保本手牌总投注额也参与比较
     }
 }

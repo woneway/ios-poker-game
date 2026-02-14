@@ -34,9 +34,21 @@ enum BettingManager {
             p.status = .folded
 
         case .check:
+            // 检查是否可以check（下注额必须相等）
             if p.currentBet != currentBet {
-                p.status = .folded  // Invalid check → fold
+                // 无效的check应该被忽略，而不是强制fold
+                // 返回原始状态，让上层处理这个无效操作
+                return BetActionResult(
+                    playerUpdate: p,
+                    potAddition: 0,
+                    newCurrentBet: currentBet,
+                    newMinRaise: minRaise,
+                    newLastRaiserID: nil,
+                    isNewAggressor: false,
+                    reopenAction: false
+                )
             }
+            // 有效的check，不需要改变任何状态
 
         case .call:
             let amountNeeded = currentBet - p.currentBet
