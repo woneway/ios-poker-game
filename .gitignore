@@ -12,18 +12,20 @@ build/
 xcuserdata/
 *.xccheckout
 *.moved-aside
-DerivedData
+DerivedData/
 *.hmap
 *.ipa
 *.xcuserstate
 *.xcworkspace
 !default.xcworkspace
+*.xcuserdatad
 
 # Swift Package Manager
 .build/
 Packages/
 Package.pins
 Package.resolved
+.swiftpm/
 
 # CocoaPods
 Pods/

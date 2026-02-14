@@ -290,7 +290,9 @@ Execute Action
 
 | Game Table | Player View | Statistics |
 |:----------:|:-----------:|:----------:|
-| Game Table | Player View | Statistics |
+| <img src="Resources/screenshots/game-table.png" width="200"/> | <img src="Resources/screenshots/player-view.png" width="200"/> | <img src="Resources/screenshots/statistics.png" width="200"/> |
+
+*Screenshots coming soon - replace with actual game screenshots*
 
 </div>
 
