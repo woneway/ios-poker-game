@@ -145,7 +145,7 @@ struct CashGameManager {
         // 处理名称去重
         var finalName = profile.name
         var counter = 2
-        while existingNames.contains(finalName) || playersContainName(finalName) {
+        while existingNames.contains(finalName) || playersContainName(finalName, in: players) {
             finalName = "\(profile.name)\(counter)"
             counter += 1
         }
@@ -159,9 +159,9 @@ struct CashGameManager {
     }
 
     /// 检查现有玩家列表中是否包含指定名称
-    private static func playersContainName(_ name: String) -> Bool {
-        // 这个方法需要访问外部的 players，可以通过参数传递或闭包捕获
-        // 由于是私有辅助方法，这里返回 false，实际使用时通过 existingNames 参数处理
-        return false
+    /// 注意：由于是静态方法无法直接访问外部players变量，
+    /// 名称去重主要通过existingNames参数在调用处处理
+    private static func playersContainName(_ name: String, in players: [Player]) -> Bool {
+        return players.contains { $0.name == name }
     }
 }
