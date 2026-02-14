@@ -142,10 +142,10 @@ struct CashGameManager {
     ) -> Player? {
         let profile = difficulty.availableProfiles.randomElement() ?? .fox
 
-        // 处理名称去重
+        // 处理名称去重：使用existingNames进行去重（已包含所有现有玩家名称）
         var finalName = profile.name
         var counter = 2
-        while existingNames.contains(finalName) || playersContainName(finalName, in: players) {
+        while existingNames.contains(finalName) {
             finalName = "\(profile.name)\(counter)"
             counter += 1
         }
