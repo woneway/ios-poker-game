@@ -30,5 +30,9 @@ struct Player: Identifiable, Equatable {
     
     static func == (lhs: Player, rhs: Player) -> Bool {
         return lhs.id == rhs.id
+            && lhs.chips == rhs.chips
+            && lhs.holeCards == rhs.holeCards
+            && lhs.status == rhs.status
+            && lhs.currentBet == rhs.currentBet
     }
 }

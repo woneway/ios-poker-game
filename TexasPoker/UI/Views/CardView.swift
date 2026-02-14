@@ -5,7 +5,7 @@ struct CardView: View {
     let width: CGFloat
     @Environment(\.colorScheme) var colorScheme
     
-    private var height: CGFloat { width * 1.0 }
+    private var height: CGFloat { width * 1.4 }
     
     var body: some View {
         ZStack {
@@ -27,6 +27,8 @@ struct CardFaceView: View {
     private var isRed: Bool {
         return card.suit == .hearts || card.suit == .diamonds
     }
+    
+    private var height: CGFloat { width * 1.4 }
     
     var body: some View {
         ZStack {
@@ -79,11 +81,13 @@ struct CardFaceView: View {
             }
             .foregroundColor(isRed ? Color(hex: "D32F2F") : Color(hex: "212121"))
         }
+        .frame(width: width, height: height)
     }
 }
 
 struct CardBackView: View {
     let width: CGFloat
+    private var height: CGFloat { width * 1.4 }
     
     var body: some View {
         ZStack {
@@ -92,19 +96,17 @@ struct CardBackView: View {
                 .fill(Color.cardBackGradient)
                 .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
             
-            // Pattern Overlay (Diamond grid)
-            GeometryReader { geo in
-                Path { path in
-                    let size = 10.0
-                    for x in stride(from: 0, to: geo.size.width, by: size) {
-                        for y in stride(from: 0, to: geo.size.height, by: size) {
-                            if Int(x/size + y/size) % 2 == 0 {
-                                path.addRect(CGRect(x: x, y: y, width: size/2, height: size/2))
-                            }
+            // Pattern Overlay (Diamond grid) — 使用 Canvas 替代 GeometryReader 避免尺寸溢出
+            Canvas { context, size in
+                let step: CGFloat = 10
+                for x in stride(from: CGFloat(0), to: size.width, by: step) {
+                    for y in stride(from: CGFloat(0), to: size.height, by: step) {
+                        if Int(x / step + y / step) % 2 == 0 {
+                            let rect = CGRect(x: x, y: y, width: step / 2, height: step / 2)
+                            context.fill(Path(rect), with: .color(.black.opacity(0.1)))
                         }
                     }
                 }
-                .fill(Color.black.opacity(0.1))
             }
             .clipShape(RoundedRectangle(cornerRadius: width * 0.1))
             
@@ -124,5 +126,6 @@ struct CardBackView: View {
                         .shadow(radius: 2)
                 )
         }
+        .frame(width: width, height: height)
     }
 }

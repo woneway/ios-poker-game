@@ -487,13 +487,9 @@ struct GameView: View {
     // MARK: - Community Cards
     
     private func communityCardsView(geo: GeometryProxy) -> some View {
-        // 调整公共牌尺寸
-        let baseWidth = DeviceHelper.cardWidth(for: geo)
-        let cardWidth = min(baseWidth * 0.65, 38.0)  // 适度增大
+        let cardWidth: CGFloat = DeviceHelper.isIPad ? 52 : 40
         let cardHeight = cardWidth * 1.4
-        
-        // 紧凑间距
-        let spacing: CGFloat = -cardWidth * 0.15
+        let spacing: CGFloat = 4
         
         return HStack(spacing: spacing) {
             ForEach(Array(store.engine.communityCards.enumerated()), id: \.offset) { index, card in
@@ -505,7 +501,6 @@ struct GameView: View {
                     .frame(width: cardWidth, height: cardHeight)
             }
         }
-        .scaleEffect(0.75)
     }
     
     // MARK: - 8-Player Oval Layout
@@ -518,12 +513,12 @@ struct GameView: View {
         let h = geo.size.height
         let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
         
-        // 调整牌桌尺寸为更圆润的椭圆
-        // 玩家位置半径必须大于牌桌半径，才能让头像在牌桌外部
+        // 牌桌边框椭圆: rx = w*0.45, ry = h*0.34, center = (w/2, h*0.45)
+        // 玩家头像中心应在边框外约 24pt
         let centerX = w / 2
-        let centerY = h * 0.45
-        let radiusX = w * 0.40  // 减小半径，确保在屏幕内 (之前是 0.48)
-        let radiusY = h * 0.26  // 减小半径，确保在屏幕内 (之前是 0.32)
+        let centerY = h * 0.44
+        let radiusX = w * 0.45 + 24   // 桌布边框半径 + 外推
+        let radiusY = h * 0.34 + 24   // 桌布边框半径 + 外推
         
         // Seat positions as angles (starting from bottom, going clockwise)
         let seatAngles: [Double] = [
@@ -540,25 +535,27 @@ struct GameView: View {
         return ZStack {
             ForEach(0..<min(store.engine.players.count, 8), id: \.self) { i in
                 let angle = seatAngles[i] * .pi / 180
-                let x = centerX + radiusX * cos(angle)
-                let y = centerY - radiusY * sin(angle)
+                let rawX = centerX + radiusX * cos(angle)
+                let rawY = centerY - radiusY * sin(angle)
                 let isShowdown = store.state == .showdown
+                // 屏幕边界保护
+                let x = min(max(rawX, 52), w - 52)
+                let y = min(max(rawY, 60), h - 100)
                 
                 if i == heroIndex {
-                    // Hero - slightly larger, always shows cards
                     let isActiveInPlay = store.engine.activePlayerIndex == i
                         && (store.state == .waitingForAction || store.state == .betting)
                     PlayerView(
                         player: store.engine.players[i],
                         isActive: isActiveInPlay,
                         isDealer: store.engine.dealerIndex == i,
+                        isHero: true,
                         showCards: true,
                         compact: false,
                         gameMode: store.engine.gameMode
                     )
-                    // Hero 位置向上偏移，避免与底部控制栏重叠
-                    .position(x: x, y: y - 15)
-                    .zIndex(100) // Ensure Hero is always on top
+                    .position(x: x, y: min(y, h - 180))
+                    .zIndex(100)
                 } else {
                     let isActiveInPlay = store.engine.activePlayerIndex == i
                         && (store.state == .waitingForAction || store.state == .betting)
@@ -571,10 +568,11 @@ struct GameView: View {
                         gameMode: store.engine.gameMode
                     )
                     .position(x: x, y: y)
-                    .zIndex(Double(10 - i)) // Lower z-index for background players
+                    .zIndex(Double(10 - i))
                 }
             }
         }
+        .frame(width: w, height: h)
     }
     
     // MARK: - Action Log Toggle (Portrait)

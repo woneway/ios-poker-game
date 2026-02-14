@@ -26,7 +26,7 @@ extension Color {
     )
 
     static let cardBackGradient = LinearGradient(
-        gradient: Gradient(colors: [Color(hex: "B71C1C"), Color(hex: "880E4F")]),
+        gradient: Gradient(colors: [Color(hex: "1A3A5C"), Color(hex: "0D1F33")]),
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )

@@ -8,38 +8,28 @@ struct PlayerCardsView: View {
     let showCards: Bool
     let cardWidth: CGFloat
     
-    private var shouldShowCardFace: Bool {
-        return player.isHuman || showCards
-    }
-    
     var body: some View {
         Group {
-            // Hero 总是显示手牌正面
             if isHero && !player.holeCards.isEmpty {
+                // Hero 始终显示正面
                 HStack(spacing: -(cardWidth * 0.35)) {
                     ForEach(Array(player.holeCards.enumerated()), id: \.offset) { index, card in
-                        // Hero 使用 FlippingCard 并传入 isHero=true，始终显示正面
                         FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth, isHero: true)
-                            .rotationEffect(.degrees(Double.random(in: -2...2)))
                     }
                 }
                 .padding(.bottom, -4)
                 .zIndex(1)
-            } else if isHero && player.holeCards.isEmpty {
-                // 发牌期间显示占位
-                Color.clear.frame(height: cardWidth * 0.5)
             } else if !player.holeCards.isEmpty && player.status != .folded {
-                // 非 Hero 玩家
+                // 非 Hero：有牌时显示牌背或正面
                 HStack(spacing: -(cardWidth * 0.35)) {
                     ForEach(player.holeCards) { card in
                         CardView(card: showCards ? card : nil, width: cardWidth)
-                            .rotationEffect(.degrees(Double.random(in: -2...2)))
                     }
                 }
                 .padding(.bottom, -4)
                 .zIndex(1)
             } else {
-                Color.clear.frame(height: cardWidth * 0.5)
+                Color.clear.frame(width: cardWidth * 1.6, height: cardWidth * 1.4)
             }
         }
     }

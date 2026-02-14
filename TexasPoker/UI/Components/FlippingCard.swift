@@ -9,14 +9,18 @@ struct FlippingCard: View {
     var isHero: Bool = false
     @State private var isFlipped = false
     
+    private var cardHeight: CGFloat { width * 1.4 }
+    
     var body: some View {
         ZStack {
             // Hero 始终显示正面，不翻转
             if isHero {
                 CardFaceView(card: card, width: width)
+                    .frame(width: width, height: cardHeight)
             } else {
                 // 非 Hero 玩家使用翻转动画
                 CardBackView(width: width)
+                    .frame(width: width, height: cardHeight)
                     .opacity(isFlipped ? 0 : 1)
                     .rotation3DEffect(
                         .degrees(isFlipped ? 90 : 0),
@@ -24,6 +28,7 @@ struct FlippingCard: View {
                     )
                 
                 CardFaceView(card: card, width: width)
+                    .frame(width: width, height: cardHeight)
                     .opacity(isFlipped ? 1 : 0)
                     .rotation3DEffect(
                         .degrees(isFlipped ? 0 : -90),
@@ -31,7 +36,7 @@ struct FlippingCard: View {
                     )
             }
         }
-        .frame(width: width, height: width * 1.3)  // 调整为更合理的长宽比
+        .frame(width: width, height: cardHeight)
         .onAppear {
             if !isHero {
                 withAnimation(.easeInOut(duration: 0.4).delay(delay)) {
