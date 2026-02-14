@@ -94,25 +94,6 @@ struct PlayerAvatarView: View {
                 .offset(x: avatarSize * 0.35, y: -avatarSize * 0.35)
             }
             
-            // Stats Badge (VPIP/PFR) - unified display, threshold = 20 hands
-            if let stats = playerStats, stats.totalHands >= 20, playerStatus != .folded {
-                HStack(spacing: 2) {
-                    Text("\(Int(stats.vpip))")
-                        .foregroundColor(.green)
-                    Text("/")
-                        .foregroundColor(.white.opacity(0.5))
-                    Text("\(Int(stats.pfr))")
-                        .foregroundColor(.orange)
-                }
-                .font(.system(size: 9, weight: .bold))
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Color.black.opacity(0.7))
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
-                .offset(x: 0, y: avatarSize * 0.55)
-            }
-            
             // Status Overlay (Fold/All-in)
             if playerStatus == .folded {
                 Text("FOLD")

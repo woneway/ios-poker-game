@@ -63,6 +63,24 @@ struct PlayerView: View {
             }
             .onReceiveWinnerNotification(for: player)
             
+            // Stats Badge (VPIP/PFR) - between avatar and name so it occupies layout space
+            if let stats = playerStats, stats.totalHands >= 20, player.status != .folded {
+                HStack(spacing: 2) {
+                    Text("\(Int(stats.vpip))")
+                        .foregroundColor(.green)
+                    Text("/")
+                        .foregroundColor(.white.opacity(0.5))
+                    Text("\(Int(stats.pfr))")
+                        .foregroundColor(.orange)
+                }
+                .font(.system(size: 9, weight: .bold))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(Color.black.opacity(0.7))
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
+            }
+            
             // Name & Chips
             PlayerInfoView(
                 player: player,
