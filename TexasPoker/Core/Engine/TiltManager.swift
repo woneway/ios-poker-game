@@ -14,6 +14,7 @@ struct TiltManager {
         lastPotSize: Int
     ) {
         for i in 0..<players.count {
+            // 只处理AI玩家（有人类玩家没有aiProfile）
             guard var profile = players[i].aiProfile else { continue }
             
             if lastHandLosers.contains(players[i].id) {
