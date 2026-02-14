@@ -77,18 +77,34 @@ class PokerEngine: ObservableObject {
     }
     
     // MARK: - 8-Player Table Setup
+    /// Sets up table with configurable difficulty and player count
+    func setupTable(
+        difficulty: AIProfile.Difficulty = .normal,
+        playerCount: Int = 8,
+        heroName: String = "Hero"
+    ) {
+        players = []
+        
+        // Add Hero
+        players.append(Player(name: heroName, chips: 1000, isHuman: true))
+        
+        // Add AI opponents based on difficulty
+        let aiCount = min(playerCount - 1, 7)
+        let profiles = difficulty.randomOpponents(count: aiCount)
+        
+        for profile in profiles {
+            players.append(Player(
+                name: profile.name,
+                chips: 1000,
+                isHuman: false,
+                aiProfile: profile
+            ))
+        }
+    }
     
+    /// Legacy setup for backward compatibility
     private func setup8PlayerTable() {
-        players = [
-            Player(name: "Hero", chips: 1000, isHuman: true),
-            Player(name: "石头", chips: 1000, aiProfile: .rock),
-            Player(name: "疯子麦克", chips: 1000, aiProfile: .maniac),
-            Player(name: "安娜", chips: 1000, aiProfile: .callingStation),
-            Player(name: "老狐狸", chips: 1000, aiProfile: .fox),
-            Player(name: "鲨鱼汤姆", chips: 1000, aiProfile: .shark),
-            Player(name: "艾米", chips: 1000, aiProfile: .academic),
-            Player(name: "大卫", chips: 1000, aiProfile: .tiltDavid),
-        ]
+        setupTable(difficulty: .normal, playerCount: 8)
     }
     
     // MARK: - Position Helpers
