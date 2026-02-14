@@ -4,6 +4,7 @@ import SwiftUI
 
 struct PlayerCardsView: View {
     let player: Player
+    let isHero: Bool
     let showCards: Bool
     let cardWidth: CGFloat
     
@@ -13,40 +14,32 @@ struct PlayerCardsView: View {
     
     var body: some View {
         Group {
-            // Hero 总是显示手牌占位，确保 UI 布局正确
-            if player.isHuman {
-                HStack(spacing: -(cardWidth * 0.4)) {
+            // Hero 总是显示手牌正面
+            if isHero && !player.holeCards.isEmpty {
+                HStack(spacing: -(cardWidth * 0.35)) {
                     ForEach(Array(player.holeCards.enumerated()), id: \.offset) { index, card in
                         // Hero 使用 FlippingCard 并传入 isHero=true，始终显示正面
                         FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth, isHero: true)
-                            .rotationEffect(.degrees(Double.random(in: -3...3)))
-                    }
-                    // 占位符，确保 Hero 手牌区域始终显示
-                    if player.holeCards.count == 1 {
-                        FlippingCard(card: Card(rank: .ace, suit: .spades), delay: 0, width: cardWidth, isHero: true)
-                            .opacity(0)  // 占位但不可见
-                    } else if player.holeCards.isEmpty {
-                        // 发牌期间显示背面占位
-                        FlippingCard(card: Card(rank: .ace, suit: .spades), delay: 0, width: cardWidth, isHero: true)
-                            .opacity(0)
-                        FlippingCard(card: Card(rank: .ace, suit: .spades), delay: 0, width: cardWidth, isHero: true)
-                            .opacity(0)
+                            .rotationEffect(.degrees(Double.random(in: -2...2)))
                     }
                 }
-                .padding(.bottom, -6)
+                .padding(.bottom, -4)
                 .zIndex(1)
+            } else if isHero && player.holeCards.isEmpty {
+                // 发牌期间显示占位
+                Color.clear.frame(height: cardWidth * 0.5)
             } else if !player.holeCards.isEmpty && player.status != .folded {
-                // 非 Hero 玩家：按 showCards 决定是否显示
-                HStack(spacing: -(cardWidth * 0.4)) {
+                // 非 Hero 玩家
+                HStack(spacing: -(cardWidth * 0.35)) {
                     ForEach(player.holeCards) { card in
                         CardView(card: showCards ? card : nil, width: cardWidth)
-                            .rotationEffect(.degrees(Double.random(in: -3...3)))
+                            .rotationEffect(.degrees(Double.random(in: -2...2)))
                     }
                 }
-                .padding(.bottom, -6)
+                .padding(.bottom, -4)
                 .zIndex(1)
             } else {
-                Color.clear.frame(height: 24)
+                Color.clear.frame(height: cardWidth * 0.5)
             }
         }
     }
@@ -252,19 +245,19 @@ struct ProfilePopover: View {
             // Stats Section
             if let stats = stats {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Statistics")
+                    Text("统计")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                    StatRow(label: "Total Hands", value: "\(stats.totalHands)")
-                    StatRow(label: "VPIP", value: String(format: "%.1f%%", stats.vpip))
-                    StatRow(label: "PFR", value: String(format: "%.1f%%", stats.pfr))
+                    StatRow(label: "总局数", value: "\(stats.totalHands)")
+                    StatRow(label: "入池率", value: String(format: "%.1f%%", stats.vpip))
+                    StatRow(label: "加注率", value: String(format: "%.1f%%", stats.pfr))
                     StatRow(label: "3-Bet", value: String(format: "%.1f%%", stats.threeBet))
-                    StatRow(label: "WTSD", value: String(format: "%.1f%%", stats.wtsd))
-                    StatRow(label: "W$SD", value: String(format: "%.1f%%", stats.wsd))
+                    StatRow(label: "看到摊牌", value: String(format: "%.1f%%", stats.wtsd))
+                    StatRow(label: "摊牌胜率", value: String(format: "%.1f%%", stats.wsd))
                 }
             } else {
-                Text("No statistics available")
+                Text("暂无统计数据")
                     .foregroundColor(.secondary)
                     .font(.caption)
             }
@@ -274,18 +267,18 @@ struct ProfilePopover: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("AI Profile")
+                    Text("AI 画像")
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
-                    StatRow(label: "Tightness", value: String(format: "%.0f%%", (1 - aiProfile.tightness) * 100))
-                    StatRow(label: "Aggression", value: String(format: "%.0f%%", aiProfile.aggression * 100))
-                    StatRow(label: "Bluff Freq", value: String(format: "%.0f%%", aiProfile.bluffFreq * 100))
-                    StatRow(label: "C-Bet Flop", value: String(format: "%.0f%%", aiProfile.cbetFreq * 100))
-                    StatRow(label: "C-Bet Turn", value: String(format: "%.0f%%", aiProfile.cbetTurnFreq * 100))
-                    StatRow(label: "Position Aware", value: String(format: "%.0f%%", aiProfile.positionAwareness * 100))
-                    StatRow(label: "Tilt Sensitivity", value: String(format: "%.0f%%", aiProfile.tiltSensitivity * 100))
-                    StatRow(label: "Call Down", value: String(format: "%.0f%%", aiProfile.callDownTendency * 100))
+                    StatRow(label: "松紧度", value: String(format: "%.0f%%", (1 - aiProfile.tightness) * 100))
+                    StatRow(label: "侵略性", value: String(format: "%.0f%%", aiProfile.aggression * 100))
+                    StatRow(label: "诈唬频率", value: String(format: "%.0f%%", aiProfile.bluffFreq * 100))
+                    StatRow(label: "C-Bet翻牌", value: String(format: "%.0f%%", aiProfile.cbetFreq * 100))
+                    StatRow(label: "C-Bet转牌", value: String(format: "%.0f%%", aiProfile.cbetTurnFreq * 100))
+                    StatRow(label: "位置感知", value: String(format: "%.0f%%", aiProfile.positionAwareness * 100))
+                    StatRow(label: "上头敏感度", value: String(format: "%.0f%%", aiProfile.tiltSensitivity * 100))
+                    StatRow(label: "跟注到底", value: String(format: "%.0f%%", aiProfile.callDownTendency * 100))
                 }
             }
             

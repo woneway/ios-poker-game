@@ -27,7 +27,7 @@ struct GameView: View {
     
     @State private var scene: PokerTableScene = {
         let scene = PokerTableScene()
-        scene.size = CGSize(width: 300, height: 600)
+        scene.size = CGSize(width: 300, height: 600)  // 高度增加到 600
         scene.scaleMode = .resizeFill
         scene.backgroundColor = .clear
         return scene
@@ -168,8 +168,8 @@ struct GameView: View {
                 // Table Shadow
                 Ellipse()
                     .fill(Color.black.opacity(0.5))
-                    .frame(width: geo.size.width * 0.92, height: geo.size.height * 0.52)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42 + 10)
+                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)  // 增加高度到 68%
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45 + 10)
                     .blur(radius: 20)
                 
                 // Table Border (Wood/Leather)
@@ -181,13 +181,13 @@ struct GameView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: geo.size.width * 0.92, height: geo.size.height * 0.52)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)  // 增加高度到 68%
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
                     .overlay(
                         Ellipse()
                             .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                            .frame(width: geo.size.width * 0.92, height: geo.size.height * 0.52)
-                            .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                            .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
                     )
                 
                 // Table Felt
@@ -203,9 +203,9 @@ struct GameView: View {
                             endRadius: 200
                         )
                     )
-                    .frame(width: geo.size.width * 0.86, height: geo.size.height * 0.48)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
-                    .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5) // Inner shadow simulation
+                    .frame(width: geo.size.width * 0.85, height: geo.size.height * 0.64)  // 增加高度到 64%
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
+                    .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
             }
             
             // SpriteKit layer
@@ -390,28 +390,25 @@ struct GameView: View {
     // MARK: - Community Cards
     
     private func communityCardsView(geo: GeometryProxy) -> some View {
-        // 调整公共牌尺寸，避免过长
-        let cardWidth = DeviceHelper.cardWidth(for: geo) * 0.65  // 进一步缩小
-        let cardHeight = cardWidth * 1.35
+        // 调整公共牌尺寸
+        let baseWidth = DeviceHelper.cardWidth(for: geo)
+        let cardWidth = min(baseWidth * 0.65, 38.0)  // 适度增大
+        let cardHeight = cardWidth * 1.4
         
-        // 计算总宽度，确保不超出牌桌
-        let spacing: CGFloat = 2  // 进一步减小间距
-        let totalWidth = (cardWidth * 5) + (spacing * 4)
-        let scale = totalWidth > geo.size.width * 0.4 ? (geo.size.width * 0.4) / totalWidth : 0.7  // 缩小
+        // 紧凑间距
+        let spacing: CGFloat = -cardWidth * 0.15
         
         return HStack(spacing: spacing) {
             ForEach(Array(store.engine.communityCards.enumerated()), id: \.offset) { index, card in
                 FlippingCard(card: card, delay: Double(index) * 0.15, width: cardWidth)
-                    .scaleEffect(0.7)  // 整体进一步缩小
             }
             ForEach(0..<(5 - store.engine.communityCards.count), id: \.self) { _ in
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
                     .frame(width: cardWidth, height: cardHeight)
-                    .scaleEffect(0.7)
             }
         }
-        .scaleEffect(scale)
+        .scaleEffect(0.75)
     }
     
     // MARK: - 8-Player Oval Layout
@@ -424,14 +421,14 @@ struct GameView: View {
         let h = geo.size.height
         let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
         
-        // 调整牌桌尺寸，避免过长
+        // 调整牌桌尺寸为更圆润的椭圆
+        // 玩家位置半径必须大于牌桌半径，才能让头像在牌桌外部
         let centerX = w / 2
-        let centerY = h * 0.38  // 向上移动
-        let radiusX = w * 0.26  // 进一步收窄横向
-        let radiusY = h * 0.16  // 进一步减小纵向
+        let centerY = h * 0.45
+        let radiusX = w * 0.40  // 减小半径，确保在屏幕内 (之前是 0.48)
+        let radiusY = h * 0.26  // 减小半径，确保在屏幕内 (之前是 0.32)
         
         // Seat positions as angles (starting from bottom, going clockwise)
-        // Seat 0: 270° (bottom), Seat 1: 225° (bottom-left), ...
         let seatAngles: [Double] = [
             270,  // 0: Hero (bottom center)
             225,  // 1: bottom-left
@@ -449,7 +446,6 @@ struct GameView: View {
                 let x = centerX + radiusX * cos(angle)
                 let y = centerY - radiusY * sin(angle)
                 let isShowdown = store.state == .showdown
-                let isHeroTurn = i == heroIndex && store.engine.activePlayerIndex == heroIndex && store.state == .waitingForAction
                 
                 if i == heroIndex {
                     // Hero - slightly larger, always shows cards
@@ -463,8 +459,8 @@ struct GameView: View {
                         compact: false,
                         gameMode: store.engine.gameMode
                     )
-                    // Lift Hero further when it's player's turn to avoid bottom control overlap.
-                    .position(x: x, y: y - (isHeroTurn ? 60 : 20))
+                    // Hero 位置向上偏移，避免与底部控制栏重叠
+                    .position(x: x, y: y - 15)
                     .zIndex(100) // Ensure Hero is always on top
                 } else {
                     let isActiveInPlay = store.engine.activePlayerIndex == i

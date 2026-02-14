@@ -25,7 +25,7 @@ struct GameTopBar: View {
             
             Spacer()
             
-            Text("Hand #\(store.engine.handNumber)")
+            Text("手牌 #\(store.engine.handNumber)")
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.5))
             
@@ -51,10 +51,10 @@ struct GameTopBar: View {
     
     private var streetName: String {
         switch store.engine.currentStreet {
-        case .preFlop: return "Pre-Flop"
-        case .flop: return "Flop"
-        case .turn: return "Turn"
-        case .river: return "River"
+        case .preFlop: return "翻牌前"
+        case .flop: return "翻牌圈"
+        case .turn: return "转牌圈"
+        case .river: return "河牌圈"
         }
     }
 }

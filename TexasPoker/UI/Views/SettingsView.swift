@@ -49,10 +49,10 @@ class GameSettings: ObservableObject {
     @Published var manualDifficulty: DifficultyLevel = .medium
     
     enum Difficulty: String, CaseIterable, Identifiable {
-        case easy = "Easy"
-        case normal = "Normal"
-        case hard = "Hard"
-        case pro = "Pro"
+        case easy = "简单"
+        case normal = "普通"
+        case hard = "困难"
+        case pro = "专业"
         
         var id: String { self.rawValue }
     }
@@ -102,7 +102,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Profile")) {
+                Section(header: Text("档案")) {
                     Picker("Active Profile", selection: $profiles.currentProfileId) {
                         ForEach(profiles.profiles) { p in
                             Text(p.name).tag(p.id)
@@ -116,18 +116,18 @@ struct SettingsView: View {
                         HStack {
                             Image(systemName: "person.badge.plus")
                                 .foregroundColor(.blue)
-                            Text("New Profile")
+                            Text("新建档案")
                         }
                     }
                 }
 
-                Section(header: Text("General")) {
+                Section(header: Text("通用")) {
                     VStack(alignment: .leading) {
                         Text("Game Speed: \(String(format: "%.1fx", settings.gameSpeed))")
                         Slider(value: $settings.gameSpeed, in: 0.5...3.0, step: 0.5)
                     }
                     
-                    Picker("Difficulty", selection: $settings.difficulty) {
+                    Picker("难度", selection: $settings.difficulty) {
                         ForEach(GameSettings.Difficulty.allCases) { diff in
                             Text(diff.rawValue).tag(diff)
                         }
@@ -150,31 +150,31 @@ struct SettingsView: View {
                     }
                 }
                 
-                Section(header: Text("Game Mode")) {
-                    Picker("Mode", selection: $settings.gameMode) {
-                        Text("Cash Game").tag(GameMode.cashGame)
-                        Text("Tournament").tag(GameMode.tournament)
+                Section(header: Text("游戏模式")) {
+                    Picker("模式", selection: $settings.gameMode) {
+                        Text("现金局").tag(GameMode.cashGame)
+                        Text("锦标赛").tag(GameMode.tournament)
                     }
                     .pickerStyle(SegmentedPickerStyle())
                     
                     if settings.gameMode == .tournament {
-                        Picker("Tournament Type", selection: $settings.tournamentPreset) {
+                        Picker("锦标赛类型", selection: $settings.tournamentPreset) {
                             Text("Turbo").tag("Turbo")
-                            Text("Standard").tag("Standard")
-                            Text("Deep Stack").tag("Deep Stack")
+                            Text("标准").tag("Standard")
+                            Text("深筹赛").tag("Deep Stack")
                         }
                         .pickerStyle(MenuPickerStyle())
                         
                         // Show preset details
                         if let config = settings.getTournamentConfig() {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Starting Chips: \(config.startingChips)")
+                                Text("起始筹码: \(config.startingChips)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text("Hands per Level: \(config.handsPerLevel)")
+                                Text("每级别手牌数: \(config.handsPerLevel)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text("Payouts: Top \(config.payoutStructure.count)")
+                                Text("奖励圈: 前 \(config.payoutStructure.count)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -218,12 +218,12 @@ struct SettingsView: View {
                     }
                 }
                 
-                Section(header: Text("History & Stats")) {
+                Section(header: Text("历史与统计")) {
                     Button(action: { showHistory = true }) {
                         HStack {
                             Image(systemName: "clock.arrow.circlepath")
                                 .foregroundColor(.blue)
-                            Text("Game History")
+                            Text("游戏历史")
                                 .foregroundColor(.primary)
                             Spacer()
                             
@@ -243,7 +243,7 @@ struct SettingsView: View {
                         HStack {
                             Image(systemName: "chart.bar.fill")
                                 .foregroundColor(.green)
-                            Text("Player Statistics")
+                            Text("玩家统计")
                                 .foregroundColor(.primary)
                             Spacer()
                             
@@ -261,18 +261,18 @@ struct SettingsView: View {
                         let avgRank = total > 0 ? Int(round(Double(historyManager.records.map { $0.heroRank }.reduce(0, +)) / Double(total))) : 0
                         
                         HStack {
-                            statBadge(title: "Games", value: "\(total)", color: .blue)
-                            statBadge(title: "Wins", value: "\(wins)", color: .green)
-                            statBadge(title: "Win %", value: "\(winPct)%", color: .orange)
-                            statBadge(title: "Avg Rank", value: "#\(avgRank)", color: .purple)
+                            statBadge(title: "总局数", value: "\(total)", color: .blue)
+                            statBadge(title: "获胜次数", value: "\(wins)", color: .green)
+                            statBadge(title: "胜率", value: "\(winPct)%", color: .orange)
+                            statBadge(title: "平均排名", value: "#\(avgRank)", color: .purple)
                         }
                         .padding(.vertical, 4)
                     }
                 }
                 
                 Section(header: Text("About")) {
-                    Text("Texas Poker v1.1")
-                    Text("Built with SwiftUI + SpriteKit")
+                    Text("德州扑克 v1.1")
+                    Text("基于 SwiftUI + SpriteKit")
                 }
                 
                 if let onQuit = onQuit {
@@ -281,25 +281,25 @@ struct SettingsView: View {
                             onQuit()
                             isPresented = false
                         }) {
-                            Text("Quit Current Game")
+                            Text("退出当前游戏")
                                 .foregroundColor(.red)
                                 .frame(maxWidth: .infinity, alignment: .center)
                         }
                     }
                 }
             }
-            .navigationTitle("Settings")
-            .navigationBarItems(trailing: Button("Done") {
+            .navigationTitle("设置")
+            .navigationBarItems(trailing: Button("完成") {
                 isPresented = false
             })
-            .alert("New Profile", isPresented: $showNewProfileAlert) {
-                TextField("Profile name", text: $newProfileName)
-                Button("Create") {
+            .alert("新建档案", isPresented: $showNewProfileAlert) {
+                TextField("档案名称", text: $newProfileName)
+                Button("创建") {
                     _ = profiles.createProfile(name: newProfileName)
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("取消", role: .cancel) {}
             } message: {
-                Text("Statistics and history are isolated per profile.")
+                Text("统计数据和游戏记录将按档案隔离保存。")
             }
             .sheet(isPresented: $showHistory) {
                 HistoryView(isPresented: $showHistory)

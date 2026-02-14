@@ -49,7 +49,8 @@ extension PokerEngine {
             amount: potAddition,
             street: currentStreet,
             isVoluntary: isVoluntary,
-            position: position
+            position: position,
+            isHuman: originalPlayer.isHuman
         )
     }
     

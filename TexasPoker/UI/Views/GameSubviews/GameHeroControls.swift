@@ -16,7 +16,7 @@ struct GameHeroControls: View {
         switch store.state {
         case .idle:
             Button(action: { store.send(.start) }) {
-                Text("DEAL HAND")
+                Text("发牌")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -27,7 +27,7 @@ struct GameHeroControls: View {
             .padding(.horizontal, 40)
             
         case .dealing:
-            Text("Dealing...")
+            Text("发牌中...")
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.5))
             
@@ -48,18 +48,18 @@ struct GameHeroControls: View {
                     VStack(spacing: 8) {
                         if let winner = store.finalWinner {
                             if winner.isHuman {
-                                Text("🏆 YOU WIN!")
+                                Text("🏆 你赢了!")
                                     .font(.system(size: 22, weight: .black))
                                     .foregroundColor(.yellow)
                             } else {
-                                Text("🏆 \(winner.name) Wins!")
+                                Text("🏆 \(winner.name) 获胜!")
                                     .font(.system(size: 18, weight: .black))
                                     .foregroundColor(.orange)
                             }
                         }
                         
                         Button(action: { showRankings = true }) {
-                            Text("View Final Standings")
+                            Text("查看最终排名")
                                 .font(.system(size: 15, weight: .bold))
                                 .foregroundColor(.yellow)
                                 .frame(maxWidth: .infinity)
@@ -75,7 +75,7 @@ struct GameHeroControls: View {
                                 config: settings.getTournamentConfig()
                             )
                         }) {
-                            Text("New Game")
+                            Text("新游戏")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
@@ -87,17 +87,17 @@ struct GameHeroControls: View {
                 } else if let hero = hero, hero.chips <= 0 {
                     // Hero eliminated but game continues
                     VStack(spacing: 6) {
-                        Text("YOU'RE OUT!")
+                        Text("你被淘汰了!")
                             .font(.system(size: 18, weight: .black))
                             .foregroundColor(.red)
                         
-                        Text("Finished \(eliminatedRank)th of 8")
+                        Text("排名第 \(eliminatedRank) / 8")
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.6))
                         
                         HStack(spacing: 12) {
                             Button(action: { store.send(.nextHand) }) {
-                                Text("Watch")
+                                Text("观战")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.white)
                                     .frame(width: 100, height: 40)
@@ -109,7 +109,7 @@ struct GameHeroControls: View {
                                     config: settings.getTournamentConfig()
                                 )
                             }) {
-                                Text("New Game")
+                                Text("新游戏")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.white)
                                     .frame(width: 100, height: 40)
@@ -120,7 +120,7 @@ struct GameHeroControls: View {
                 } else {
                     // Hero alive, continue
                     Button(action: { store.send(.nextHand) }) {
-                        Text("Next Hand")
+                        Text("下一手")
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -178,7 +178,7 @@ struct GameHeroControls: View {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         .scaleEffect(0.7)
-                    Text("Waiting...")
+                    Text("等待中...")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.5))
                 }
@@ -189,7 +189,7 @@ struct GameHeroControls: View {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     .scaleEffect(0.7)
-                Text("AI Thinking...")
+                Text("AI 思考中...")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.5))
             }
@@ -241,7 +241,7 @@ struct GameHeroControls: View {
             // Current raise amount display
             // If maxRaiseTo < minRaiseTo, user can only All-In, so show that amount
             let displayAmount = minRaiseTo > maxRaiseTo ? maxRaiseTo : currentRaiseTo
-            Text(minRaiseTo > maxRaiseTo ? "All In $\(displayAmount)" : "Raise to $\(displayAmount)")
+            Text(minRaiseTo > maxRaiseTo ? "全下 $\(displayAmount)" : "加注至 $\(displayAmount)")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.yellow)
             
@@ -304,7 +304,7 @@ struct GameHeroControls: View {
                 Button(action: {
                     showRaisePanel = false
                 }) {
-                    Text("Cancel")
+                    Text("取消")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                         .frame(width: 80, height: 38)
@@ -322,7 +322,7 @@ struct GameHeroControls: View {
                     if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
                     showRaisePanel = false
                 }) {
-                    Text(minRaiseTo > maxRaiseTo || currentRaiseTo >= maxRaiseTo ? "All In $\(maxRaiseTo)" : "Raise $\(currentRaiseTo)")
+                    Text(minRaiseTo > maxRaiseTo || currentRaiseTo >= maxRaiseTo ? "全下 $\(maxRaiseTo)" : "加注 $\(currentRaiseTo)")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                         .frame(minWidth: 120, minHeight: 38)

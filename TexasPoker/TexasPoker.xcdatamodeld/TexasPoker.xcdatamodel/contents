@@ -25,6 +25,7 @@
         <attribute name="isVoluntary" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="position" optional="YES" attributeType="String"/>
         <attribute name="profileId" optional="YES" attributeType="String"/>
+        <attribute name="isHuman" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <relationship name="handHistory" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="HandHistoryEntity" inverseName="actions" inverseEntity="HandHistoryEntity"/>
     </entity>
     <entity name="PlayerStatsEntity" representedClassName="PlayerStatsEntity" syncable="YES" codeGenerationType="class">
@@ -32,6 +33,7 @@
         <attribute name="playerName" attributeType="String"/>
         <attribute name="gameMode" attributeType="String"/>
         <attribute name="profileId" optional="YES" attributeType="String"/>
+        <attribute name="isHuman" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="totalHands" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="vpip" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="pfr" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>

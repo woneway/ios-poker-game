@@ -7,10 +7,17 @@ class PokerGameStore: ObservableObject {
     @Published var isGameOver: Bool = false
     @Published var finalResults: [PlayerResult] = []
     @Published var showRankings: Bool = false
+    @Published var isBackgroundSimulating: Bool = false
     
     private var cancellables = Set<AnyCancellable>()
     private var gameRecordSaved = false
     private var dealCompleteTimer: DispatchWorkItem?
+    private var backgroundSimulationTask: DispatchWorkItem?
+    
+    /// Number of background hands to simulate per batch
+    private let backgroundHandsPerBatch = 100
+    /// Number of batches to simulate
+    private let backgroundBatches = 10
     
     /// 当前是否是人类玩家的回合
     var isHumanTurn: Bool {
@@ -233,12 +240,111 @@ class PokerGameStore: ObservableObject {
             heroRank: heroRank
         )
         GameHistoryManager.shared.saveRecord(record)
+        
+        // 启动 AI 后台模拟（统计所有玩家数据）
+        startBackgroundAISimulation()
+    }
+    
+    // MARK: - AI Background Simulation
+    
+    /// 为 AI 玩家启动后台模拟任务，加快数据收集速度
+    private func startBackgroundAISimulation() {
+        guard !isBackgroundSimulating else { return }
+        isBackgroundSimulating = true
+        
+        #if DEBUG
+        print("🚀 开始 AI 后台模拟...")
+        #endif
+        
+        // 在后台队列执行模拟
+        let simulationQueue = DispatchQueue(label: "com.poker.ai.simulation", qos: .userInitiated)
+        
+        simulationQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            // 获取当前所有玩家名称（用于统计）
+            let playerNames = self.engine.players.map { $0.name }
+            let gameMode = self.engine.gameMode
+            
+            // 执行多批模拟
+            for batch in 0..<self.backgroundBatches {
+                self.runBatchSimulation(batch: batch + 1, totalBatches: self.backgroundBatches)
+            }
+            
+            // 模拟完成后更新统计数据
+            DispatchQueue.main.async {
+                self.updateAllPlayerStats(playerNames: playerNames, gameMode: gameMode)
+                self.isBackgroundSimulating = false
+                
+                #if DEBUG
+                print("✅ AI 后台模拟完成！")
+                #endif
+            }
+        }
+    }
+    
+    /// 执行一批后台模拟
+    private func runBatchSimulation(batch: Int, totalBatches: Int) {
+        // 为每批模拟创建独立的引擎实例，避免状态冲突
+        let simEngine = PokerEngine(mode: engine.gameMode, config: engine.tournamentConfig)
+        
+        // 使用同步方式快速完成多手牌
+        for _ in 0..<backgroundHandsPerBatch {
+            // 检查是否还有足够玩家继续
+            let activePlayers = simEngine.players.filter { $0.chips > 0 }
+            if activePlayers.count < 2 {
+                break
+            }
+            
+            // 快速模拟一手牌（不播放动画）
+            self.quickSimulateHand(engine: simEngine)
+        }
+        
+        #if DEBUG
+        print("📊 Batch \(batch)/\(totalBatches) 完成，已模拟 \(backgroundHandsPerBatch) 手牌")
+        #endif
+    }
+    
+    /// 快速模拟一手牌（无动画，无延迟）
+    private func quickSimulateHand(engine: PokerEngine) {
+        // 启动手牌
+        engine.startHand()
+        
+        // 快速进行到底（不使用延迟）
+        while !engine.isHandOver && engine.activePlayerIndex >= 0 && engine.activePlayerIndex < engine.players.count {
+            let player = engine.players[engine.activePlayerIndex]
+            
+            // AI 玩家快速决策（0 延迟）
+            if !player.isHuman && player.status == .active {
+                let action = DecisionEngine.makeDecision(player: player, engine: engine)
+                engine.processAction(action)
+            } else if player.isHuman && player.status == .active {
+                // 人类玩家跳过（不参与后台模拟）
+                // 直接推进到下一个活跃玩家
+                engine.activePlayerIndex = engine.nextActivePlayerIndex(after: engine.activePlayerIndex)
+            } else {
+                // 非活跃玩家，跳过
+                engine.activePlayerIndex = engine.nextActivePlayerIndex(after: engine.activePlayerIndex)
+            }
+        }
+    }
+    
+    /// 更新所有玩家（人类 + AI）的统计数据
+    private func updateAllPlayerStats(playerNames: [String], gameMode: GameMode) {
+        // 为所有玩家重新计算统计数据
+        StatisticsCalculator.shared.recomputeAndPersistStats(
+            playerNames: playerNames,
+            gameMode: gameMode
+        )
     }
     
     func resetGame(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         dealCompleteTimer?.cancel()
         dealCompleteTimer = nil
+        backgroundSimulationTask?.cancel()
+        backgroundSimulationTask = nil
         isGameOver = false
+        isBackgroundSimulating = false
         showRankings = false
         finalResults = []
         gameRecordSaved = false

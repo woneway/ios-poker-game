@@ -6,6 +6,7 @@ struct PlayerView: View {
     let player: Player
     let isActive: Bool
     let isDealer: Bool
+    var isHero: Bool = false
     var showCards: Bool = false
     var compact: Bool = false
     var gameMode: GameMode = .cashGame
@@ -26,7 +27,7 @@ struct PlayerView: View {
     }
     
     private var cardWidth: CGFloat {
-        let base: CGFloat = compact ? 28 : 36
+        let base: CGFloat = compact ? 32 : 42
         return base * DeviceHelper.scaleFactor
     }
     
@@ -37,6 +38,7 @@ struct PlayerView: View {
             // Cards
             PlayerCardsView(
                 player: player,
+                isHero: isHero,
                 showCards: showCards,
                 cardWidth: cardWidth
             )
