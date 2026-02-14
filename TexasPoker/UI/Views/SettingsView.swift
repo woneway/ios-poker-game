@@ -98,7 +98,7 @@ struct SettingsView: View {
                 ForEach(profiles.profiles) { profile in
                     HStack {
                         Text(profile.name)
-                        if profile.isDefault {
+                        if profile.id == ProfileManager.defaultProfileId {
                             Text("(默认)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -424,10 +424,10 @@ struct QuickStatsView: View {
         let stats = calculateStats()
         
         HStack(spacing: 12) {
-            StatBadge(title: "总局数", value: "\(stats.total)", color: .blue, icon: "number")
-            StatBadge(title: "冠军", value: "\(stats.wins)", color: .yellow, icon: "crown")
-            StatBadge(title: "胜率", value: "\(stats.winRate)%", color: .green, icon: "percent")
-            StatBadge(title: "均名", value: "#\(stats.avgRank)", color: .purple, icon: "list.number")
+            QuickStatBadge(title: "总局数", value: "\(stats.total)", color: .blue, icon: "number")
+            QuickStatBadge(title: "冠军", value: "\(stats.wins)", color: .yellow, icon: "crown")
+            QuickStatBadge(title: "胜率", value: "\(stats.winRate)%", color: .green, icon: "percent")
+            QuickStatBadge(title: "均名", value: "#\(stats.avgRank)", color: .purple, icon: "list.number")
         }
         .padding(.vertical, 8)
     }
@@ -445,7 +445,7 @@ struct QuickStatsView: View {
 }
 
 // MARK: - Stat Badge
-struct StatBadge: View {
+struct QuickStatBadge: View {
     let title: String
     let value: String
     let color: Color
@@ -563,19 +563,6 @@ struct OpponentRow: View {
 
 // MARK: - AIProfile Extension for Settings
 extension AIProfile.Difficulty {
-    var description: String {
-        switch self {
-        case .easy:
-            return "新手友好，对手较弱"
-        case .normal:
-            return "标准难度，平衡体验"
-        case .hard:
-            return "较高难度，需要技巧"
-        case .expert:
-            return "专家级，地狱难度"
-        }
-    }
-    
     var recommendedFor: String {
         switch self {
         case .easy:

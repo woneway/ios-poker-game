@@ -7,7 +7,7 @@ struct SessionSummaryView: View {
     let heroWinnings: Int
     let heroCards: [Card]
     let communityCards: [Card]
-    let handResult: HandResult
+    let handResult: SessionHandResult
     let totalHands: Int
     let totalProfit: Int
     let onDismiss: () -> Void
@@ -197,7 +197,7 @@ struct StatItem: View {
 }
 
 // MARK: - Hand Result Enum
-enum HandResult {
+enum SessionHandResult {
     case win
     case loss
     case tie
@@ -228,7 +228,7 @@ struct SessionSummaryData {
     let winnings: Int
     let heroCards: [Card]
     let communityCards: [Card]
-    let result: HandResult
+    let result: SessionHandResult
     let totalHands: Int
     let totalProfit: Int
 }
@@ -247,15 +247,15 @@ struct SessionSummaryView_Previews: PreviewProvider {
             handNumber: 15,
             heroWinnings: 250,
             heroCards: [
-                Card(suit: .hearts, rank: .ace),
-                Card(suit: .spades, rank: .king)
+                Card(rank: .ace, suit: .hearts),
+                Card(rank: .king, suit: .spades)
             ],
             communityCards: [
-                Card(suit: .hearts, rank: .queen),
-                Card(suit: .diamonds, rank: .jack),
-                Card(suit: .clubs, rank: .ten),
-                Card(suit: .spades, rank: .two),
-                Card(suit: .hearts, rank: .three)
+                Card(rank: .queen, suit: .hearts),
+                Card(rank: .jack, suit: .diamonds),
+                Card(rank: .ten, suit: .clubs),
+                Card(rank: .two, suit: .spades),
+                Card(rank: .three, suit: .hearts)
             ],
             handResult: .win,
             totalHands: 15,

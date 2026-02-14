@@ -56,10 +56,11 @@ struct TournamentLeaderboardView: View {
             
             if store.engine.gameMode == .tournament,
                let config = store.engine.tournamentConfig {
+                let entrantsCount = max(store.engine.players.count, 1)
                 HStack {
-                    Label("\(store.engine.players.count)/\(config.totalEntrants) 人", systemImage: "person.3")
+                    Label("\(store.engine.players.count)/\(entrantsCount) 人", systemImage: "person.3")
                     Spacer()
-                    Label("奖池: $\(config.totalEntrants * config.startingChips)", systemImage: "dollarsign.circle")
+                    Label("奖池: $\(entrantsCount * config.startingChips)", systemImage: "dollarsign.circle")
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -439,8 +440,8 @@ struct TournamentProgressView: View {
     }
     
     private func progressWidth(in totalWidth: CGFloat) -> CGFloat {
-        guard let config = store.engine.tournamentConfig else { return 0 }
-        let progress = 1.0 - (Double(aliveCount) / Double(config.totalEntrants))
+        let entrantsCount = max(store.engine.players.count, 1)
+        let progress = 1.0 - (Double(aliveCount) / Double(entrantsCount))
         return totalWidth * CGFloat(progress)
     }
     

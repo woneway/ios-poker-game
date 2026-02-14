@@ -93,7 +93,7 @@ extension PokerEngine {
         
         let eligible = players.filter { $0.status == .active || $0.status == .allIn }
         
-        let result: HandResult
+        let result: ShowdownResult
         if eligible.count == 1 {
             result = ShowdownManager.distributeSingleWinner(
                 winner: eligible[0],

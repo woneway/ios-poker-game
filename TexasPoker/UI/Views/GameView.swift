@@ -207,7 +207,7 @@ struct GameView: View {
         let winnings = heroWasWinner ? store.engine.pot.total : -hero.currentBet
         
         // Determine hand result
-        let result: HandResult = {
+        let result: SessionHandResult = {
             if hero.status == .folded { return .fold }
             if heroWasWinner { return .win }
             return .loss

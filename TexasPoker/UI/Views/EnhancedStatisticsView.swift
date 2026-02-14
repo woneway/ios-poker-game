@@ -61,10 +61,10 @@ struct EnhancedStatisticsView: View {
             .onAppear {
                 loadHandHistory()
             }
-            .onChange(of: selectedMode) { _ in
+            .onChange(of: selectedMode) { _, _ in
                 loadHandHistory()
             }
-            .onChange(of: selectedTimeRange) { _ in
+            .onChange(of: selectedTimeRange) { _, _ in
                 loadHandHistory()
             }
         }
@@ -219,7 +219,7 @@ struct EnhancedStatisticsView: View {
                 .font(.headline)
             
             ForEach(aiStats, id: \.name) { stats in
-                OpponentRow(stats: stats)
+                StatsOpponentRow(stats: stats)
             }
         }
     }
@@ -384,7 +384,7 @@ struct OverviewStatItem: View {
 }
 
 // MARK: - Opponent Row
-struct OpponentRow: View {
+struct StatsOpponentRow: View {
     let stats: AIOpponentStats
     
     var body: some View {

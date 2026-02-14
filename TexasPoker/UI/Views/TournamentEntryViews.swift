@@ -198,58 +198,8 @@ struct TournamentSetupView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("锦标赛设置")) {
-                    // Difficulty
-                    Picker("难度", selection: $selectedDifficulty) {
-                        ForEach(AIProfile.Difficulty.allCases) { difficulty in
-                            Text(difficulty.rawValue).tag(difficulty)
-                        }
-                    }
-                    
-                    // Starting chips
-                    VStack(alignment: .leading) {
-                        Text("起始筹码: \(Int(startingChips))")
-                        Slider(value: $startingChips, in: 500...5000, step: 500)
-                    }
-                    
-                    // Total entrants
-                    VStack(alignment: .leading) {
-                        Text("总参赛人数: \(Int(totalEntrants))")
-                        Slider(value: $totalEntrants, in: 8...200, step: 8)
-                    }
-                    
-                    // Random entry toggle
-                    Toggle("允许中途入场", isOn: $useRandomEntry)
-                    
-                    if useRandomEntry {
-                        Text("新玩家会在锦标赛进行中随机加入")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Section(header: Text("难度说明")) {
-                    DifficultyInfoRow(
-                        difficulty: .easy,
-                        opponents: "新手鲍勃、玛丽、安娜、疯子麦克",
-                        description: "适合练习基础策略"
-                    )
-                    DifficultyInfoRow(
-                        difficulty: .normal,
-                        opponents: "石头、老狐狸、大卫",
-                        description: "平衡的游戏体验"
-                    )
-                    DifficultyInfoRow(
-                        difficulty: .hard,
-                        opponents: "鲨鱼汤姆、杰克、托尼、山姆",
-                        description: "需要扎实的扑克知识"
-                    )
-                    DifficultyInfoRow(
-                        difficulty: .expert,
-                        opponents: "艾米、皮特、维克多、史蒂夫",
-                        description: "地狱难度，GTO对抗"
-                    )
-                }
+                setupSection
+                difficultyInfoSection
             }
             .navigationTitle("锦标赛设置")
             .navigationBarTitleDisplayMode(.inline)
@@ -258,17 +208,76 @@ struct TournamentSetupView: View {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("开始") {
-                        let config = TournamentConfig(
-                            startingChips: Int(startingChips),
-                            totalEntrants: Int(totalEntrants)
-                        )
-                        onStart(config, selectedDifficulty)
-                        dismiss()
-                    }
+                    Button("开始", action: startTournament)
                 }
             }
         }
+    }
+    
+    private var setupSection: some View {
+        Section(header: Text("锦标赛设置")) {
+            Picker("难度", selection: $selectedDifficulty) {
+                ForEach(AIProfile.Difficulty.allCases) { difficulty in
+                    Text(difficulty.rawValue).tag(difficulty)
+                }
+            }
+            
+            VStack(alignment: .leading) {
+                Text("起始筹码: \(Int(startingChips))")
+                Slider(value: $startingChips, in: 500...5000, step: 500)
+            }
+            
+            VStack(alignment: .leading) {
+                Text("总参赛人数: \(Int(totalEntrants))")
+                Slider(value: $totalEntrants, in: 8...200, step: 8)
+            }
+            
+            Toggle("允许中途入场", isOn: $useRandomEntry)
+            
+            if useRandomEntry {
+                Text("新玩家会在锦标赛进行中随机加入")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    private var difficultyInfoSection: some View {
+        Section(header: Text("难度说明")) {
+            DifficultyInfoRow(
+                difficulty: .easy,
+                opponents: "新手鲍勃、玛丽、安娜、疯子麦克",
+                description: "适合练习基础策略"
+            )
+            DifficultyInfoRow(
+                difficulty: .normal,
+                opponents: "石头、老狐狸、大卫",
+                description: "平衡的游戏体验"
+            )
+            DifficultyInfoRow(
+                difficulty: .hard,
+                opponents: "鲨鱼汤姆、杰克、托尼、山姆",
+                description: "需要扎实的扑克知识"
+            )
+            DifficultyInfoRow(
+                difficulty: .expert,
+                opponents: "艾米、皮特、维克多、史蒂夫",
+                description: "地狱难度，GTO对抗"
+            )
+        }
+    }
+    
+    private func startTournament() {
+        let baseConfig = TournamentConfig.standard
+        let config = TournamentConfig(
+            name: baseConfig.name,
+            startingChips: Int(startingChips),
+            blindSchedule: baseConfig.blindSchedule,
+            handsPerLevel: baseConfig.handsPerLevel,
+            payoutStructure: baseConfig.payoutStructure
+        )
+        onStart(config, selectedDifficulty)
+        dismiss()
     }
 }
 

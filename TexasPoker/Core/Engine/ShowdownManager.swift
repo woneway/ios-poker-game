@@ -1,7 +1,7 @@
 import Foundation
 
 /// 结算结果
-struct HandResult {
+struct ShowdownResult {
     let winnerIDs: [UUID]
     let winMessage: String
     let loserIDs: Set<UUID>
@@ -16,13 +16,13 @@ enum ShowdownManager {
         winner: Player,
         potTotal: Int,
         players: inout [Player]
-    ) -> HandResult {
+    ) -> ShowdownResult {
         if let index = players.firstIndex(where: { $0.id == winner.id }) {
             players[index].chips += potTotal
         }
 
         let losers = findLosers(players: players, winnerIDs: [winner.id])
-        return HandResult(
+        return ShowdownResult(
             winnerIDs: [winner.id],
             winMessage: "\(winner.name) 赢得 $\(potTotal)!",
             loserIDs: losers,
@@ -36,7 +36,7 @@ enum ShowdownManager {
         pot: Pot,
         communityCards: [Card],
         players: inout [Player]
-    ) -> HandResult {
+    ) -> ShowdownResult {
         var message = ""
         var allWinnerIDs: [UUID] = []
         var allWinnerIDSet = Set<UUID>()
@@ -91,7 +91,7 @@ enum ShowdownManager {
         }
 
         let losers = findLosers(players: players, winnerIDs: allWinnerIDSet)
-        return HandResult(
+        return ShowdownResult(
             winnerIDs: allWinnerIDs,
             winMessage: message.trimmingCharacters(in: .whitespaces),
             loserIDs: losers,

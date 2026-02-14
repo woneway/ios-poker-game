@@ -242,12 +242,12 @@ class TournamentStatsManager: ObservableObject {
     
     /// Get biggest movers in last N hands
     func biggestMovers(overHands: Int = 5) -> [(playerId: UUID, name: String, change: Int)] {
-        var movers: [(UUID, String, Int)] = []
+        var movers: [(playerId: UUID, name: String, change: Int)] = []
         
         for ranking in currentRankings where !ranking.isEliminated {
             let change = rankChange(for: ranking.playerId, overHands: overHands)
             if abs(change) >= 2 { // Only significant changes
-                movers.append((ranking.playerId, ranking.name, change))
+                movers.append((playerId: ranking.playerId, name: ranking.name, change: change))
             }
         }
         

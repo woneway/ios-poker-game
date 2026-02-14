@@ -85,7 +85,7 @@ extension PokerEngine {
         )
     }
     
-    func notifyWinnerAnimations(result: HandResult) {
+    func notifyWinnerAnimations(result: ShowdownResult) {
         for winnerID in result.winnerIDs {
             if let winnerIndex = players.firstIndex(where: { $0.id == winnerID }) {
                 NotificationCenter.default.post(

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Enhanced Player Cards View
 /// Displays player cards with enhanced visual effects for Hero
-struct PlayerCardsView: View {
+struct EnhancedPlayerCardsView: View {
     let player: Player
     let isHero: Bool
     let showCards: Bool
@@ -36,7 +36,7 @@ struct PlayerCardsView: View {
                 startGlowAnimation()
             }
         }
-        .onChange(of: showCards) { newValue in
+        .onChange(of: showCards) { oldValue, newValue in
             if isHero && newValue {
                 startGlowAnimation()
             }
@@ -304,7 +304,7 @@ struct EnhancedUI_Previews: PreviewProvider {
                 VStack {
                     Text("Hero (with glow)")
                         .font(.caption)
-                    PlayerCardsView(
+                    EnhancedPlayerCardsView(
                         player: Player(name: "Hero", chips: 1000, isHuman: true),
                         isHero: true,
                         showCards: true,
@@ -315,7 +315,7 @@ struct EnhancedUI_Previews: PreviewProvider {
                 VStack {
                     Text("AI (hidden)")
                         .font(.caption)
-                    PlayerCardsView(
+                    EnhancedPlayerCardsView(
                         player: Player(name: "AI", chips: 1000, isHuman: false),
                         isHero: false,
                         showCards: false,

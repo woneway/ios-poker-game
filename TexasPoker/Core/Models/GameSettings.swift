@@ -127,10 +127,10 @@ class GameSettings: ObservableObject {
         self.gameSpeed = defaults.object(forKey: gameSpeedKey) as? Double ?? 1.5
         
         // Sound
-        self.soundEnabled = defaults.object(forKey: soundEnabledKey) as? Bool ?? true
-        self.soundVolume = defaults.object(forKey: soundVolumeKey) as? Double ?? 0.7
-        SoundManager.shared.volume = Float(soundVolume)
-        SoundManager.shared.isMuted = !soundEnabled
+        let initialSoundEnabled = defaults.object(forKey: soundEnabledKey) as? Bool ?? true
+        let initialSoundVolume = defaults.object(forKey: soundVolumeKey) as? Double ?? 0.7
+        self.soundEnabled = initialSoundEnabled
+        self.soundVolume = initialSoundVolume
         
         // Difficulty
         let diffRaw = defaults.string(forKey: difficultyKey) ?? "normal"
@@ -149,6 +149,10 @@ class GameSettings: ObservableObject {
         // Tournament preset
         let presetRaw = defaults.string(forKey: tournamentPresetKey) ?? "standard"
         self.tournamentPreset = TournamentPreset(rawValue: presetRaw) ?? .standard
+        
+        // Sync sound manager after all stored properties are initialized
+        SoundManager.shared.volume = Float(initialSoundVolume)
+        SoundManager.shared.isMuted = !initialSoundEnabled
     }
     
     // MARK: - Helper Methods
