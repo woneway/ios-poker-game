@@ -109,12 +109,14 @@ enum BettingManager {
     }
 
     /// 判断当前下注轮次是否完成
+    /// 注意：allIn 玩家也被视为已完成行动
     static func isRoundComplete(
         players: [Player],
         hasActed: [UUID: Bool],
         currentBet: Int
     ) -> Bool {
-        let activePlayers = players.filter { $0.status == .active }
+        // 活跃玩家包括 active 和 allIn（allIn 玩家不能再行动）
+        let activePlayers = players.filter { $0.status == .active || $0.status == .allIn }
         if activePlayers.isEmpty { return true }
 
         for player in activePlayers {
@@ -125,6 +127,7 @@ enum BettingManager {
     }
 
     /// 重置下注状态（新街开始时）
+    /// 注意：allIn 玩家的 hasActed 设为 true，因为他们不能再行动
     static func resetBettingState(
         players: inout [Player],
         bigBlindAmount: Int
@@ -133,8 +136,9 @@ enum BettingManager {
             players[i].currentBet = 0
         }
         var hasActed: [UUID: Bool] = [:]
-        for player in players where player.status == .active {
-            hasActed[player.id] = false
+        // active 玩家需要行动，allIn 玩家已经完成行动
+        for player in players where player.status == .active || player.status == .allIn {
+            hasActed[player.id] = (player.status == .allIn)
         }
         return (currentBet: 0, minRaise: bigBlindAmount, hasActed: hasActed)
     }
