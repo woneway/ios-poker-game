@@ -1,0 +1,41 @@
+codecov:
+  # Codecov 配置文件
+  # https://docs.codecov.io/docs/codecov-yaml
+
+  require_ci_to_pass: true
+
+  # 注释设置
+  comment:
+    layout: "reach,diff,flags,files"
+    behavior: default
+    require_changes: false
+
+# 覆盖率覆盖范围配置
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  status:
+    # 项目整体覆盖率
+    project:
+      default:
+        # 目标覆盖率（可以根据项目情况调整）
+        target: 70%
+        threshold: 1%
+        if_ci_failed: error
+
+    # 补丁覆盖率（PR 中的变更）
+    patch:
+      default:
+        target: 70%
+        threshold: 1%
+
+# 忽略某些文件或目录
+ignore:
+  - "TexasPoker/App/**"           # App 入口文件
+  - "**/Resources/**"              # 资源文件
+  - "**/*Test*.swift"              # 测试文件本身
+
+# 指定 Swift 项目
+plugins:
+  - devicehub

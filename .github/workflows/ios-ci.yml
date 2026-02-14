@@ -87,9 +87,19 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' \
             -configuration Debug \
             -resultBundlePath TestResults \
+            -enableCodeCoverage YES \
             test \
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty || true
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./TestResults/Coverage.profdata
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          verbose: true
 
       - name: Upload Test Results
         if: failure()
