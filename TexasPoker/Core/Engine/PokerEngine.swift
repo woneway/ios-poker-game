@@ -118,15 +118,18 @@ class PokerEngine: ObservableObject {
     
     /// Legacy setup for backward compatibility
     private func setup8PlayerTable() {
+        // 使用默认初始筹码（与Player模型默认值保持一致）
+        let defaultStartingChips = 1000
+        
         players = [
-            Player(name: "Hero", chips: 1000, isHuman: true),
-            Player(name: "石头", chips: 1000, isHuman: false, aiProfile: .rock),
-            Player(name: "疯子麦克", chips: 1000, isHuman: false, aiProfile: .maniac),
-            Player(name: "安娜", chips: 1000, isHuman: false, aiProfile: .callingStation),
-            Player(name: "老狐狸", chips: 1000, isHuman: false, aiProfile: .fox),
-            Player(name: "鲨鱼汤姆", chips: 1000, isHuman: false, aiProfile: .shark),
-            Player(name: "艾米", chips: 1000, isHuman: false, aiProfile: .academic),
-            Player(name: "大卫", chips: 1000, isHuman: false, aiProfile: .tiltDavid),
+            Player(name: "Hero", chips: defaultStartingChips, isHuman: true),
+            Player(name: "石头", chips: defaultStartingChips, isHuman: false, aiProfile: .rock),
+            Player(name: "疯子麦克", chips: defaultStartingChips, isHuman: false, aiProfile: .maniac),
+            Player(name: "安娜", chips: defaultStartingChips, isHuman: false, aiProfile: .callingStation),
+            Player(name: "老狐狸", chips: defaultStartingChips, isHuman: false, aiProfile: .fox),
+            Player(name: "鲨鱼汤姆", chips: defaultStartingChips, isHuman: false, aiProfile: .shark),
+            Player(name: "艾米", chips: defaultStartingChips, isHuman: false, aiProfile: .academic),
+            Player(name: "大卫", chips: defaultStartingChips, isHuman: false, aiProfile: .tiltDavid),
         ]
         
         // Use cashGameConfig blind values if in cash game mode
