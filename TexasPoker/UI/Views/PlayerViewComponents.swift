@@ -29,7 +29,7 @@ struct PlayerCardsView: View {
                 .padding(.bottom, -4)
                 .zIndex(1)
             } else {
-                Color.clear.frame(width: cardWidth * 1.6, height: cardWidth * 1.4)
+                Color.clear.frame(width: cardWidth * 1.6, height: cardWidth * 1.2)
             }
         }
     }

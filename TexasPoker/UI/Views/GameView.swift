@@ -488,7 +488,7 @@ struct GameView: View {
     
     private func communityCardsView(geo: GeometryProxy) -> some View {
         let cardWidth: CGFloat = DeviceHelper.isIPad ? 52 : 40
-        let cardHeight = cardWidth * 1.4
+        let cardHeight = cardWidth * 1.2
         let spacing: CGFloat = 4
         
         return HStack(spacing: spacing) {

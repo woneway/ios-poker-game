@@ -3,7 +3,7 @@ import SpriteKit
 class CardNode: SKShapeNode {
     override init() {
         super.init()
-        let rect = CGRect(x: 0, y: 0, width: 60, height: 90)
+        let rect = CGRect(x: 0, y: 0, width: 60, height: 72)
         self.path = CGPath(rect: rect, transform: nil)
         self.fillColor = .white
         self.strokeColor = .black

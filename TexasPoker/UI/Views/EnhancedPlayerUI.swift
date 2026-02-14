@@ -65,7 +65,7 @@ struct EnhancedPlayerCardsView: View {
                     .font(.system(size: cardWidth * 0.3))
                     .foregroundColor(.white.opacity(0.15))
             )
-            .frame(width: cardWidth, height: cardWidth * 1.4)
+            .frame(width: cardWidth, height: cardWidth * 1.2)
             .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
     }
     

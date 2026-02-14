@@ -9,7 +9,7 @@ struct FlippingCard: View {
     var isHero: Bool = false
     @State private var isFlipped = false
     
-    private var cardHeight: CGFloat { width * 1.4 }
+    private var cardHeight: CGFloat { width * 1.2 }
     
     var body: some View {
         ZStack {

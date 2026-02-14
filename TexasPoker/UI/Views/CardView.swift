@@ -5,7 +5,7 @@ struct CardView: View {
     let width: CGFloat
     @Environment(\.colorScheme) var colorScheme
     
-    private var height: CGFloat { width * 1.4 }
+    private var height: CGFloat { width * 1.2 }
     
     var body: some View {
         ZStack {
@@ -16,6 +16,7 @@ struct CardView: View {
             }
         }
         .frame(width: width, height: height)
+        .clipped()
     }
 }
 
@@ -28,7 +29,7 @@ struct CardFaceView: View {
         return card.suit == .hearts || card.suit == .diamonds
     }
     
-    private var height: CGFloat { width * 1.4 }
+    private var height: CGFloat { width * 1.2 }
     
     var body: some View {
         ZStack {
@@ -41,53 +42,41 @@ struct CardFaceView: View {
             RoundedRectangle(cornerRadius: width * 0.1)
                 .strokeBorder(Color.black.opacity(0.05), lineWidth: 1)
             
-            // Content
-            VStack(spacing: -2) {
-                // Top-left corner
+            // Content — compact layout for 1.2 aspect ratio
+            VStack(spacing: 0) {
+                // Top-left: rank + suit
                 HStack {
                     VStack(spacing: -1) {
                         Text(card.rank.display)
-                            .font(.system(size: width * 0.3, weight: .bold, design: .rounded))
+                            .font(.system(size: width * 0.32, weight: .bold, design: .rounded))
                         Text(card.suit.rawValue)
-                            .font(.system(size: width * 0.2))
+                            .font(.system(size: width * 0.22))
                     }
+                    .minimumScaleFactor(0.6)
                     Spacer()
                 }
-                .padding(.leading, 4)
-                .padding(.top, 4)
+                .padding(.leading, 3)
+                .padding(.top, 2)
                 
-                Spacer()
+                Spacer(minLength: 0)
                 
-                // Center Suit
+                // Center: large suit icon
                 Text(card.suit.rawValue)
-                    .font(.system(size: width * 0.5))
-                    .opacity(0.15)
+                    .font(.system(size: width * 0.45))
                 
-                Spacer()
-                
-                // Bottom-right corner (inverted)
-                HStack {
-                    Spacer()
-                    VStack(spacing: -1) {
-                        Text(card.rank.display)
-                            .font(.system(size: width * 0.3, weight: .bold, design: .rounded))
-                        Text(card.suit.rawValue)
-                            .font(.system(size: width * 0.2))
-                    }
-                    .rotationEffect(.degrees(180))
-                }
-                .padding(.trailing, 4)
-                .padding(.bottom, 4)
+                Spacer(minLength: 0)
             }
+            .padding(.bottom, 2)
             .foregroundColor(isRed ? Color(hex: "D32F2F") : Color(hex: "212121"))
         }
         .frame(width: width, height: height)
+        .clipped()
     }
 }
 
 struct CardBackView: View {
     let width: CGFloat
-    private var height: CGFloat { width * 1.4 }
+    private var height: CGFloat { width * 1.2 }
     
     var body: some View {
         ZStack {
@@ -127,5 +116,6 @@ struct CardBackView: View {
                 )
         }
         .frame(width: width, height: height)
+        .clipped()
     }
 }
