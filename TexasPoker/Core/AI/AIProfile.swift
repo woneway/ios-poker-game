@@ -90,6 +90,7 @@ struct AIProfile: Equatable {
     
     static func == (lhs: AIProfile, rhs: AIProfile) -> Bool {
         return lhs.name == rhs.name
+            && lhs.currentTilt == rhs.currentTilt  // 修复：包含可变的tilt状态
     }
     
     // MARK: - 7 Preset Characters
