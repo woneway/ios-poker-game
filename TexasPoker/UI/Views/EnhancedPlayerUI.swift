@@ -305,10 +305,7 @@ struct EnhancedUI_Previews: PreviewProvider {
                     Text("Hero (with glow)")
                         .font(.caption)
                     PlayerCardsView(
-                        player: Player(name: "Hero", cards: [
-                            Card(suit: .spades, rank: .ace),
-                            Card(suit: .hearts, rank: .king)
-                        ], chips: 1000, isHuman: true),
+                        player: Player(name: "Hero", chips: 1000, isHuman: true),
                         isHero: true,
                         showCards: true,
                         cardWidth: 50
@@ -319,10 +316,7 @@ struct EnhancedUI_Previews: PreviewProvider {
                     Text("AI (hidden)")
                         .font(.caption)
                     PlayerCardsView(
-                        player: Player(name: "AI", cards: [
-                            Card(suit: .clubs, rank: .queen),
-                            Card(suit: .diamonds, rank: .jack)
-                        ], chips: 1000, isHuman: false),
+                        player: Player(name: "AI", chips: 1000, isHuman: false),
                         isHero: false,
                         showCards: false,
                         cardWidth: 50
