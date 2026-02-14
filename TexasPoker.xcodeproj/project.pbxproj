@@ -6,424 +6,880 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		00A892B709A92F6835BB3F77 /* MonteCarloSimulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF900E540306425A23DAD274 /* MonteCarloSimulator.swift */; };
+		039CC9757DE08652B1A8296D /* GameActionLogPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88CF52A59A4BD50415B9C3F2 /* GameActionLogPanel.swift */; };
+		04F25324AE7C4D62A2AEC178 /* HandEvaluatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23AF0272D813719ADED6F2E1 /* HandEvaluatorTests.swift */; };
+		076B75A2D8AFA02D07C4C5DE /* DifficultySelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B5E277CD6C281ACB3CC91F /* DifficultySelectorView.swift */; };
+		07EA567EE6EE5B6A7B90D355 /* CardNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A9BB93FFEF82E4CD2478B03 /* CardNode.swift */; };
+		08B5E12C323B474A40AAD5F2 /* ShowdownLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7BC031E1C0C0ECF7F45925A /* ShowdownLogicTests.swift */; };
+		0987937D1EE833AD23B9E3CC /* GameViewLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A5C6AA72BF74B8A08C6CB08 /* GameViewLayoutTests.swift */; };
+		14ABCAE05DE31B205F951932 /* PokerUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71762C95473C4AB531502A7B /* PokerUtils.swift */; };
+		14B3D72F4B679F01E78553FB /* BettingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EC7BEA7984AB41806803F52 /* BettingManager.swift */; };
+		15A7E15F99BA39797AAA59C0 /* PokerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3992D6A1017DC2F49BB8228B /* PokerEngine.swift */; };
+		17C077FB3A812F71DA6AF4AA /* AIProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E50182266D7D2A8FB17D39 /* AIProfile.swift */; };
+		188B2BD1B1021127237CD7A9 /* GameMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = E539325912EF2256EC49324F /* GameMode.swift */; };
+		1B93F889C1760E2E27A7052D /* PotCalculationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4DC4E88246F03C1279B2B7 /* PotCalculationTests.swift */; };
+		20FB558055131E886FE6A357 /* TournamentStatsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D19FEB038E64B0C37D74B43 /* TournamentStatsManager.swift */; };
+		210867653F2E64BB73482888 /* SpectatorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04E7E218F3AC34B2EE247B66 /* SpectatorOverlay.swift */; };
+		2194AAC4C10CDE98A3138FA8 /* StatisticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5E21DFF6F37BEA9B3F5FADE /* StatisticsTests.swift */; };
+		234CDC35C74F89E9CD8BE8F6 /* GameEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F406202DEFB994C134C89828 /* GameEvent.swift */; };
+		2457CF11D4D665AF9F5098FE /* Deck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A37D76EBDE579F35B27DFFC /* Deck.swift */; };
+		256A2B51BB0B74A72DC4A6DD /* ICMCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8714409A74CEC0D392E805 /* ICMCalculator.swift */; };
+		2819AADE83B6890CDF796754 /* OpponentModelerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB43D9F5B493759A72F99E95 /* OpponentModelerTests.swift */; };
+		2868E762D66EA6B98E7AAD7E /* ICMCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38CD839C2AA730A106177756 /* ICMCalculatorTests.swift */; };
+		2C56E47C6FF99F867697E6CC /* OpponentModeler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43BB854FA9653A7F4925C93D /* OpponentModeler.swift */; };
+		2D089767E680C609FF11FBB5 /* PokerUtilsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA15C29DCEBE3EE76997BD7 /* PokerUtilsTests.swift */; };
+		2D9AC08C83A3EF7A0C0AEBB9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 25BAA7B70ED26EFFDF48307A /* Assets.xcassets */; };
+		2FC3ED85FCC415947B82E564 /* TournamentLeaderboardOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC91F3225CEDAC077B1AB95 /* TournamentLeaderboardOverlay.swift */; };
+		3239BCF86A608AD07CCEE79E /* SwiftUI+OnChangeCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66542022638F95C2D0A3C855 /* SwiftUI+OnChangeCompat.swift */; };
+		38CABE7152188A1A83CF11ED /* BlindLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C00DC7E62CB2FDFFE37C353 /* BlindLevel.swift */; };
+		3A30DF71136301E51268DCDF /* GamePotDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B58BFC75591B2CAB55104FC0 /* GamePotDisplay.swift */; };
+		3C861D05F94F80782F939B24 /* PlayerAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 158C8DB167C6D74010C692C3 /* PlayerAction.swift */; };
+		3D2D5EBC7D8A6E3D5CF47DC7 /* OpponentModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE41205BAF168BA7F3A41E45 /* OpponentModel.swift */; };
+		424968B3857E8138EBE02FD2 /* PokerEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3AA43824C282C1E57C226B /* PokerEngineTests.swift */; };
+		45D41CAC15969FAB44C2E9E1 /* GameHeroControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97ED57917B749589635CFAA2 /* GameHeroControls.swift */; };
+		45FDEA8602E79AC66E548ED2 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DCD5E3A795E3EE662980E15 /* PlayerView.swift */; };
+		4948042E4DBA663E20841D30 /* TournamentLeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 910AF6363434CFAC08FA4B81 /* TournamentLeaderboardView.swift */; };
+		4AF48CDAD2E70C1DD4B4B87F /* BluffDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82D9D7E88FF06C76077A7CB0 /* BluffDetectorTests.swift */; };
+		4D6CE02661C4639F7BF7AA6A /* UncalledBetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55E588F0EC0D182830A91E0A /* UncalledBetTests.swift */; };
+		4D8AC7DE3F838FC43F1960D3 /* Pot.swift in Sources */ = {isa = PBXBuildFile; fileRef = B83C0D968864C8906902440E /* Pot.swift */; };
+		4E1A28B577DFFE08DE183A7E /* GameStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D16979A12E6DCA36548 /* GameStoreTests.swift */; };
+		5254820D2B1D31FFE482AFD2 /* ChartsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9B3E7B24386FBDF680F8DB /* ChartsView.swift */; };
+		525B88455D7F3C6605A5BC60 /* FlippingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3EF1DA9271B42B364277816 /* FlippingCard.swift */; };
+		54BD08B30EA54B92F334989D /* DataExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7382277C4A7C556642FFCBA3 /* DataExporter.swift */; };
+		586D4A6297BA8BEDEAEC88CF /* DecisionEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31963DC190EA8B210C46433B /* DecisionEngineTests.swift */; };
+		59EC1D9116AEC5EB83DA27F4 /* DealingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 098E3661CA7C0FB940D8A67E /* DealingManager.swift */; };
+		5B40811425BD3F4746D06444 /* DataMigrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 560A4797E3F4AB2D2A8071CA /* DataMigrationManager.swift */; };
+		60FCC74E7F762389ED92B700 /* TournamentConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FCDEE91A4F43CD5A9FBD2E2 /* TournamentConfig.swift */; };
+		64DEE3EFC9260AADFAF1D320 /* PlayerViewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A26FE322FCF4C92F04CCB2 /* PlayerViewComponents.swift */; };
+		6D23562C36CD8EEEEC2D30D3 /* PokerEngine+HandLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C505A51807CCD78BBBE11C /* PokerEngine+HandLifecycle.swift */; };
+		6D3849AFB3E76BB95C62D6B0 /* GameSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2A46431345078C1760D7D4 /* GameSettings.swift */; };
+		6DCB951F4F858BF25A2E03DB /* ShowdownManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C2E040332B03E56542C86A /* ShowdownManager.swift */; };
+		6FDC89DA82662045BA801F21 /* GameState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F98D044C4C992896554DA135 /* GameState.swift */; };
+		713560742C6734AEECF196CF /* ActionLogOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63E476A32C26A5711EBD1009 /* ActionLogOverlay.swift */; };
+		73E38EFEEEF811331332A961 /* GameTopBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = E350806C1E84A8B89836902F /* GameTopBar.swift */; };
+		75AE69F6D2905CCE91558435 /* DeviceHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3FF5E22947EDBFC0D03A22 /* DeviceHelper.swift */; };
+		76D6C3A293C231987BA47021 /* PokerTableScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D789C92DDDE55696499A543 /* PokerTableScene.swift */; };
+		7A51E9F3509FF436D698E801 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D425209916DB0E503EF88821 /* StatisticsView.swift */; };
+		829A29D6E2E6B925F521F7B2 /* PlayerHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFEA80CFBDD1E8B47E16A04F /* PlayerHUD.swift */; };
+		93A8413A77C40CB395261A4C /* BettingLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D815ED9F87A51605BB84CCA6 /* BettingLogicTests.swift */; };
+		97FE5ED1249CC6E965E4AEFE /* ActionLogToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35B965F0C4AFFA5D05DFA0D8 /* ActionLogToast.swift */; };
+		9C8711CE0BA90463302ACDC5 /* RangeAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14D26911D0BBB5EC8CEF2A6 /* RangeAnalyzer.swift */; };
+		A14919ACB1489CD4A671B8C5 /* ColorTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022D4B85762EF04A68FAB04C /* ColorTheme.swift */; };
+		A1DBC7BCAA3F59E8FA6FB1F9 /* RangeAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68B2B0D3DD93FDA0F2EADD9D /* RangeAnalyzerTests.swift */; };
+		A4520B904F42AF64EE19EA3E /* EnhancedPlayerUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E89A2942F8A3FF353D2AB8 /* EnhancedPlayerUI.swift */; };
+		A644B33B6C116E465678F93C /* Street.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD16F2DD05E6048C7176C909 /* Street.swift */; };
+		A694E3142399839964DAB5F4 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154F8DEEE17DD68C6D91988E /* GameView.swift */; };
+		A82FEEF038C83ECB628E9366 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B27A6ADF07CEB48A8E1F5A1C /* SettingsView.swift */; };
+		A900C34E381AC0DD885D77B0 /* TexasPoker.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 291FD3A886E1A9143E78EA5B /* TexasPoker.xcdatamodeld */; };
+		A90102E74CB4DD3668A61023 /* TournamentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B708687B37C866298A2233C /* TournamentManager.swift */; };
+		AA2A96EF371E23502F90A61F /* GameTournamentInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 484E2869E85E570912F89EA9 /* GameTournamentInfo.swift */; };
+		ACFD8DF39EAE3A23489C16E8 /* EnhancedStatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E346B7AC7C543DAE86A6F8C /* EnhancedStatisticsView.swift */; };
+		AD747B0BBF43D7C49B9BB077 /* PokerGameStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A35E0FBBE763AAD5AB2A80 /* PokerGameStore.swift */; };
+		AEA697CF6F27148D43E08652 /* CardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29BC839E0D2E107B7FB6B97C /* CardView.swift */; };
+		AFEB9A5A92A2E066930BF6F7 /* TournamentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 710B0A2B6439B68FB4C8810B /* TournamentTests.swift */; };
+		B07C263A038F21982285C261 /* SessionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02EBE83FD11B4758BD9EB596 /* SessionSummaryView.swift */; };
+		B6E90FF264F201748855ABD5 /* HandEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F666B33A7E1432ACD0C97157 /* HandEvaluator.swift */; };
+		B9671C73A2AA5AFA593BA7C7 /* DifficultyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 551961FA8B675957FA062659 /* DifficultyManager.swift */; };
+		B9EE22376D004F210FDA4208 /* Card.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2217D780112864D03E3BA28A /* Card.swift */; };
+		BB4A7ECC8DAABA36D10CE83B /* BluffDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1447AFF93EADDE81989A951B /* BluffDetector.swift */; };
+		BD63AB2CFD1E10571AA29018 /* TexasPokerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A85B91AA95684FA9F5CE05E /* TexasPokerApp.swift */; };
+		BDC1100CCFF723EC6E37AAFB /* GameRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 222632EC17AF116FA2E32B1B /* GameRecord.swift */; };
+		BE2CD40F6170C97B186F8ACF /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75337E5E82B8B59FDDF53CCF /* HistoryView.swift */; };
+		C043C14A43E00E6820823660 /* AIProfile+NewCharacters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FAADE80EB0C5AEAA6A1BEFA /* AIProfile+NewCharacters.swift */; };
+		CB1BE1A7A196D8D617AB7438 /* SoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA8CEEB13B2F2955F7C15E91 /* SoundManager.swift */; };
+		CCF4C55FE946928F052113DF /* ActionLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DFC4BA5D0107675E29B4A96 /* ActionLogEntry.swift */; };
+		D09A6F24769D4B1E6BBFF8A0 /* ProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DCD2CB25436BC3788C9CEC /* ProfileManager.swift */; };
+		D31B50144B5C3E1C238A2549 /* DifficultyManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF01A547C138C99B8B6D3547 /* DifficultyManagerTests.swift */; };
+		D40D42378F8A0BB5D2D39E74 /* Player.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D7F68AB8C981BB3D538A8C6 /* Player.swift */; };
+		D66D2CF8A70BBB00CA2739A3 /* GameResultsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3761F2FD6524F6B90CF984 /* GameResultsManager.swift */; };
+		D78B6674B4C6A2B384FF6E06 /* ColorThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1707E26654E655DE5FB9327B /* ColorThemeTests.swift */; };
+		DFFC0CED89A07E8770833564 /* ActionRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6DC30DAE31322CE19735EC7 /* ActionRecorder.swift */; };
+		E65307905C2B5838588D6AD2 /* TiltManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 216ADF3FDA8E0BC529832598 /* TiltManager.swift */; };
+		EEBF846A077F81A0FEF56829 /* DecisionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53B277BCA975A995D97B4F4 /* DecisionEngine.swift */; };
+		F1DC5C8D925A12B5B9F59380 /* ChipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 852909F15FF7D559ACB1415E /* ChipView.swift */; };
+		F386A35BB600569F04DE20B8 /* PokerEngine+SideEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799346A9C6E53D916D79772A /* PokerEngine+SideEffects.swift */; };
+		F693F6522246E147ADB70A88 /* TournamentEntryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB84D79C081EA5BF31D247B /* TournamentEntryViews.swift */; };
+		FB751473CEB1BD4853164E0A /* RankingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97BC5F7E961864343D76C702 /* RankingsView.swift */; };
+		FF590EA73B92F8CA58B424BE /* StatisticsCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA7A491F92521E6A783C41F /* StatisticsCalculator.swift */; };
+		FFBA825ED498892F617D027F /* PersistenceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A17CB85621CB64EBE3586B9 /* PersistenceController.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
-		C53A14082F3C64EE00EEF419 /* PBXContainerItemProxy */ = {
+		91E370358C78EC7FF5CDB800 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = C53A13ED2F3C64EC00EEF419 /* Project object */;
+			containerPortal = 8B22A1BA3C3D89513F62D345 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = C53A13F42F3C64EC00EEF419;
+			remoteGlobalIDString = A91770E179CE9E0BA8751B57;
 			remoteInfo = TexasPoker;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		C53A13F52F3C64EC00EEF419 /* TexasPoker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TexasPoker.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		C53A14072F3C64EE00EEF419 /* TexasPokerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TexasPokerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		022D4B85762EF04A68FAB04C /* ColorTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
+		02EBE83FD11B4758BD9EB596 /* SessionSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSummaryView.swift; sourceTree = "<group>"; };
+		04E7E218F3AC34B2EE247B66 /* SpectatorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectatorOverlay.swift; sourceTree = "<group>"; };
+		098E3661CA7C0FB940D8A67E /* DealingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DealingManager.swift; sourceTree = "<group>"; };
+		0A9BB93FFEF82E4CD2478B03 /* CardNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardNode.swift; sourceTree = "<group>"; };
+		0E346B7AC7C543DAE86A6F8C /* EnhancedStatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedStatisticsView.swift; sourceTree = "<group>"; };
+		1447AFF93EADDE81989A951B /* BluffDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluffDetector.swift; sourceTree = "<group>"; };
+		154F8DEEE17DD68C6D91988E /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+		158C8DB167C6D74010C692C3 /* PlayerAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerAction.swift; sourceTree = "<group>"; };
+		1707E26654E655DE5FB9327B /* ColorThemeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
+		1EAF0D16979A12E6DCA36548 /* GameStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameStoreTests.swift; sourceTree = "<group>"; };
+		216ADF3FDA8E0BC529832598 /* TiltManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TiltManager.swift; sourceTree = "<group>"; };
+		2217D780112864D03E3BA28A /* Card.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Card.swift; sourceTree = "<group>"; };
+		222632EC17AF116FA2E32B1B /* GameRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameRecord.swift; sourceTree = "<group>"; };
+		23AF0272D813719ADED6F2E1 /* HandEvaluatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandEvaluatorTests.swift; sourceTree = "<group>"; };
+		25BAA7B70ED26EFFDF48307A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		29BC839E0D2E107B7FB6B97C /* CardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardView.swift; sourceTree = "<group>"; };
+		2A37D76EBDE579F35B27DFFC /* Deck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Deck.swift; sourceTree = "<group>"; };
+		2A85B91AA95684FA9F5CE05E /* TexasPokerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TexasPokerApp.swift; sourceTree = "<group>"; };
+		2B3761F2FD6524F6B90CF984 /* GameResultsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameResultsManager.swift; sourceTree = "<group>"; };
+		2DFC4BA5D0107675E29B4A96 /* ActionLogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionLogEntry.swift; sourceTree = "<group>"; };
+		2F3AA43824C282C1E57C226B /* PokerEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokerEngineTests.swift; sourceTree = "<group>"; };
+		2FAADE80EB0C5AEAA6A1BEFA /* AIProfile+NewCharacters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AIProfile+NewCharacters.swift"; sourceTree = "<group>"; };
+		31963DC190EA8B210C46433B /* DecisionEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecisionEngineTests.swift; sourceTree = "<group>"; };
+		35B965F0C4AFFA5D05DFA0D8 /* ActionLogToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionLogToast.swift; sourceTree = "<group>"; };
+		37E50182266D7D2A8FB17D39 /* AIProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProfile.swift; sourceTree = "<group>"; };
+		38CD839C2AA730A106177756 /* ICMCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICMCalculatorTests.swift; sourceTree = "<group>"; };
+		3992D6A1017DC2F49BB8228B /* PokerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokerEngine.swift; sourceTree = "<group>"; };
+		3A17CB85621CB64EBE3586B9 /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceController.swift; sourceTree = "<group>"; };
+		3FCDEE91A4F43CD5A9FBD2E2 /* TournamentConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TournamentConfig.swift; sourceTree = "<group>"; };
+		43BB854FA9653A7F4925C93D /* OpponentModeler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpponentModeler.swift; sourceTree = "<group>"; };
+		484E2869E85E570912F89EA9 /* GameTournamentInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameTournamentInfo.swift; sourceTree = "<group>"; };
+		551961FA8B675957FA062659 /* DifficultyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DifficultyManager.swift; sourceTree = "<group>"; };
+		55E588F0EC0D182830A91E0A /* UncalledBetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UncalledBetTests.swift; sourceTree = "<group>"; };
+		560A4797E3F4AB2D2A8071CA /* DataMigrationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataMigrationManager.swift; sourceTree = "<group>"; };
+		58F3C1FAEB2FF4254F48CFCD /* TexasPoker.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TexasPoker.xcdatamodel; sourceTree = "<group>"; };
+		5A5C6AA72BF74B8A08C6CB08 /* GameViewLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameViewLayoutTests.swift; sourceTree = "<group>"; };
+		5C00DC7E62CB2FDFFE37C353 /* BlindLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlindLevel.swift; sourceTree = "<group>"; };
+		5C3FF5E22947EDBFC0D03A22 /* DeviceHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceHelper.swift; sourceTree = "<group>"; };
+		5CA7A491F92521E6A783C41F /* StatisticsCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsCalculator.swift; sourceTree = "<group>"; };
+		5D789C92DDDE55696499A543 /* PokerTableScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokerTableScene.swift; sourceTree = "<group>"; };
+		5D7F68AB8C981BB3D538A8C6 /* Player.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Player.swift; sourceTree = "<group>"; };
+		5DCD5E3A795E3EE662980E15 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
+		63E476A32C26A5711EBD1009 /* ActionLogOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionLogOverlay.swift; sourceTree = "<group>"; };
+		66542022638F95C2D0A3C855 /* SwiftUI+OnChangeCompat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SwiftUI+OnChangeCompat.swift"; sourceTree = "<group>"; };
+		68B2B0D3DD93FDA0F2EADD9D /* RangeAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangeAnalyzerTests.swift; sourceTree = "<group>"; };
+		6F2A46431345078C1760D7D4 /* GameSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSettings.swift; sourceTree = "<group>"; };
+		710B0A2B6439B68FB4C8810B /* TournamentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TournamentTests.swift; sourceTree = "<group>"; };
+		71762C95473C4AB531502A7B /* PokerUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokerUtils.swift; sourceTree = "<group>"; };
+		7382277C4A7C556642FFCBA3 /* DataExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataExporter.swift; sourceTree = "<group>"; };
+		75337E5E82B8B59FDDF53CCF /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		799346A9C6E53D916D79772A /* PokerEngine+SideEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PokerEngine+SideEffects.swift"; sourceTree = "<group>"; };
+		7D19FEB038E64B0C37D74B43 /* TournamentStatsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TournamentStatsManager.swift; sourceTree = "<group>"; };
+		82D9D7E88FF06C76077A7CB0 /* BluffDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluffDetectorTests.swift; sourceTree = "<group>"; };
+		852909F15FF7D559ACB1415E /* ChipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChipView.swift; sourceTree = "<group>"; };
+		88CF52A59A4BD50415B9C3F2 /* GameActionLogPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameActionLogPanel.swift; sourceTree = "<group>"; };
+		910AF6363434CFAC08FA4B81 /* TournamentLeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TournamentLeaderboardView.swift; sourceTree = "<group>"; };
+		97BC5F7E961864343D76C702 /* RankingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingsView.swift; sourceTree = "<group>"; };
+		97ED57917B749589635CFAA2 /* GameHeroControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameHeroControls.swift; sourceTree = "<group>"; };
+		9B708687B37C866298A2233C /* TournamentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TournamentManager.swift; sourceTree = "<group>"; };
+		9C0AF7C5EAB3285B2F63D516 /* TexasPokerTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TexasPokerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9EC7BEA7984AB41806803F52 /* BettingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BettingManager.swift; sourceTree = "<group>"; };
+		A3A26FE322FCF4C92F04CCB2 /* PlayerViewComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewComponents.swift; sourceTree = "<group>"; };
+		A3EF1DA9271B42B364277816 /* FlippingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlippingCard.swift; sourceTree = "<group>"; };
+		B27A6ADF07CEB48A8E1F5A1C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B58BFC75591B2CAB55104FC0 /* GamePotDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamePotDisplay.swift; sourceTree = "<group>"; };
+		B83C0D968864C8906902440E /* Pot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pot.swift; sourceTree = "<group>"; };
+		BA8CEEB13B2F2955F7C15E91 /* SoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundManager.swift; sourceTree = "<group>"; };
+		BF01A547C138C99B8B6D3547 /* DifficultyManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DifficultyManagerTests.swift; sourceTree = "<group>"; };
+		BFEA80CFBDD1E8B47E16A04F /* PlayerHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerHUD.swift; sourceTree = "<group>"; };
+		C4B5E277CD6C281ACB3CC91F /* DifficultySelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DifficultySelectorView.swift; sourceTree = "<group>"; };
+		C53B277BCA975A995D97B4F4 /* DecisionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecisionEngine.swift; sourceTree = "<group>"; };
+		C6DC30DAE31322CE19735EC7 /* ActionRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionRecorder.swift; sourceTree = "<group>"; };
+		CF4DC4E88246F03C1279B2B7 /* PotCalculationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PotCalculationTests.swift; sourceTree = "<group>"; };
+		D0E89A2942F8A3FF353D2AB8 /* EnhancedPlayerUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedPlayerUI.swift; sourceTree = "<group>"; };
+		D1A35E0FBBE763AAD5AB2A80 /* PokerGameStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokerGameStore.swift; sourceTree = "<group>"; };
+		D425209916DB0E503EF88821 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
+		D7BC031E1C0C0ECF7F45925A /* ShowdownLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowdownLogicTests.swift; sourceTree = "<group>"; };
+		D7EA8E0AE8A1AE55B2B277B5 /* TexasPoker.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TexasPoker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D815ED9F87A51605BB84CCA6 /* BettingLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BettingLogicTests.swift; sourceTree = "<group>"; };
+		DAC91F3225CEDAC077B1AB95 /* TournamentLeaderboardOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TournamentLeaderboardOverlay.swift; sourceTree = "<group>"; };
+		E14D26911D0BBB5EC8CEF2A6 /* RangeAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RangeAnalyzer.swift; sourceTree = "<group>"; };
+		E350806C1E84A8B89836902F /* GameTopBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameTopBar.swift; sourceTree = "<group>"; };
+		E539325912EF2256EC49324F /* GameMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameMode.swift; sourceTree = "<group>"; };
+		E5E21DFF6F37BEA9B3F5FADE /* StatisticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsTests.swift; sourceTree = "<group>"; };
+		E9C2E040332B03E56542C86A /* ShowdownManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowdownManager.swift; sourceTree = "<group>"; };
+		EDA15C29DCEBE3EE76997BD7 /* PokerUtilsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PokerUtilsTests.swift; sourceTree = "<group>"; };
+		EDB84D79C081EA5BF31D247B /* TournamentEntryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TournamentEntryViews.swift; sourceTree = "<group>"; };
+		EE8714409A74CEC0D392E805 /* ICMCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICMCalculator.swift; sourceTree = "<group>"; };
+		F2DCD2CB25436BC3788C9CEC /* ProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileManager.swift; sourceTree = "<group>"; };
+		F406202DEFB994C134C89828 /* GameEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameEvent.swift; sourceTree = "<group>"; };
+		F666B33A7E1432ACD0C97157 /* HandEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandEvaluator.swift; sourceTree = "<group>"; };
+		F7C505A51807CCD78BBBE11C /* PokerEngine+HandLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PokerEngine+HandLifecycle.swift"; sourceTree = "<group>"; };
+		F98D044C4C992896554DA135 /* GameState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameState.swift; sourceTree = "<group>"; };
+		FB43D9F5B493759A72F99E95 /* OpponentModelerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpponentModelerTests.swift; sourceTree = "<group>"; };
+		FD16F2DD05E6048C7176C909 /* Street.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Street.swift; sourceTree = "<group>"; };
+		FD9B3E7B24386FBDF680F8DB /* ChartsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsView.swift; sourceTree = "<group>"; };
+		FE41205BAF168BA7F3A41E45 /* OpponentModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpponentModel.swift; sourceTree = "<group>"; };
+		FF900E540306425A23DAD274 /* MonteCarloSimulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonteCarloSimulator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		C53A13F72F3C64EC00EEF419 /* TexasPoker */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
+/* Begin PBXGroup section */
+		1B140EB7E383D68A99B1A2B7 /* TexasPoker */ = {
+			isa = PBXGroup;
+			children = (
+				25BAA7B70ED26EFFDF48307A /* Assets.xcassets */,
+				291FD3A886E1A9143E78EA5B /* TexasPoker.xcdatamodeld */,
+				785AAD6E7D2D632330762489 /* App */,
+				DFB488E42C327B19820E169F /* Core */,
+				7C34DDD8BE4C853776D12B8A /* UI */,
+			);
 			path = TexasPoker;
 			sourceTree = "<group>";
 		};
-		C53A140A2F3C64EE00EEF419 /* TexasPokerTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
+		1BA73017C379F2F5B03D5ABB /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				1707E26654E655DE5FB9327B /* ColorThemeTests.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		20B4235782260EBBF27EBCA1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D7EA8E0AE8A1AE55B2B277B5 /* TexasPoker.app */,
+				9C0AF7C5EAB3285B2F63D516 /* TexasPokerTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2A281D71CF05A4F3C2A07AAB = {
+			isa = PBXGroup;
+			children = (
+				1B140EB7E383D68A99B1A2B7 /* TexasPoker */,
+				C37FC07AE5F48BDF0AFA5BC9 /* TexasPokerTests */,
+				20B4235782260EBBF27EBCA1 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		346E1FF32E1A933086181172 /* AI */ = {
+			isa = PBXGroup;
+			children = (
+				37E50182266D7D2A8FB17D39 /* AIProfile.swift */,
+				2FAADE80EB0C5AEAA6A1BEFA /* AIProfile+NewCharacters.swift */,
+				1447AFF93EADDE81989A951B /* BluffDetector.swift */,
+				C53B277BCA975A995D97B4F4 /* DecisionEngine.swift */,
+				551961FA8B675957FA062659 /* DifficultyManager.swift */,
+				EE8714409A74CEC0D392E805 /* ICMCalculator.swift */,
+				FF900E540306425A23DAD274 /* MonteCarloSimulator.swift */,
+				FE41205BAF168BA7F3A41E45 /* OpponentModel.swift */,
+				43BB854FA9653A7F4925C93D /* OpponentModeler.swift */,
+				E14D26911D0BBB5EC8CEF2A6 /* RangeAnalyzer.swift */,
+			);
+			path = AI;
+			sourceTree = "<group>";
+		};
+		3D72AAC18BBD0FCADEB26956 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				C6DC30DAE31322CE19735EC7 /* ActionRecorder.swift */,
+				7382277C4A7C556642FFCBA3 /* DataExporter.swift */,
+				560A4797E3F4AB2D2A8071CA /* DataMigrationManager.swift */,
+				3A17CB85621CB64EBE3586B9 /* PersistenceController.swift */,
+				F2DCD2CB25436BC3788C9CEC /* ProfileManager.swift */,
+				5CA7A491F92521E6A783C41F /* StatisticsCalculator.swift */,
+				7D19FEB038E64B0C37D74B43 /* TournamentStatsManager.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		4C737C741F2C939735441DA5 /* FSM */ = {
+			isa = PBXGroup;
+			children = (
+				F406202DEFB994C134C89828 /* GameEvent.swift */,
+				F98D044C4C992896554DA135 /* GameState.swift */,
+				D1A35E0FBBE763AAD5AB2A80 /* PokerGameStore.swift */,
+			);
+			path = FSM;
+			sourceTree = "<group>";
+		};
+		6F647F9BA59AE58365BF2A8F /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				9EC7BEA7984AB41806803F52 /* BettingManager.swift */,
+				098E3661CA7C0FB940D8A67E /* DealingManager.swift */,
+				2B3761F2FD6524F6B90CF984 /* GameResultsManager.swift */,
+				3992D6A1017DC2F49BB8228B /* PokerEngine.swift */,
+				F7C505A51807CCD78BBBE11C /* PokerEngine+HandLifecycle.swift */,
+				799346A9C6E53D916D79772A /* PokerEngine+SideEffects.swift */,
+				E9C2E040332B03E56542C86A /* ShowdownManager.swift */,
+				216ADF3FDA8E0BC529832598 /* TiltManager.swift */,
+				9B708687B37C866298A2233C /* TournamentManager.swift */,
+				BBA065CE1757828C49C16535 /* Evaluator */,
+				4C737C741F2C939735441DA5 /* FSM */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		785AAD6E7D2D632330762489 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				2A85B91AA95684FA9F5CE05E /* TexasPokerApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		7C34DDD8BE4C853776D12B8A /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				F07C653754028623B34D39AE /* Components */,
+				C3C5E511D4E45F1AAF59EF91 /* GameTable */,
+				FD29B2C17308BC5FC4915162 /* Views */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		862D6D7EADA6F90476696B87 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				022D4B85762EF04A68FAB04C /* ColorTheme.swift */,
+				5C3FF5E22947EDBFC0D03A22 /* DeviceHelper.swift */,
+				71762C95473C4AB531502A7B /* PokerUtils.swift */,
+				BA8CEEB13B2F2955F7C15E91 /* SoundManager.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		B77B92A4930D0F2DD57A9616 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				2DFC4BA5D0107675E29B4A96 /* ActionLogEntry.swift */,
+				5C00DC7E62CB2FDFFE37C353 /* BlindLevel.swift */,
+				2217D780112864D03E3BA28A /* Card.swift */,
+				2A37D76EBDE579F35B27DFFC /* Deck.swift */,
+				E539325912EF2256EC49324F /* GameMode.swift */,
+				222632EC17AF116FA2E32B1B /* GameRecord.swift */,
+				6F2A46431345078C1760D7D4 /* GameSettings.swift */,
+				5D7F68AB8C981BB3D538A8C6 /* Player.swift */,
+				158C8DB167C6D74010C692C3 /* PlayerAction.swift */,
+				B83C0D968864C8906902440E /* Pot.swift */,
+				FD16F2DD05E6048C7176C909 /* Street.swift */,
+				3FCDEE91A4F43CD5A9FBD2E2 /* TournamentConfig.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		BBA065CE1757828C49C16535 /* Evaluator */ = {
+			isa = PBXGroup;
+			children = (
+				F666B33A7E1432ACD0C97157 /* HandEvaluator.swift */,
+			);
+			path = Evaluator;
+			sourceTree = "<group>";
+		};
+		C37FC07AE5F48BDF0AFA5BC9 /* TexasPokerTests */ = {
+			isa = PBXGroup;
+			children = (
+				D815ED9F87A51605BB84CCA6 /* BettingLogicTests.swift */,
+				82D9D7E88FF06C76077A7CB0 /* BluffDetectorTests.swift */,
+				31963DC190EA8B210C46433B /* DecisionEngineTests.swift */,
+				BF01A547C138C99B8B6D3547 /* DifficultyManagerTests.swift */,
+				1EAF0D16979A12E6DCA36548 /* GameStoreTests.swift */,
+				5A5C6AA72BF74B8A08C6CB08 /* GameViewLayoutTests.swift */,
+				23AF0272D813719ADED6F2E1 /* HandEvaluatorTests.swift */,
+				38CD839C2AA730A106177756 /* ICMCalculatorTests.swift */,
+				FB43D9F5B493759A72F99E95 /* OpponentModelerTests.swift */,
+				2F3AA43824C282C1E57C226B /* PokerEngineTests.swift */,
+				EDA15C29DCEBE3EE76997BD7 /* PokerUtilsTests.swift */,
+				CF4DC4E88246F03C1279B2B7 /* PotCalculationTests.swift */,
+				68B2B0D3DD93FDA0F2EADD9D /* RangeAnalyzerTests.swift */,
+				D7BC031E1C0C0ECF7F45925A /* ShowdownLogicTests.swift */,
+				E5E21DFF6F37BEA9B3F5FADE /* StatisticsTests.swift */,
+				710B0A2B6439B68FB4C8810B /* TournamentTests.swift */,
+				55E588F0EC0D182830A91E0A /* UncalledBetTests.swift */,
+				1BA73017C379F2F5B03D5ABB /* UI */,
+			);
 			path = TexasPokerTests;
 			sourceTree = "<group>";
 		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		C53A13F22F3C64EC00EEF419 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C53A14042F3C64EE00EEF419 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
-
-/* Begin PBXGroup section */
-		C53A13EC2F3C64EC00EEF419 = {
+		C3C5E511D4E45F1AAF59EF91 /* GameTable */ = {
 			isa = PBXGroup;
 			children = (
-				C53A13F72F3C64EC00EEF419 /* TexasPoker */,
-				C53A140A2F3C64EE00EEF419 /* TexasPokerTests */,
-				C53A13F62F3C64EC00EEF419 /* Products */,
+				0A9BB93FFEF82E4CD2478B03 /* CardNode.swift */,
+				5D789C92DDDE55696499A543 /* PokerTableScene.swift */,
 			);
+			path = GameTable;
 			sourceTree = "<group>";
 		};
-		C53A13F62F3C64EC00EEF419 /* Products */ = {
+		DFB488E42C327B19820E169F /* Core */ = {
 			isa = PBXGroup;
 			children = (
-				C53A13F52F3C64EC00EEF419 /* TexasPoker.app */,
-				C53A14072F3C64EE00EEF419 /* TexasPokerTests.xctest */,
+				346E1FF32E1A933086181172 /* AI */,
+				3D72AAC18BBD0FCADEB26956 /* Data */,
+				6F647F9BA59AE58365BF2A8F /* Engine */,
+				B77B92A4930D0F2DD57A9616 /* Models */,
+				862D6D7EADA6F90476696B87 /* Utils */,
 			);
-			name = Products;
+			path = Core;
+			sourceTree = "<group>";
+		};
+		EB58E2A3303D2486D2E4ABF5 /* GameSubviews */ = {
+			isa = PBXGroup;
+			children = (
+				88CF52A59A4BD50415B9C3F2 /* GameActionLogPanel.swift */,
+				97ED57917B749589635CFAA2 /* GameHeroControls.swift */,
+				B58BFC75591B2CAB55104FC0 /* GamePotDisplay.swift */,
+				E350806C1E84A8B89836902F /* GameTopBar.swift */,
+				484E2869E85E570912F89EA9 /* GameTournamentInfo.swift */,
+			);
+			path = GameSubviews;
+			sourceTree = "<group>";
+		};
+		F07C653754028623B34D39AE /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				A3EF1DA9271B42B364277816 /* FlippingCard.swift */,
+				BFEA80CFBDD1E8B47E16A04F /* PlayerHUD.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		FD29B2C17308BC5FC4915162 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				63E476A32C26A5711EBD1009 /* ActionLogOverlay.swift */,
+				35B965F0C4AFFA5D05DFA0D8 /* ActionLogToast.swift */,
+				29BC839E0D2E107B7FB6B97C /* CardView.swift */,
+				FD9B3E7B24386FBDF680F8DB /* ChartsView.swift */,
+				852909F15FF7D559ACB1415E /* ChipView.swift */,
+				C4B5E277CD6C281ACB3CC91F /* DifficultySelectorView.swift */,
+				D0E89A2942F8A3FF353D2AB8 /* EnhancedPlayerUI.swift */,
+				0E346B7AC7C543DAE86A6F8C /* EnhancedStatisticsView.swift */,
+				154F8DEEE17DD68C6D91988E /* GameView.swift */,
+				75337E5E82B8B59FDDF53CCF /* HistoryView.swift */,
+				5DCD5E3A795E3EE662980E15 /* PlayerView.swift */,
+				A3A26FE322FCF4C92F04CCB2 /* PlayerViewComponents.swift */,
+				97BC5F7E961864343D76C702 /* RankingsView.swift */,
+				02EBE83FD11B4758BD9EB596 /* SessionSummaryView.swift */,
+				B27A6ADF07CEB48A8E1F5A1C /* SettingsView.swift */,
+				04E7E218F3AC34B2EE247B66 /* SpectatorOverlay.swift */,
+				D425209916DB0E503EF88821 /* StatisticsView.swift */,
+				66542022638F95C2D0A3C855 /* SwiftUI+OnChangeCompat.swift */,
+				EDB84D79C081EA5BF31D247B /* TournamentEntryViews.swift */,
+				DAC91F3225CEDAC077B1AB95 /* TournamentLeaderboardOverlay.swift */,
+				910AF6363434CFAC08FA4B81 /* TournamentLeaderboardView.swift */,
+				EB58E2A3303D2486D2E4ABF5 /* GameSubviews */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		C53A13F42F3C64EC00EEF419 /* TexasPoker */ = {
+		2DA61546E55109AEBC9A944F /* TexasPokerTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C53A141B2F3C64EF00EEF419 /* Build configuration list for PBXNativeTarget "TexasPoker" */;
+			buildConfigurationList = 45CD50DF959BCEA65E2AEC87 /* Build configuration list for PBXNativeTarget "TexasPokerTests" */;
 			buildPhases = (
-				C53A13F12F3C64EC00EEF419 /* Sources */,
-				C53A13F22F3C64EC00EEF419 /* Frameworks */,
-				C53A13F32F3C64EC00EEF419 /* Resources */,
+				E3A7353EAB1096037947EE33 /* Sources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				C53A13F72F3C64EC00EEF419 /* TexasPoker */,
-			);
-			name = TexasPoker;
-			packageProductDependencies = (
-			);
-			productName = TexasPoker;
-			productReference = C53A13F52F3C64EC00EEF419 /* TexasPoker.app */;
-			productType = "com.apple.product-type.application";
-		};
-		C53A14062F3C64EE00EEF419 /* TexasPokerTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = C53A141E2F3C64EF00EEF419 /* Build configuration list for PBXNativeTarget "TexasPokerTests" */;
-			buildPhases = (
-				C53A14032F3C64EE00EEF419 /* Sources */,
-				C53A14042F3C64EE00EEF419 /* Frameworks */,
-				C53A14052F3C64EE00EEF419 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				C53A14092F3C64EE00EEF419 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				C53A140A2F3C64EE00EEF419 /* TexasPokerTests */,
+				7C02D9884C23F4BCF0537FED /* PBXTargetDependency */,
 			);
 			name = TexasPokerTests;
 			packageProductDependencies = (
 			);
 			productName = TexasPokerTests;
-			productReference = C53A14072F3C64EE00EEF419 /* TexasPokerTests.xctest */;
+			productReference = 9C0AF7C5EAB3285B2F63D516 /* TexasPokerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		A91770E179CE9E0BA8751B57 /* TexasPoker */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DEA9AFAE77B0EAD8BDC2912A /* Build configuration list for PBXNativeTarget "TexasPoker" */;
+			buildPhases = (
+				69F72B358B3087C58E1BC1B1 /* Sources */,
+				1BAD66EB8F14E62D56F2869B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TexasPoker;
+			packageProductDependencies = (
+			);
+			productName = TexasPoker;
+			productReference = D7EA8E0AE8A1AE55B2B277B5 /* TexasPoker.app */;
+			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		C53A13ED2F3C64EC00EEF419 /* Project object */ = {
+		8B22A1BA3C3D89513F62D345 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2620;
-				LastUpgradeCheck = 2620;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1520;
 				TargetAttributes = {
-					C53A13F42F3C64EC00EEF419 = {
-						CreatedOnToolsVersion = 26.2;
+					2DA61546E55109AEBC9A944F = {
+						DevelopmentTeam = L7SX3PS3BS;
+						ProvisioningStyle = Automatic;
 					};
-					C53A14062F3C64EE00EEF419 = {
-						CreatedOnToolsVersion = 26.2;
-						TestTargetID = C53A13F42F3C64EC00EEF419;
+					A91770E179CE9E0BA8751B57 = {
+						DevelopmentTeam = L7SX3PS3BS;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
-			buildConfigurationList = C53A13F02F3C64EC00EEF419 /* Build configuration list for PBXProject "TexasPoker" */;
+			buildConfigurationList = 07D59FD35F87FA089F9825E4 /* Build configuration list for PBXProject "TexasPoker" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				en,
 			);
-			mainGroup = C53A13EC2F3C64EC00EEF419;
+			mainGroup = 2A281D71CF05A4F3C2A07AAB;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = C53A13F62F3C64EC00EEF419 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				C53A13F42F3C64EC00EEF419 /* TexasPoker */,
-				C53A14062F3C64EE00EEF419 /* TexasPokerTests */,
+				A91770E179CE9E0BA8751B57 /* TexasPoker */,
+				2DA61546E55109AEBC9A944F /* TexasPokerTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		C53A13F32F3C64EC00EEF419 /* Resources */ = {
+		1BAD66EB8F14E62D56F2869B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C53A14052F3C64EE00EEF419 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
+				2D9AC08C83A3EF7A0C0AEBB9 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		C53A13F12F3C64EC00EEF419 /* Sources */ = {
+		69F72B358B3087C58E1BC1B1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C043C14A43E00E6820823660 /* AIProfile+NewCharacters.swift in Sources */,
+				17C077FB3A812F71DA6AF4AA /* AIProfile.swift in Sources */,
+				CCF4C55FE946928F052113DF /* ActionLogEntry.swift in Sources */,
+				713560742C6734AEECF196CF /* ActionLogOverlay.swift in Sources */,
+				97FE5ED1249CC6E965E4AEFE /* ActionLogToast.swift in Sources */,
+				DFFC0CED89A07E8770833564 /* ActionRecorder.swift in Sources */,
+				14B3D72F4B679F01E78553FB /* BettingManager.swift in Sources */,
+				38CABE7152188A1A83CF11ED /* BlindLevel.swift in Sources */,
+				BB4A7ECC8DAABA36D10CE83B /* BluffDetector.swift in Sources */,
+				B9EE22376D004F210FDA4208 /* Card.swift in Sources */,
+				07EA567EE6EE5B6A7B90D355 /* CardNode.swift in Sources */,
+				AEA697CF6F27148D43E08652 /* CardView.swift in Sources */,
+				5254820D2B1D31FFE482AFD2 /* ChartsView.swift in Sources */,
+				F1DC5C8D925A12B5B9F59380 /* ChipView.swift in Sources */,
+				A14919ACB1489CD4A671B8C5 /* ColorTheme.swift in Sources */,
+				54BD08B30EA54B92F334989D /* DataExporter.swift in Sources */,
+				5B40811425BD3F4746D06444 /* DataMigrationManager.swift in Sources */,
+				59EC1D9116AEC5EB83DA27F4 /* DealingManager.swift in Sources */,
+				EEBF846A077F81A0FEF56829 /* DecisionEngine.swift in Sources */,
+				2457CF11D4D665AF9F5098FE /* Deck.swift in Sources */,
+				75AE69F6D2905CCE91558435 /* DeviceHelper.swift in Sources */,
+				B9671C73A2AA5AFA593BA7C7 /* DifficultyManager.swift in Sources */,
+				076B75A2D8AFA02D07C4C5DE /* DifficultySelectorView.swift in Sources */,
+				A4520B904F42AF64EE19EA3E /* EnhancedPlayerUI.swift in Sources */,
+				ACFD8DF39EAE3A23489C16E8 /* EnhancedStatisticsView.swift in Sources */,
+				525B88455D7F3C6605A5BC60 /* FlippingCard.swift in Sources */,
+				039CC9757DE08652B1A8296D /* GameActionLogPanel.swift in Sources */,
+				234CDC35C74F89E9CD8BE8F6 /* GameEvent.swift in Sources */,
+				45D41CAC15969FAB44C2E9E1 /* GameHeroControls.swift in Sources */,
+				188B2BD1B1021127237CD7A9 /* GameMode.swift in Sources */,
+				3A30DF71136301E51268DCDF /* GamePotDisplay.swift in Sources */,
+				BDC1100CCFF723EC6E37AAFB /* GameRecord.swift in Sources */,
+				D66D2CF8A70BBB00CA2739A3 /* GameResultsManager.swift in Sources */,
+				6D3849AFB3E76BB95C62D6B0 /* GameSettings.swift in Sources */,
+				6FDC89DA82662045BA801F21 /* GameState.swift in Sources */,
+				73E38EFEEEF811331332A961 /* GameTopBar.swift in Sources */,
+				AA2A96EF371E23502F90A61F /* GameTournamentInfo.swift in Sources */,
+				A694E3142399839964DAB5F4 /* GameView.swift in Sources */,
+				B6E90FF264F201748855ABD5 /* HandEvaluator.swift in Sources */,
+				BE2CD40F6170C97B186F8ACF /* HistoryView.swift in Sources */,
+				256A2B51BB0B74A72DC4A6DD /* ICMCalculator.swift in Sources */,
+				00A892B709A92F6835BB3F77 /* MonteCarloSimulator.swift in Sources */,
+				3D2D5EBC7D8A6E3D5CF47DC7 /* OpponentModel.swift in Sources */,
+				2C56E47C6FF99F867697E6CC /* OpponentModeler.swift in Sources */,
+				FFBA825ED498892F617D027F /* PersistenceController.swift in Sources */,
+				D40D42378F8A0BB5D2D39E74 /* Player.swift in Sources */,
+				3C861D05F94F80782F939B24 /* PlayerAction.swift in Sources */,
+				829A29D6E2E6B925F521F7B2 /* PlayerHUD.swift in Sources */,
+				45FDEA8602E79AC66E548ED2 /* PlayerView.swift in Sources */,
+				64DEE3EFC9260AADFAF1D320 /* PlayerViewComponents.swift in Sources */,
+				6D23562C36CD8EEEEC2D30D3 /* PokerEngine+HandLifecycle.swift in Sources */,
+				F386A35BB600569F04DE20B8 /* PokerEngine+SideEffects.swift in Sources */,
+				15A7E15F99BA39797AAA59C0 /* PokerEngine.swift in Sources */,
+				AD747B0BBF43D7C49B9BB077 /* PokerGameStore.swift in Sources */,
+				76D6C3A293C231987BA47021 /* PokerTableScene.swift in Sources */,
+				14ABCAE05DE31B205F951932 /* PokerUtils.swift in Sources */,
+				4D8AC7DE3F838FC43F1960D3 /* Pot.swift in Sources */,
+				D09A6F24769D4B1E6BBFF8A0 /* ProfileManager.swift in Sources */,
+				9C8711CE0BA90463302ACDC5 /* RangeAnalyzer.swift in Sources */,
+				FB751473CEB1BD4853164E0A /* RankingsView.swift in Sources */,
+				B07C263A038F21982285C261 /* SessionSummaryView.swift in Sources */,
+				A82FEEF038C83ECB628E9366 /* SettingsView.swift in Sources */,
+				6DCB951F4F858BF25A2E03DB /* ShowdownManager.swift in Sources */,
+				CB1BE1A7A196D8D617AB7438 /* SoundManager.swift in Sources */,
+				210867653F2E64BB73482888 /* SpectatorOverlay.swift in Sources */,
+				FF590EA73B92F8CA58B424BE /* StatisticsCalculator.swift in Sources */,
+				7A51E9F3509FF436D698E801 /* StatisticsView.swift in Sources */,
+				A644B33B6C116E465678F93C /* Street.swift in Sources */,
+				3239BCF86A608AD07CCEE79E /* SwiftUI+OnChangeCompat.swift in Sources */,
+				A900C34E381AC0DD885D77B0 /* TexasPoker.xcdatamodeld in Sources */,
+				BD63AB2CFD1E10571AA29018 /* TexasPokerApp.swift in Sources */,
+				E65307905C2B5838588D6AD2 /* TiltManager.swift in Sources */,
+				60FCC74E7F762389ED92B700 /* TournamentConfig.swift in Sources */,
+				F693F6522246E147ADB70A88 /* TournamentEntryViews.swift in Sources */,
+				2FC3ED85FCC415947B82E564 /* TournamentLeaderboardOverlay.swift in Sources */,
+				4948042E4DBA663E20841D30 /* TournamentLeaderboardView.swift in Sources */,
+				A90102E74CB4DD3668A61023 /* TournamentManager.swift in Sources */,
+				20FB558055131E886FE6A357 /* TournamentStatsManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C53A14032F3C64EE00EEF419 /* Sources */ = {
+		E3A7353EAB1096037947EE33 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				93A8413A77C40CB395261A4C /* BettingLogicTests.swift in Sources */,
+				4AF48CDAD2E70C1DD4B4B87F /* BluffDetectorTests.swift in Sources */,
+				D78B6674B4C6A2B384FF6E06 /* ColorThemeTests.swift in Sources */,
+				586D4A6297BA8BEDEAEC88CF /* DecisionEngineTests.swift in Sources */,
+				D31B50144B5C3E1C238A2549 /* DifficultyManagerTests.swift in Sources */,
+				4E1A28B577DFFE08DE183A7E /* GameStoreTests.swift in Sources */,
+				0987937D1EE833AD23B9E3CC /* GameViewLayoutTests.swift in Sources */,
+				04F25324AE7C4D62A2AEC178 /* HandEvaluatorTests.swift in Sources */,
+				2868E762D66EA6B98E7AAD7E /* ICMCalculatorTests.swift in Sources */,
+				2819AADE83B6890CDF796754 /* OpponentModelerTests.swift in Sources */,
+				424968B3857E8138EBE02FD2 /* PokerEngineTests.swift in Sources */,
+				2D089767E680C609FF11FBB5 /* PokerUtilsTests.swift in Sources */,
+				1B93F889C1760E2E27A7052D /* PotCalculationTests.swift in Sources */,
+				A1DBC7BCAA3F59E8FA6FB1F9 /* RangeAnalyzerTests.swift in Sources */,
+				08B5E12C323B474A40AAD5F2 /* ShowdownLogicTests.swift in Sources */,
+				2194AAC4C10CDE98A3138FA8 /* StatisticsTests.swift in Sources */,
+				AFEB9A5A92A2E066930BF6F7 /* TournamentTests.swift in Sources */,
+				4D6CE02661C4639F7BF7AA6A /* UncalledBetTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		C53A14092F3C64EE00EEF419 /* PBXTargetDependency */ = {
+		7C02D9884C23F4BCF0537FED /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C53A13F42F3C64EC00EEF419 /* TexasPoker */;
-			targetProxy = C53A14082F3C64EE00EEF419 /* PBXContainerItemProxy */;
+			target = A91770E179CE9E0BA8751B57 /* TexasPoker */;
+			targetProxy = 91E370358C78EC7FF5CDB800 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		C53A14192F3C64EF00EEF419 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = L7SX3PS3BS;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-			};
-			name = Debug;
-		};
-		C53A141A2F3C64EF00EEF419 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = L7SX3PS3BS;
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				SDKROOT = iphoneos;
-				SWIFT_COMPILATION_MODE = wholemodule;
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
-		C53A141C2F3C64EF00EEF419 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = L7SX3PS3BS;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = smartegg.TexasPoker;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		C53A141D2F3C64EF00EEF419 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = L7SX3PS3BS;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = smartegg.TexasPoker;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
-		C53A141F2F3C64EF00EEF419 /* Debug */ = {
+		185A41E6951506007BA271C7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = L7SX3PS3BS;
+				EXECUTABLE_NAME = TexasPokerTests;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = smartegg.TexasPokerTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				PRODUCT_NAME = TexasPokerTests;
+				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TexasPoker.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TexasPoker";
 			};
 			name = Debug;
 		};
-		C53A14202F3C64EF00EEF419 /* Release */ = {
+		4B58A5C2328B8AD80537E8E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				EXECUTABLE_NAME = TexasPoker;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = smartegg.TexasPoker;
+				PRODUCT_NAME = TexasPoker;
+				SDKROOT = iphoneos;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		799A931128864F131E19DCEA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = L7SX3PS3BS;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		90ECD201D5226AA40DBEFECF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				EXECUTABLE_NAME = TexasPoker;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = smartegg.TexasPoker;
+				PRODUCT_NAME = TexasPoker;
+				SDKROOT = iphoneos;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A0FB36169A55FFE79D8B7E5A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = L7SX3PS3BS;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BA0D2407F8074BFFC62033EE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = L7SX3PS3BS;
+				EXECUTABLE_NAME = TexasPokerTests;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = smartegg.TexasPokerTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				PRODUCT_NAME = TexasPokerTests;
+				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TexasPoker.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TexasPoker";
 			};
@@ -432,34 +888,47 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C53A13F02F3C64EC00EEF419 /* Build configuration list for PBXProject "TexasPoker" */ = {
+		07D59FD35F87FA089F9825E4 /* Build configuration list for PBXProject "TexasPoker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C53A14192F3C64EF00EEF419 /* Debug */,
-				C53A141A2F3C64EF00EEF419 /* Release */,
+				A0FB36169A55FFE79D8B7E5A /* Debug */,
+				799A931128864F131E19DCEA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
-		C53A141B2F3C64EF00EEF419 /* Build configuration list for PBXNativeTarget "TexasPoker" */ = {
+		45CD50DF959BCEA65E2AEC87 /* Build configuration list for PBXNativeTarget "TexasPokerTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C53A141C2F3C64EF00EEF419 /* Debug */,
-				C53A141D2F3C64EF00EEF419 /* Release */,
+				185A41E6951506007BA271C7 /* Debug */,
+				BA0D2407F8074BFFC62033EE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
-		C53A141E2F3C64EF00EEF419 /* Build configuration list for PBXNativeTarget "TexasPokerTests" */ = {
+		DEA9AFAE77B0EAD8BDC2912A /* Build configuration list for PBXNativeTarget "TexasPoker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C53A141F2F3C64EF00EEF419 /* Debug */,
-				C53A14202F3C64EF00EEF419 /* Release */,
+				4B58A5C2328B8AD80537E8E0 /* Debug */,
+				90ECD201D5226AA40DBEFECF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCVersionGroup section */
+		291FD3A886E1A9143E78EA5B /* TexasPoker.xcdatamodeld */ = {
+			isa = XCVersionGroup;
+			children = (
+				58F3C1FAEB2FF4254F48CFCD /* TexasPoker.xcdatamodel */,
+			);
+			currentVersion = 58F3C1FAEB2FF4254F48CFCD /* TexasPoker.xcdatamodel */;
+			path = TexasPoker.xcdatamodeld;
+			sourceTree = "<group>";
+			versionGroupType = wrapper.xcdatamodel;
+		};
+/* End XCVersionGroup section */
 	};
-	rootObject = C53A13ED2F3C64EC00EEF419 /* Project object */;
+	rootObject = 8B22A1BA3C3D89513F62D345 /* Project object */;
 }

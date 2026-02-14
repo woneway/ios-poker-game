@@ -2,9 +2,14 @@ name: iOS CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
+
+# 取消同一分支上的旧运行，节省 Actions 分钟数
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -15,13 +20,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Select Xcode
+        run: |
+          # 列出可用 Xcode 版本
+          ls /Applications/ | grep Xcode
+          # 选择默认 Xcode
+          sudo xcode-select -switch /Applications/Xcode.app
+          xcodebuild -version
+
       - name: Install XcodeGen
         run: |
-          # Pin XcodeGen to avoid generating future Xcode project formats
-          # (newer XcodeGen may emit objectVersion=77 / synchronized folders for Xcode 16+,
-          # which Xcode 15.x on runners can't open).
           XCODEGEN_VERSION="2.42.0"
-          curl -L -o /tmp/xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          curl -sL -o /tmp/xcodegen.zip \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
           unzip -o /tmp/xcodegen.zip -d /tmp/xcodegen
           sudo install -m 0755 "/tmp/xcodegen/xcodegen/bin/xcodegen" /usr/local/bin/xcodegen
           xcodegen --version
@@ -32,39 +43,57 @@ jobs:
       - name: Build
         run: |
           xcodebuild -project TexasPoker.xcodeproj \
-                     -scheme TexasPoker \
-                     -destination 'generic/platform=iOS Simulator' \
-                     -configuration Debug \
-                     build \
-                     CODE_SIGNING_ALLOWED=NO
+            -scheme TexasPoker \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
 
   test:
     name: Test
     runs-on: macos-14
+    needs: build
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -switch /Applications/Xcode.app
+          xcodebuild -version
+
       - name: Install XcodeGen
         run: |
-          # Pin XcodeGen to avoid generating future Xcode project formats
-          # (newer XcodeGen may emit objectVersion=77 / synchronized folders for Xcode 16+,
-          # which Xcode 15.x on runners can't open).
           XCODEGEN_VERSION="2.42.0"
-          curl -L -o /tmp/xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          curl -sL -o /tmp/xcodegen.zip \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
           unzip -o /tmp/xcodegen.zip -d /tmp/xcodegen
           sudo install -m 0755 "/tmp/xcodegen/xcodegen/bin/xcodegen" /usr/local/bin/xcodegen
-          xcodegen --version
 
       - name: Generate Xcode Project
         run: xcodegen generate
 
+      - name: List Available Simulators
+        run: |
+          xcrun simctl list devices available | grep -i "iphone"
+
       - name: Run Tests
         run: |
+          # 使用具体的模拟器设备运行测试（generic destination 不支持 test）
           xcodebuild -project TexasPoker.xcodeproj \
-                     -scheme TexasPoker \
-                     -destination 'platform=iOS Simulator,name=iPhone 15' \
-                     -configuration Debug \
-                     test \
-                     CODE_SIGNING_ALLOWED=NO
+            -scheme TexasPoker \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' \
+            -configuration Debug \
+            -resultBundlePath TestResults \
+            test \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+
+      - name: Upload Test Results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
