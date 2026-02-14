@@ -73,6 +73,13 @@ struct GameView: View {
                 )
                 .transition(.move(edge: .trailing))
             }
+            
+            // Spectator Overlay
+            if store.state == .spectating {
+                SpectatorOverlay(store: store)
+                    .transition(.move(edge: .bottom))
+                    .animation(.easeInOut(duration: 0.3), value: store.state)
+            }
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(

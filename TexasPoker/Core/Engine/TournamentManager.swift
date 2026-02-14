@@ -47,6 +47,28 @@ struct TournamentManager {
         return (nextLevel, 0, level.smallBlind, level.bigBlind, level.ante)
     }
     
+    // MARK: - Rebuy System
+    
+    /// 计算 Rebuy 筹码（纯函数，易测试）
+    /// 公式：baseChips + currentBlindLevel * 500
+    static func calculateRebuyChips(
+        baseChips: Int,
+        currentBlindLevel: Int
+    ) -> Int {
+        return baseChips + currentBlindLevel * 500
+    }
+    
+    /// 在指定座位替换已淘汰玩家（保持座位索引稳定）
+    static func replaceEliminatedPlayer(
+        at seatIndex: Int,
+        with newPlayer: Player,
+        players: inout [Player]
+    ) {
+        guard seatIndex >= 0 && seatIndex < players.count else { return }
+        guard players[seatIndex].status == .eliminated else { return }
+        players[seatIndex] = newPlayer
+    }
+    
     // MARK: - Random Entry System
     
     /// 检查是否应该触发随机入场（根据手数和淘汰率）
@@ -134,5 +156,103 @@ struct TournamentManager {
         #endif
         
         return playerToAdd
+    }
+    
+    // MARK: - AI Dynamic Entry (called from endHand)
+    
+    /// 检查并执行 AI 入场，返回新入场的玩家列表
+    static func checkAndAddAIEntries(
+        players: inout [Player],
+        handNumber: Int,
+        gameMode: GameMode,
+        difficulty: AIProfile.Difficulty,
+        config: TournamentConfig?,
+        currentBlindLevel: Int
+    ) -> [Player] {
+        var newEntries: [Player] = []
+        
+        switch gameMode {
+        case .tournament:
+            guard let config = config else { return [] }
+            
+            let currentCount = players.filter { $0.status != .eliminated }.count
+            guard shouldTriggerRandomEntry(
+                handNumber: handNumber,
+                currentPlayerCount: currentCount,
+                config: config
+            ) else { return [] }
+            
+            // 找到第一个 eliminated 座位
+            guard let seatIndex = players.firstIndex(where: { $0.status == .eliminated }) else {
+                return []
+            }
+            
+            let rebuyChips = calculateRebuyChips(
+                baseChips: config.effectiveBaseRebuyChips,
+                currentBlindLevel: currentBlindLevel
+            )
+            
+            if let newPlayer = generateRandomEntry(
+                difficulty: difficulty,
+                config: config,
+                handNumber: handNumber
+            ) {
+                // 使用 rebuy 筹码而非默认筹码
+                let existingNames = Set(players.map { $0.name })
+                var finalName = newPlayer.name
+                var counter = 2
+                while existingNames.contains(finalName) {
+                    finalName = "\(newPlayer.name)\(counter)"
+                    counter += 1
+                }
+                
+                let entryPlayer = Player(
+                    name: finalName,
+                    chips: rebuyChips,
+                    isHuman: false,
+                    aiProfile: newPlayer.aiProfile
+                )
+                
+                replaceEliminatedPlayer(at: seatIndex, with: entryPlayer, players: &players)
+                newEntries.append(entryPlayer)
+                
+                #if DEBUG
+                print("🎉 锦标赛新 AI \(finalName) 入场座位 \(seatIndex)，筹码: \(rebuyChips)")
+                #endif
+            }
+            
+        case .cashGame:
+            // 现金局：所有空位立即补入
+            for i in 0..<players.count {
+                guard players[i].status == .eliminated else { continue }
+                
+                let profiles = difficulty.randomOpponents(count: 1)
+                guard let profile = profiles.first else { continue }
+                
+                let existingNames = Set(players.map { $0.name })
+                var finalName = profile.name
+                var counter = 2
+                while existingNames.contains(finalName) {
+                    finalName = "\(profile.name)\(counter)"
+                    counter += 1
+                }
+                
+                let newPlayer = Player(
+                    name: finalName,
+                    chips: 1000,
+                    isHuman: false,
+                    aiProfile: profile
+                )
+                
+                players[i] = newPlayer
+                newEntries.append(newPlayer)
+                
+                #if DEBUG
+                print("🎉 现金局补位 \(finalName) 座位 \(i)，筹码: 1000")
+                #endif
+            }
+        }
+        
+        return newEntries
     }
 }

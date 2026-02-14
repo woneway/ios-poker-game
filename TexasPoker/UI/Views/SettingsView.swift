@@ -168,26 +168,6 @@ struct SettingsView: View {
                 tournamentSettings
             }
             
-            // Player Count
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("玩家数量")
-                    Spacer()
-                    Text("\(settings.playerCount) 人")
-                        .foregroundColor(.secondary)
-                }
-                
-                Slider(
-                    value: .init(
-                        get: { Double(settings.playerCount) },
-                        set: { settings.playerCount = Int($0) }
-                    ),
-                    in: 2...8,
-                    step: 1
-                )
-            }
-            .padding(.vertical, 4)
-            
         } header: {
             Text("游戏设置")
         }
@@ -301,7 +281,7 @@ struct SettingsView: View {
                     HStack {
                         Text("自选对手")
                         Spacer()
-                        Text("\(settings.playerCount - 1) 个对手")
+                        Text("7 个对手")
                             .foregroundColor(.secondary)
                     }
                 }
@@ -489,7 +469,7 @@ struct OpponentSelectorView: View {
             }
             
             Section {
-                Text("已选择 \(selectedOpponents.count)/\(settings.playerCount - 1) 个对手")
+                Text("已选择 \(selectedOpponents.count)/7 个对手")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -501,13 +481,13 @@ struct OpponentSelectorView: View {
                 Button("完成") {
                     dismiss()
                 }
-                .disabled(selectedOpponents.count != settings.playerCount - 1)
+                .disabled(selectedOpponents.count != 7)
             }
         }
         .onAppear {
             // Initialize with random opponents if empty
             if selectedOpponents.isEmpty {
-                selectedOpponents = settings.aiDifficulty.randomOpponents(count: settings.playerCount - 1)
+                selectedOpponents = settings.aiDifficulty.randomOpponents(count: 7)
             }
         }
     }
@@ -515,7 +495,7 @@ struct OpponentSelectorView: View {
     private func toggleOpponent(_ profile: AIProfile) {
         if let index = selectedOpponents.firstIndex(where: { $0.name == profile.name }) {
             selectedOpponents.remove(at: index)
-        } else if selectedOpponents.count < settings.playerCount - 1 {
+        } else if selectedOpponents.count < 7 {
             selectedOpponents.append(profile)
         }
     }

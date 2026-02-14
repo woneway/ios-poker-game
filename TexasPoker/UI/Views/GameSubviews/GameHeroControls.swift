@@ -103,7 +103,52 @@ struct GameHeroControls: View {
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.6))
                         
+                        // Rebuy option (tournament only)
+                        if store.engine.gameMode == .tournament,
+                           let config = store.engine.tournamentConfig,
+                           config.rebuyEnabled {
+                            let rebuyChips = TournamentManager.calculateRebuyChips(
+                                baseChips: config.effectiveBaseRebuyChips,
+                                currentBlindLevel: store.engine.currentBlindLevel
+                            )
+                            
+                            VStack(spacing: 4) {
+                                Text("买入筹码: \(rebuyChips)")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.yellow)
+                                
+                                if store.engine.rebuyCount > 0 {
+                                    Text("已买入 \(store.engine.rebuyCount) 次")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.white.opacity(0.5))
+                                }
+                            }
+                            
+                            Button(action: {
+                                HapticFeedback.buttonPress()
+                                if let idx = store.engine.players.firstIndex(where: { $0.isHuman }) {
+                                    store.engine.rebuyPlayer(playerIndex: idx, chips: rebuyChips)
+                                    store.send(.nextHand)
+                                }
+                            }) {
+                                Text("💰 买入继续")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 40)
+                                    .background(Capsule().fill(Color.orange))
+                            }
+                            .padding(.horizontal, 40)
+                        }
+                        
                         HStack(spacing: 12) {
+                            Button(action: { store.send(.startSpectating) }) {
+                                Text("自动观战")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 100, height: 40)
+                                    .background(Capsule().fill(Color.purple.opacity(0.8)))
+                            }
                             Button(action: { store.send(.nextHand) }) {
                                 Text("观战")
                                     .font(.system(size: 14, weight: .bold))
@@ -127,18 +172,32 @@ struct GameHeroControls: View {
                     }
                 } else {
                     // Hero alive, continue
-                    Button(action: { 
-                        HapticFeedback.buttonPress()
-                        store.send(.nextHand) 
-                    }) {
-                        Text("下一手")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Capsule().fill(Color.green))
+                    HStack(spacing: 12) {
+                        Button(action: { 
+                            HapticFeedback.buttonPress()
+                            store.send(.nextHand) 
+                        }) {
+                            Text("下一手")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Capsule().fill(Color.green))
+                        }
+                        
+                        Button(action: {
+                            HapticFeedback.buttonPress()
+                            store.send(.startSpectating)
+                        }) {
+                            Text("观战")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(Capsule().fill(Color.purple.opacity(0.7)))
+                        }
                     }
-                    .padding(.horizontal, 60)
+                    .padding(.horizontal, 40)
                 }
             }
             
@@ -222,6 +281,10 @@ struct GameHeroControls: View {
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.5))
             }
+            
+        case .spectating:
+            // 观战模式下控制区由 SpectatorOverlay 接管
+            EmptyView()
         }
     }
     

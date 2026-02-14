@@ -137,7 +137,7 @@ class GameSettings: ObservableObject {
         self.aiDifficulty = AIProfile.Difficulty(rawValue: diffRaw) ?? .normal
         
         // Player count
-        self.playerCount = defaults.object(forKey: playerCountKey) as? Int ?? 6
+        self.playerCount = defaults.object(forKey: playerCountKey) as? Int ?? 8
         
         // Random opponents
         self.useRandomOpponents = defaults.object(forKey: useRandomOpponentsKey) as? Bool ?? true
@@ -169,7 +169,7 @@ class GameSettings: ObservableObject {
         soundEnabled = true
         soundVolume = 0.7
         aiDifficulty = .normal
-        playerCount = 6
+        playerCount = 8
         useRandomOpponents = true
         gameMode = .cashGame
         tournamentPreset = .standard

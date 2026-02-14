@@ -6,6 +6,7 @@ enum GameState: Equatable {
     case waitingForAction   // 等待人类玩家操作（显示操作按钮）
     case betting            // AI 正在思考/行动中
     case showdown           // 一手结束，显示结果
+    case spectating         // 观战模式：AI 快速对局中
     
     var description: String {
         switch self {
@@ -14,6 +15,7 @@ enum GameState: Equatable {
         case .waitingForAction: return "WaitingForAction"
         case .betting: return "Betting"
         case .showdown: return "Showdown"
+        case .spectating: return "Spectating"
         }
     }
 }

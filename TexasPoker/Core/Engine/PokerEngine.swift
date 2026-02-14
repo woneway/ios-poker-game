@@ -51,6 +51,7 @@ class PokerEngine: ObservableObject {
     @Published var currentBlindLevel: Int = 0
     @Published var handsAtCurrentLevel: Int = 0
     @Published var anteAmount: Int = 0
+    @Published var rebuyCount: Int = 0
     
     init(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         self.deck = Deck()
@@ -114,6 +115,22 @@ class PokerEngine: ObservableObject {
             Player(name: "艾米", chips: 1000, isHuman: false, aiProfile: .academic),
             Player(name: "大卫", chips: 1000, isHuman: false, aiProfile: .tiltDavid),
         ]
+    }
+    
+    // MARK: - Rebuy
+    
+    /// Rebuy：恢复玩家状态和筹码
+    func rebuyPlayer(playerIndex: Int, chips: Int) {
+        guard playerIndex >= 0 && playerIndex < players.count else { return }
+        guard players[playerIndex].status == .eliminated else { return }
+        
+        players[playerIndex].chips = chips
+        players[playerIndex].status = .active
+        rebuyCount += 1
+        
+        #if DEBUG
+        print("💰 \(players[playerIndex].name) Rebuy 成功，筹码: \(chips)，总 Rebuy 次数: \(rebuyCount)")
+        #endif
     }
     
     // MARK: - Position Helpers

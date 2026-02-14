@@ -1,3 +1,6 @@
+import XCTest
+@testable import TexasPoker
+
 class UncalledBetTests: XCTestCase {
     
     func testReturnUncalledBets() {
