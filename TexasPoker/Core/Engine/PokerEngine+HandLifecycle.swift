@@ -28,6 +28,10 @@ extension PokerEngine {
             players[i].holeCards.removeAll()
             players[i].currentBet = 0
             players[i].totalBetThisHand = 0
+            // CashGame: sittingOut 玩家保持状态，本手不参与
+            if players[i].status == .sittingOut && gameMode == .cashGame {
+                continue
+            }
             players[i].status = players[i].chips > 0 ? .active : .eliminated
         }
         
@@ -155,32 +159,60 @@ extension PokerEngine {
             eliminationOrder: &eliminationOrder
         )
         
-        // AI 动态入场检查
-        let diffLevel = DecisionEngine.difficultyManager.currentDifficulty
-        let difficulty: AIProfile.Difficulty = {
-            switch diffLevel {
-            case .easy: return .easy
-            case .medium: return .normal
-            case .hard: return .hard
-            case .expert: return .expert
+        // 根据游戏模式处理 AI 入场/离场
+        if gameMode == .cashGame, let config = cashGameConfig {
+            // 1. sittingOut → eliminated（为新 AI 腾出座位）
+            for i in 0..<players.count where players[i].status == .sittingOut {
+                players[i].status = .eliminated
             }
-        }()
-        let newEntries = TournamentManager.checkAndAddAIEntries(
-            players: &players,
-            handNumber: handNumber,
-            gameMode: gameMode,
-            difficulty: difficulty,
-            config: tournamentConfig,
-            currentBlindLevel: currentBlindLevel
-        )
-        for newPlayer in newEntries {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("TournamentNewEntry"),
-                object: nil,
-                userInfo: ["playerName": newPlayer.name, "chips": newPlayer.chips]
+
+            // 2. AI 离场检查
+            let departures = CashGameManager.checkAIDepartures(
+                players: &players,
+                config: config
             )
+            for dep in departures {
+                actionLog.append(ActionLogEntry(systemMessage: "\(dep.name) 离开了牌桌"))
+            }
+
+            // 3. AI 入场检查
+            let difficulty = AIProfile.Difficulty.normal
+            let newEntries = CashGameManager.checkAIEntries(
+                players: &players,
+                config: config,
+                difficulty: difficulty
+            )
+            for entry in newEntries {
+                actionLog.append(ActionLogEntry(systemMessage: "新玩家 \(entry.name) 入座"))
+            }
+        } else if gameMode == .tournament {
+            // 锦标赛：使用 TournamentManager
+            let diffLevel = DecisionEngine.difficultyManager.currentDifficulty
+            let difficulty: AIProfile.Difficulty = {
+                switch diffLevel {
+                case .easy: return .easy
+                case .medium: return .normal
+                case .hard: return .hard
+                case .expert: return .expert
+                }
+            }()
+            let newEntries = TournamentManager.checkAndAddAIEntries(
+                players: &players,
+                handNumber: handNumber,
+                gameMode: gameMode,
+                difficulty: difficulty,
+                config: tournamentConfig,
+                currentBlindLevel: currentBlindLevel
+            )
+            for newPlayer in newEntries {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TournamentNewEntry"),
+                    object: nil,
+                    userInfo: ["playerName": newPlayer.name, "chips": newPlayer.chips]
+                )
+            }
         }
-        
+
         #if DEBUG
         print("=== Hand #\(handNumber) Over: \(winMessage) ===\n")
         #endif

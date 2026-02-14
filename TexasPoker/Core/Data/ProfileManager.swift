@@ -70,6 +70,10 @@ final class ProfileManager: ObservableObject {
         let profile = UserProfile(id: UUID().uuidString, name: finalName, createdAt: Date())
         profiles.append(profile)
         persistProfiles()
+
+        // Clear all Core Data stats for the new profile (including AI stats)
+        StatisticsCalculator.shared.deleteAllDataForProfile(profileId: profile.id)
+
         currentProfileId = profile.id
         return profile
     }
@@ -83,6 +87,10 @@ final class ProfileManager: ObservableObject {
 
     func deleteProfile(id: String) {
         guard id != Self.defaultProfileId else { return } // cannot delete default
+
+        // Delete all Core Data records for this profile first
+        StatisticsCalculator.shared.deleteAllDataForProfile(profileId: id)
+
         profiles.removeAll { $0.id == id }
         persistProfiles()
         if currentProfileId == id {

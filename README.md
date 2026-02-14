@@ -17,11 +17,16 @@
 
 ## ✨ Features
 
-### 🎮 Core Game Engine
+### 🎮 Game Modes
+- **Tournament Mode** - Compete against AI players with increasing blind levels
+- **Cash Game Mode** - Flexible play with buy-in/top-up system
+
+### 🎯 Core Game Engine
 - Complete Texas Hold'em rules implementation
 - Multi-player support (2-8 players)
-- Tournament and cash game modes
 - Advanced betting system (check, call, raise, fold, all-in)
+- Buy-in and top-up support for cash games
+- Session tracking and profit analysis
 
 ### 🤖 AI Opponents (7 Unique Personalities)
 | Character | Style | VPIP | Aggression | Description |
@@ -47,6 +52,8 @@
 - VPIP/PFR tracking
 - Session history
 - Performance graphs
+- Cash game profit/loss tracking
+- Session duration and stats
 
 ---
 
@@ -84,19 +91,21 @@ TexasPoker/
 │   ├── Data/
 │   │   ├── PersistenceController.swift # Core Data stack
 │   │   ├── StatisticsCalculator.swift  # Stats computation
+│   │   ├── ProfileManager.swift        # Player profile management
 │   │   ├── DataMigrationManager.swift # Schema migration
 │   │   ├── ActionRecorder.swift       # Hand history
 │   │   └── DataExporter.swift         # Export functionality
 │   │
 │   ├── Engine/
-│   │   ├── PokerEngine.swift         # Main game loop
-│   │   ├── HandEvaluator.swift        # Hand strength evaluation
-│   │   ├── BettingManager.swift      # Betting logic
-│   │   ├── DealingManager.swift       # Card dealing
-│   │   ├── ShowdownManager.swift     # Win determination
-│   │   ├── TournamentManager.swift   # Tournament logic
-│   │   ├── GameResultsManager.swift  # Result calculation
-│   │   └── TiltManager.swift         # Emotional state tracking
+│   │   ├── PokerEngine.swift            # Main game loop
+│   │   ├── HandEvaluator.swift          # Hand strength evaluation
+│   │   ├── BettingManager.swift         # Betting logic
+│   │   ├── DealingManager.swift         # Card dealing
+│   │   ├── ShowdownManager.swift        # Win determination
+│   │   ├── TournamentManager.swift      # Tournament logic
+│   │   ├── CashGameManager.swift        # Cash game logic
+│   │   ├── GameResultsManager.swift     # Result calculation
+│   │   └── TiltManager.swift            # Emotional state tracking
 │   │
 │   ├── FSM/
 │   │   ├── GameState.swift           # State definitions
@@ -112,6 +121,12 @@ TexasPoker/
 │   │   ├── Pot.swift                 # Pot model
 │   │   ├── ActionLogEntry.swift      # Action logging
 │   │   ├── BlindLevel.swift          # Blind structure
+│   │   ├── GameRecord.swift          # Game records
+│   │   ├── GameSettings.swift        # Game settings
+│   │   ├── GameMode.swift            # Game mode enum
+│   │   ├── TournamentConfig.swift    # Tournament config
+│   │   ├── CashGameConfig.swift      # Cash game config
+│   │   ├── CashGameSession.swift      # Cash game session
 │   │   └── more models...
 │   │
 │   └── Utils/
@@ -138,7 +153,11 @@ TexasPoker/
 │           ├── GamePotDisplay.swift
 │           ├── GameHeroControls.swift
 │           ├── GameActionLogPanel.swift
-│           └── GameTournamentInfo.swift
+│           ├── GameTournamentInfo.swift
+│           ├── BuyInView.swift
+│           ├── TopUpView.swift
+│           ├── LeaveTableButton.swift
+│           └── CashSessionSummaryView.swift
 │
 ├── Resources/
 │   ├── Assets.xcassets
@@ -148,9 +167,14 @@ TexasPoker/
 └── TexasPokerTests/
     ├── Core/
     │   └── Engine/
-    │       └── HandEvaluatorTests.swift
+    │       ├── HandEvaluatorTests.swift
+    │       └── PokerEngineTests.swift
     ├── UI/
-    │   └── ColorThemeTests.swift
+    │   ├── ColorThemeTests.swift
+    │   └── GameViewLayoutTests.swift
+    ├── CashGameConfigTests.swift
+    ├── CashGameManagerTests.swift
+    ├── CashGameSessionTests.swift
     └── UncalledBetTests.swift
 ```
 

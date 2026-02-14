@@ -16,6 +16,7 @@ struct GameView: View {
         ))
     }
     @State private var showSettings = false
+    @State private var lastProfileId: String = ProfileManager.shared.currentProfileId
     @State private var showRaisePanel = false
     @State private var raiseSliderValue: Double = 0  // 0..1 mapped to minRaise..allIn
     
@@ -80,6 +81,18 @@ struct GameView: View {
                     .transition(.move(edge: .bottom))
                     .animation(.easeInOut(duration: 0.3), value: store.state)
             }
+        }
+        // Leave confirmation dialog
+        .alert("离开牌桌", isPresented: $store.showLeaveConfirm) {
+            Button("确认离开", role: .destructive) {
+                store.send(.leaveTable)
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            let hero = store.engine.players.first(where: { $0.isHuman })
+            let chips = hero?.chips ?? 0
+            let profit = store.currentSession?.netProfit ?? 0
+            Text("当前筹码: $\(chips)\n本次盈亏: \(profit >= 0 ? "+" : "")\(profit)")
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(
@@ -177,7 +190,60 @@ struct GameView: View {
                 )
             }
         }
+        // Profile switch handling - reset game when profile changes
+        .onChangeCompat(of: ProfileManager.shared.currentProfileId) { newProfileId in
+            // Only reset if profile actually changed (not initial load)
+            if newProfileId != lastProfileId {
+                #if DEBUG
+                print("👤 Profile changed from \(lastProfileId) to \(newProfileId) - resetting game")
+                #endif
+                lastProfileId = newProfileId
+                store.resetGame(
+                    mode: settings.gameMode,
+                    config: settings.getTournamentConfig()
+                )
+            }
+        }
         .overlay(sessionSummaryOverlay)
+        // Cash Game Session Summary Overlay
+        .overlay {
+            if store.showCashSessionSummary, let session = store.currentSession {
+                CashSessionSummaryView(
+                    session: session,
+                    onBackToMenu: {
+                        store.resetGame(mode: .cashGame)
+                    },
+                    onRejoin: {
+                        store.showCashSessionSummary = false
+                        store.showBuyIn = true
+                    }
+                )
+            }
+        }
+        // Buy-in Overlay
+        .overlay {
+            if store.showBuyIn && store.engine.gameMode == .cashGame {
+                BuyInView(
+                    config: store.engine.cashGameConfig ?? .default,
+                    onConfirm: { buyInAmount in
+                        store.startCashSession(buyIn: buyInAmount)
+                        // 设置 Hero 筹码
+                        if let idx = store.engine.players.firstIndex(where: { $0.isHuman }) {
+                            store.engine.players[idx].chips = buyInAmount
+                        }
+                        // 设置 AI 筹码 - 只对已淘汰的 AI 设置新买入
+                        for i in 0..<store.engine.players.count {
+                            guard !store.engine.players[i].isHuman else { continue }
+                            if store.engine.players[i].status == .eliminated {
+                                store.engine.players[i].chips = CashGameManager.randomAIBuyIn(
+                                    config: store.engine.cashGameConfig ?? .default
+                                )
+                            }
+                        }
+                    }
+                )
+            }
+        }
     }
     
     // MARK: - Session Summary

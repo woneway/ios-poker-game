@@ -10,4 +10,5 @@ enum GameEvent {
     case pauseSpectating    // 暂停观战
     case resumeSpectating   // 恢复观战
     case stopSpectating     // 退出观战
+    case leaveTable         // 玩家离开牌桌（现金局）
 }

@@ -8,18 +8,13 @@ struct EnhancedStatisticsView: View {
     @ObservedObject private var profiles = ProfileManager.shared
     
     @State private var selectedMode: GameMode = .cashGame
-    @State private var selectedTimeRange: TimeRange = .all
+    @State private var selectedTimeRange: StatisticsCalculator.TimeRange = .all
     @State private var showExportSheet = false
     @State private var exportURL: URL?
-    @State private var handHistoryData: [HandHistorySummary] = []
-    @State private var positionStats: [PositionStat] = []
-    
-    enum TimeRange: String, CaseIterable {
-        case session = "本局"
-        case day = "今日"
-        case week = "本周"
-        case all = "全部"
-    }
+    @State private var handHistoryData: [StatisticsCalculator.HandHistorySummary] = []
+    @State private var positionStats: [StatisticsCalculator.PositionStat] = []
+
+    // Use TimeRange from StatisticsCalculator
     
     var body: some View {
         NavigationView {
@@ -80,7 +75,7 @@ struct EnhancedStatisticsView: View {
             .pickerStyle(SegmentedPickerStyle())
             
             Picker("时间范围", selection: $selectedTimeRange) {
-                ForEach(TimeRange.allCases, id: \.self) { range in
+                ForEach(StatisticsCalculator.TimeRange.allCases, id: \.self) { range in
                     Text(range.rawValue).tag(range)
                 }
             }
@@ -232,14 +227,22 @@ struct EnhancedStatisticsView: View {
         positionStats = calculatePositionStatsFromHistory()
     }
     
-    private func fetchHandHistory() -> [HandHistorySummary] {
-        // Implementation would fetch from Core Data
-        return []
+    private func fetchHandHistory() -> [StatisticsCalculator.HandHistorySummary] {
+        // Fetch from Core Data via StatisticsCalculator
+        return StatisticsCalculator.shared.fetchHandHistorySummaries(
+            gameMode: selectedMode,
+            timeRange: selectedTimeRange,
+            profileId: profiles.currentProfileIdForData
+        )
     }
-    
-    private func calculatePositionStatsFromHistory() -> [PositionStat] {
-        // Implementation would calculate from hand history
-        return []
+
+    private func calculatePositionStatsFromHistory() -> [StatisticsCalculator.PositionStat] {
+        // Calculate from hand history via StatisticsCalculator
+        return StatisticsCalculator.shared.calculatePositionStats(
+            gameMode: selectedMode,
+            timeRange: selectedTimeRange,
+            profileId: profiles.currentProfileIdForData
+        )
     }
     
     // MARK: - Data Calculation Helpers
@@ -295,22 +298,23 @@ struct EnhancedStatisticsView: View {
     }
     
     private func calculateProfitTrend() -> [Double] {
-        // This would calculate cumulative profit over time
-        // For now, return mock data or empty array
-        return []
+        // Calculate cumulative profit from hand history
+        let profitData = StatisticsCalculator.shared.calculateProfitTrend(
+            gameMode: selectedMode,
+            timeRange: selectedTimeRange,
+            profileId: profiles.currentProfileIdForData
+        )
+        return profitData.map { Double($0.cumulativeProfit) }
     }
-    
+
     private func calculatePositionStats() -> [(position: String, winRate: Double, hands: Int)] {
-        // This would calculate win rate by position from hand history
-        // Mock data for demonstration
-        return [
-            ("BTN", 65, 45),
-            ("CO", 58, 38),
-            ("MP", 48, 42),
-            ("EP", 42, 35),
-            ("BB", 35, 50),
-            ("SB", 32, 48)
-        ]
+        // Calculate win rate by position from hand history
+        let stats = StatisticsCalculator.shared.calculatePositionStats(
+            gameMode: selectedMode,
+            timeRange: selectedTimeRange,
+            profileId: profiles.currentProfileIdForData
+        )
+        return stats.map { ($0.position, $0.winRate, $0.handsPlayed) }
     }
     
     // MARK: - Export
@@ -343,23 +347,6 @@ struct AIOpponentStats {
     let vpip: Double
     let pfr: Double
     let winnings: Int
-}
-
-struct HandHistorySummary {
-    let handNumber: Int
-    let profit: Int
-    let position: String
-    let cards: [Card]
-    let won: Bool
-}
-
-struct PositionStat {
-    let position: String
-    let hands: Int
-    let won: Int
-    var winRate: Double {
-        hands > 0 ? Double(won) / Double(hands) * 100 : 0
-    }
 }
 
 // MARK: - Overview Stat Item

@@ -80,7 +80,7 @@ class StatisticsCalculator {
         let af = calculateAF(actions: actions)
         let wtsd = calculateWTSD(actions: actions, playerName: playerName, playerHands: playerHands)
         let wsd = calculateWSD(actions: actions, playerName: playerName, playerHands: playerHands)
-        let threeBet = 0.0 // Requires tracking raise sequences (future enhancement)
+        let threeBet = calculate3Bet(actions: actions, playerHands: playerHands)
         let handsWon = countHandsWon(playerName: playerName, playerHands: playerHands)
         let totalWinnings = calculateWinnings(playerName: playerName, playerHands: playerHands)
         
@@ -268,7 +268,92 @@ class StatisticsCalculator {
             return total
         }
     }
-    
+
+    // MARK: - 3Bet Calculation
+
+    /// Calculate 3Bet rate: percentage of times player 3-bets when facing an open raise
+    /// 3Bet = 3rd preflop raise (first raise = open, second raise = 3bet, etc.)
+    /// Excludes All-in as it's not a "strategic" 3bet
+    private func calculate3Bet(actions: [NSManagedObject], playerHands: [NSManagedObject]) -> Double {
+        // Filter to preflop actions only
+        let preflopActions = actions.filter { action in
+            let street = action.value(forKey: "street") as? String ?? ""
+            return street == Street.preFlop.rawValue
+        }
+
+        // Group actions by hand
+        var handActions: [[NSManagedObject]] = []
+        var currentHandId: UUID?
+        var currentHandActions: [NSManagedObject] = []
+
+        for action in preflopActions.sorted(by: { a, b in
+            let timeA = a.value(forKey: "timestamp") as? Date ?? Date.distantPast
+            let timeB = b.value(forKey: "timestamp") as? Date ?? Date.distantPast
+            return timeA < timeB
+        }) {
+            guard let handHistory = action.value(forKey: "handHistory") as? NSManagedObject,
+                  let handId = handHistory.value(forKey: "id") as? UUID else {
+                continue
+            }
+
+            if currentHandId != handId {
+                if !currentHandActions.isEmpty {
+                    handActions.append(currentHandActions)
+                }
+                currentHandActions = [action]
+                currentHandId = handId
+            } else {
+                currentHandActions.append(action)
+            }
+        }
+        if !currentHandActions.isEmpty {
+            handActions.append(currentHandActions)
+        }
+
+        // For each hand, count raise sequence
+        var threeBetCount = 0
+        var threeBetOpportunities = 0
+
+        for handActionList in handActions {
+            let raises = handActionList.filter { action in
+                let actionStr = action.value(forKey: "action") as? String ?? ""
+                return actionStr.hasPrefix("Raise") || actionStr == "All In"
+            }.sorted { a, b in
+                let timeA = a.value(forKey: "timestamp") as? Date ?? Date.distantPast
+                let timeB = b.value(forKey: "timestamp") as? Date ?? Date.distantPast
+                return timeA < timeB
+            }
+
+            // Count non-All-in raises to determine position in raise sequence
+            var raiseIndex = 0
+            for raise in raises {
+                let actionStr = raise.value(forKey: "action") as? String ?? ""
+                if actionStr == "All In" {
+                    // All-in doesn't count as 3bet for strategic purposes
+                    continue
+                }
+                raiseIndex += 1
+                if raiseIndex == 3 {
+                    // This is a 3bet (3rd non-All-in raise)
+                    threeBetCount += 1
+                    break
+                }
+            }
+
+            // If there were at least 2 raises, that's a 3bet opportunity
+            if raises.count >= 2 {
+                // Count only non-All-in raises for opportunity
+                let nonAllInRaises = raises.filter { ($0.value(forKey: "action") as? String ?? "") != "All In" }
+                if nonAllInRaises.count >= 2 {
+                    threeBetOpportunities += 1
+                }
+            }
+        }
+
+        guard threeBetOpportunities > 0 else { return 0.0 }
+        return Double(threeBetCount) / Double(threeBetOpportunities) * 100.0
+    }
+
     // MARK: - Core Data Persistence
     
     /// Update or create PlayerStatsEntity in Core Data
@@ -381,5 +466,251 @@ class StatisticsCalculator {
             gameMode.rawValue,
             profileId
         )
+    }
+
+    // MARK: - Time Range Support
+
+    enum TimeRange: String, CaseIterable {
+        case session = "本局"
+        case day = "今日"
+        case week = "本周"
+        case all = "全部"
+    }
+
+    func startDate(for timeRange: TimeRange) -> Date? {
+        let calendar = Calendar.current
+        let now = Date()
+
+        switch timeRange {
+        case .session:
+            // Session is current game only - return nil to indicate no filtering
+            return nil
+        case .day:
+            return calendar.startOfDay(for: now)
+        case .week:
+            let weekday = calendar.component(.weekday, from: now)
+            let daysToSubtract = (weekday - calendar.firstWeekday + 7) % 7
+            return calendar.date(byAdding: .day, value: -daysToSubtract, to: calendar.startOfDay(for: now))
+        case .all:
+            return nil
+        }
+    }
+
+    // MARK: - Data Structures for Enhanced Statistics
+
+    struct HandHistorySummary {
+        let id: UUID
+        let handNumber: Int
+        let date: Date
+        let finalPot: Int
+        let communityCards: [Card]
+        let heroCards: [Card]
+        let winnerNames: [String]
+        let isWin: Bool
+        let profit: Int
+    }
+
+    struct ProfitDataPoint {
+        let handNumber: Int
+        let cumulativeProfit: Int
+    }
+
+    struct PositionStat {
+        let position: String
+        let winRate: Double
+        let handsPlayed: Int
+    }
+
+    // MARK: - Public Data Query Methods
+
+    /// Fetch hand history summaries for the current profile and game mode
+    func fetchHandHistorySummaries(
+        gameMode: GameMode,
+        timeRange: TimeRange = .all,
+        profileId: String? = nil
+    ) -> [HandHistorySummary] {
+        let pid = normalizeProfileId(profileId ?? ProfileManager.shared.currentProfileIdForData)
+
+        var predicates: [NSPredicate] = [
+            NSPredicate(format: "gameMode == %@", gameMode.rawValue),
+            predicateForProfileId(pid)
+        ]
+
+        // Add time range filter
+        if let startDate = startDate(for: timeRange) {
+            predicates.append(NSPredicate(format: "date >= %@", startDate as NSDate))
+        }
+
+        let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
+        request.predicate = compoundPredicate
+        request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+
+        guard let hands = try? context.fetch(request) else { return [] }
+
+        // Decode hero cards for the current profile's human player
+        let heroName = "Hero"
+
+        return hands.compactMap { hand -> HandHistorySummary? in
+            guard let id = hand.value(forKey: "id") as? UUID,
+                  let handNumber = hand.value(forKey: "handNumber") as? Int32,
+                  let date = hand.value(forKey: "date") as? Date,
+                  let finalPot = hand.value(forKey: "finalPot") as? Int32,
+                  let winnerNamesStr = hand.value(forKey: "winnerNames") as? String else {
+                return nil
+            }
+
+            let communityCards = decodeCards(hand.value(forKey: "communityCards") as? String ?? "[]")
+            let heroCards = decodeCards(hand.value(forKey: "heroCards") as? String ?? "[]")
+            let winnerNames = winnerNamesStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+
+            let isWin = winnerNames.contains(heroName)
+            // Simplified profit calculation - in reality would need to calculate from action history
+            let profit = isWin ? Int(finalPot) : 0
+
+            return HandHistorySummary(
+                id: id,
+                handNumber: Int(handNumber),
+                date: date,
+                finalPot: Int(finalPot),
+                communityCards: communityCards,
+                heroCards: heroCards,
+                winnerNames: winnerNames,
+                isWin: isWin,
+                profit: profit
+            )
+        }
+    }
+
+    /// Calculate profit trend data points
+    func calculateProfitTrend(
+        gameMode: GameMode,
+        timeRange: TimeRange = .all,
+        profileId: String? = nil
+    ) -> [ProfitDataPoint] {
+        let summaries = fetchHandHistorySummaries(gameMode: gameMode, timeRange: timeRange, profileId: profileId)
+
+        // Sort by date ascending for cumulative calculation
+        let sorted = summaries.sorted { $0.date < $1.date }
+
+        var cumulativeProfit = 0
+        return sorted.map { summary in
+            cumulativeProfit += summary.profit
+            return ProfitDataPoint(handNumber: summary.handNumber, cumulativeProfit: cumulativeProfit)
+        }
+    }
+
+    /// Calculate position-based statistics
+    func calculatePositionStats(
+        gameMode: GameMode,
+        timeRange: TimeRange = .all,
+        profileId: String? = nil
+    ) -> [PositionStat] {
+        let pid = normalizeProfileId(profileId ?? ProfileManager.shared.currentProfileIdForData)
+        let heroName = "Hero"
+
+        var predicates: [NSPredicate] = [
+            NSPredicate(format: "playerName == %@", heroName),
+            NSPredicate(format: "handHistory.gameMode == %@", gameMode.rawValue),
+            predicateForProfileId(pid)
+        ]
+
+        if let startDate = startDate(for: timeRange) {
+            predicates.append(NSPredicate(format: "handHistory.date >= %@", startDate as NSDate))
+        }
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "ActionEntity")
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+
+        guard let actions = try? context.fetch(request) else { return [] }
+
+        // Group actions by position and calculate win rate
+        var positionHands: [String: (wins: Int, total: Int)] = [:]
+
+        for action in actions {
+            guard let position = action.value(forKey: "position") as? String,
+                  let handHistory = action.value(forKey: "handHistory") as? NSManagedObject,
+                  let handId = handHistory.value(forKey: "id") as? UUID else {
+                continue
+            }
+
+            // Track unique hands per position
+            var handsForPosition = positionHands[position] ?? (wins: 0, total: 0)
+
+            // Check if this hand was won
+            if let winnerNames = handHistory.value(forKey: "winnerNames") as? String,
+               winnerNames.components(separatedBy: ",").map({ $0.trimmingCharacters(in: .whitespaces) }).contains(heroName) {
+                handsForPosition.wins += 1
+            }
+            handsForPosition.total += 1
+
+            positionHands[position] = handsForPosition
+        }
+
+        // Map to PositionStat with standardized position names
+        let positionMapping: [String: String] = [
+            "BTN": "BTN",
+            "CO": "CO",
+            "MP": "MP",
+            "EP": "EP",
+            "BB": "BB",
+            "SB": "SB"
+        ]
+
+        return positionHands.compactMap { position, stats -> PositionStat? in
+            guard let mappedPosition = positionMapping[position] else { return nil }
+            let winRate = stats.total > 0 ? Double(stats.wins) / Double(stats.total) * 100.0 : 0.0
+            return PositionStat(position: mappedPosition, winRate: winRate, handsPlayed: stats.total)
+        }
+    }
+
+    // MARK: - Delete Profile Data
+
+    /// Delete all Core Data records for a given profile
+    func deleteAllDataForProfile(profileId: String) {
+        let pid = normalizeProfileId(profileId)
+        guard pid != ProfileManager.defaultProfileId else { return } // Don't delete default
+
+        let entities = ["HandHistoryEntity", "ActionEntity", "PlayerStatsEntity"]
+
+        for entityName in entities {
+            let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+            request.predicate = NSPredicate(format: "profileId == %@", pid)
+
+            guard let objects = try? context.fetch(request) else { continue }
+
+            for obj in objects {
+                context.delete(obj)
+            }
+        }
+
+        do {
+            try context.save()
+            #if DEBUG
+            print("🗑️ Deleted all data for profile: \(pid)")
+            #endif
+        } catch {
+            #if DEBUG
+            print("Failed to delete profile data: \(error)")
+            #endif
+        }
+    }
+
+    // MARK: - Private Helpers
+
+    private func predicateForProfileId(_ profileId: String) -> NSPredicate {
+        if profileId == ProfileManager.defaultProfileId {
+            return NSPredicate(format: "profileId == %@ OR profileId == nil", profileId)
+        }
+        return NSPredicate(format: "profileId == %@", profileId)
+    }
+
+    private func decodeCards(_ json: String) -> [Card] {
+        guard let data = json.data(using: .utf8),
+              let cards = try? JSONDecoder().decode([Card].self, from: data) else {
+            return []
+        }
+        return cards
     }
 }

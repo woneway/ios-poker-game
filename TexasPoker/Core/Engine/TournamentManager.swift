@@ -169,88 +169,56 @@ struct TournamentManager {
         config: TournamentConfig?,
         currentBlindLevel: Int
     ) -> [Player] {
+        // 现金局逻辑已迁移到 CashGameManager
+        guard gameMode == .tournament else { return [] }
+        guard let config = config else { return [] }
+        
         var newEntries: [Player] = []
         
-        switch gameMode {
-        case .tournament:
-            guard let config = config else { return [] }
-            
-            let currentCount = players.filter { $0.status != .eliminated }.count
-            guard shouldTriggerRandomEntry(
-                handNumber: handNumber,
-                currentPlayerCount: currentCount,
-                config: config
-            ) else { return [] }
-            
-            // 找到第一个 eliminated 座位
-            guard let seatIndex = players.firstIndex(where: { $0.status == .eliminated }) else {
-                return []
+        let currentCount = players.filter { $0.status != .eliminated }.count
+        guard shouldTriggerRandomEntry(
+            handNumber: handNumber,
+            currentPlayerCount: currentCount,
+            config: config
+        ) else { return [] }
+        
+        // 找到第一个 eliminated 座位
+        guard let seatIndex = players.firstIndex(where: { $0.status == .eliminated }) else {
+            return []
+        }
+        
+        let rebuyChips = calculateRebuyChips(
+            baseChips: config.effectiveBaseRebuyChips,
+            currentBlindLevel: currentBlindLevel
+        )
+        
+        if let newPlayer = generateRandomEntry(
+            difficulty: difficulty,
+            config: config,
+            handNumber: handNumber
+        ) {
+            // 使用 rebuy 筹码而非默认筹码
+            let existingNames = Set(players.map { $0.name })
+            var finalName = newPlayer.name
+            var counter = 2
+            while existingNames.contains(finalName) {
+                finalName = "\(newPlayer.name)\(counter)"
+                counter += 1
             }
             
-            let rebuyChips = calculateRebuyChips(
-                baseChips: config.effectiveBaseRebuyChips,
-                currentBlindLevel: currentBlindLevel
+            let entryPlayer = Player(
+                name: finalName,
+                chips: rebuyChips,
+                isHuman: false,
+                aiProfile: newPlayer.aiProfile
             )
             
-            if let newPlayer = generateRandomEntry(
-                difficulty: difficulty,
-                config: config,
-                handNumber: handNumber
-            ) {
-                // 使用 rebuy 筹码而非默认筹码
-                let existingNames = Set(players.map { $0.name })
-                var finalName = newPlayer.name
-                var counter = 2
-                while existingNames.contains(finalName) {
-                    finalName = "\(newPlayer.name)\(counter)"
-                    counter += 1
-                }
-                
-                let entryPlayer = Player(
-                    name: finalName,
-                    chips: rebuyChips,
-                    isHuman: false,
-                    aiProfile: newPlayer.aiProfile
-                )
-                
-                replaceEliminatedPlayer(at: seatIndex, with: entryPlayer, players: &players)
-                newEntries.append(entryPlayer)
-                
-                #if DEBUG
-                print("🎉 锦标赛新 AI \(finalName) 入场座位 \(seatIndex)，筹码: \(rebuyChips)")
-                #endif
-            }
+            replaceEliminatedPlayer(at: seatIndex, with: entryPlayer, players: &players)
+            newEntries.append(entryPlayer)
             
-        case .cashGame:
-            // 现金局：所有空位立即补入
-            for i in 0..<players.count {
-                guard players[i].status == .eliminated else { continue }
-                
-                let profiles = difficulty.randomOpponents(count: 1)
-                guard let profile = profiles.first else { continue }
-                
-                let existingNames = Set(players.map { $0.name })
-                var finalName = profile.name
-                var counter = 2
-                while existingNames.contains(finalName) {
-                    finalName = "\(profile.name)\(counter)"
-                    counter += 1
-                }
-                
-                let newPlayer = Player(
-                    name: finalName,
-                    chips: 1000,
-                    isHuman: false,
-                    aiProfile: profile
-                )
-                
-                players[i] = newPlayer
-                newEntries.append(newPlayer)
-                
-                #if DEBUG
-                print("🎉 现金局补位 \(finalName) 座位 \(i)，筹码: 1000")
-                #endif
-            }
+            #if DEBUG
+            print("🎉 锦标赛新 AI \(finalName) 入场座位 \(seatIndex)，筹码: \(rebuyChips)")
+            #endif
         }
         
         return newEntries

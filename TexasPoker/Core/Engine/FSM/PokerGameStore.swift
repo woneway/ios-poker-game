@@ -17,6 +17,13 @@ class PokerGameStore: ObservableObject {
     @Published var lastSpectateWinner: String = ""
     @Published var lastSpectateWinAmount: Int = 0
     
+    // MARK: - Cash Game State
+    @Published var isLeavingAfterHand: Bool = false
+    @Published var showBuyIn: Bool = false
+    @Published var showLeaveConfirm: Bool = false
+    @Published var showCashSessionSummary: Bool = false
+    @Published var currentSession: CashGameSession?
+    
     enum SpectateSpeed: Double, CaseIterable, Identifiable {
         case slow = 0.5
         case normal = 0.2
@@ -194,12 +201,32 @@ class PokerGameStore: ObservableObject {
             if remainingPlayerCount <= 1 {
                 finishGame()
             }
+            // 现金局：记录每手盈利
+            if engine.gameMode == .cashGame {
+                recordHandProfit()
+            }
+            if isLeavingAfterHand && engine.gameMode == .cashGame {
+                // 延迟自动离开，让玩家看到 showdown 结果
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                    self?.leaveTable()
+                }
+            }
             
         case (.waitingForAction, .handOver):
             // 人类操作导致一手结束
             state = .showdown
             if remainingPlayerCount <= 1 {
                 finishGame()
+            }
+            // 现金局：记录每手盈利
+            if engine.gameMode == .cashGame {
+                recordHandProfit()
+            }
+            if isLeavingAfterHand && engine.gameMode == .cashGame {
+                // 延迟自动离开，让玩家看到 showdown 结果
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                    self?.leaveTable()
+                }
             }
             
         case (.showdown, .nextHand), (.showdown, .start):
@@ -223,6 +250,11 @@ class PokerGameStore: ObservableObject {
             
         case (.spectating, .stopSpectating):
             stopSpectating()
+            
+        // MARK: - Cash Game Leave Table
+        case (.idle, .leaveTable), (.showdown, .leaveTable):
+            guard engine.gameMode == .cashGame else { break }
+            leaveTable()
             
         default:
             #if DEBUG
@@ -464,6 +496,66 @@ class PokerGameStore: ObservableObject {
         }
     }
     
+    // MARK: - Cash Game Methods
+    
+    func leaveTable() {
+        guard engine.gameMode == .cashGame else { return }
+        guard let heroIndex = engine.players.firstIndex(where: { $0.isHuman }) else { return }
+        
+        // 结算 Session
+        if var session = currentSession {
+            session.endTime = Date()
+            session.finalChips = engine.players[heroIndex].chips
+            session.handsPlayed = engine.handNumber
+            currentSession = session
+            saveCashSession(session)
+        }
+        
+        // 标记玩家离开
+        engine.players[heroIndex].status = .eliminated
+        isLeavingAfterHand = false
+        showCashSessionSummary = true
+        state = .idle
+    }
+    
+    func startCashSession(buyIn: Int) {
+        currentSession = CashGameSession(buyIn: buyIn)
+        showBuyIn = false
+    }
+    
+    func recordHandProfit() {
+        guard engine.gameMode == .cashGame else { return }
+        guard let hero = engine.players.first(where: { $0.isHuman }) else { return }
+        guard var session = currentSession else { return }
+        
+        let profit: Int
+        if engine.winners.contains(hero.id) {
+            profit = engine.pot.total - hero.totalBetThisHand
+        } else {
+            profit = -hero.totalBetThisHand
+        }
+        session.handProfits.append(profit)
+        session.handsPlayed = engine.handNumber
+        currentSession = session
+    }
+    
+    private func saveCashSession(_ session: CashGameSession) {
+        var sessions = loadCashSessions()
+        sessions.insert(session, at: 0)
+        if sessions.count > 50 { sessions = Array(sessions.prefix(50)) }
+        if let data = try? JSONEncoder().encode(sessions) {
+            UserDefaults.standard.set(data, forKey: "cash_game_sessions")
+        }
+    }
+    
+    private func loadCashSessions() -> [CashGameSession] {
+        guard let data = UserDefaults.standard.data(forKey: "cash_game_sessions"),
+              let sessions = try? JSONDecoder().decode([CashGameSession].self, from: data) else {
+            return []
+        }
+        return sessions
+    }
+    
     func resetGame(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         dealCompleteTimer?.cancel()
         dealCompleteTimer = nil
@@ -480,6 +572,14 @@ class PokerGameStore: ObservableObject {
         finalResults = []
         gameRecordSaved = false
         state = .idle
+        
+        // Reset cash game state
+        isLeavingAfterHand = false
+        showBuyIn = (mode == .cashGame)
+        showLeaveConfirm = false
+        showCashSessionSummary = false
+        currentSession = nil
+        
         engine = PokerEngine(mode: mode, config: config)
         
         // Re-subscribe

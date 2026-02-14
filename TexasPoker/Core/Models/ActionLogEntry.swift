@@ -9,9 +9,32 @@ struct ActionLogEntry: Identifiable {
     let amount: Int?      // 涉及金额（call/raise/allIn）
     let street: Street
     let timestamp: Date = Date()
+    var systemMessage: String?  // 系统消息（可选）
+    
+    /// 便利初始化器 - 用于创建系统消息类型的日志
+    init(systemMessage: String) {
+        self.playerName = ""
+        self.avatar = ""
+        self.action = .fold  // 占位
+        self.amount = nil
+        self.street = .preFlop
+        self.systemMessage = systemMessage
+    }
+
+    /// 标准初始化器 - 用于创建玩家动作日志
+    init(playerName: String, avatar: String, action: PlayerAction, amount: Int?, street: Street) {
+        self.playerName = playerName
+        self.avatar = avatar
+        self.action = action
+        self.amount = amount
+        self.street = street
+        self.systemMessage = nil
+    }
     
     /// 动作描述（中文）
     var actionText: String {
+        if let msg = systemMessage { return msg }
+        
         switch action {
         case .fold: return "弃牌"
         case .check: return "过牌"

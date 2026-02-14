@@ -14,25 +14,51 @@ struct GameHeroControls: View {
     @State private var lastHandProfit: Int = 0
     @State private var totalProfit: Int = 0
     
+    // MARK: - TopUp State
+    @State private var showTopUp = false
+    
     var body: some View {
         let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
         let hero = store.engine.players.count > heroIndex ? store.engine.players[heroIndex] : nil
         
-        switch store.state {
+        return Group {
+            switch store.state {
         case .idle:
-            Button(action: { 
-                HapticFeedback.buttonPress()
-                store.send(.start) 
-            }) {
-                Text("发牌")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Capsule().fill(Color.adaptiveButtonPrimary(colorScheme)))
-                    .shadow(color: .blue.opacity(0.4), radius: 6, y: 3)
+            VStack(spacing: 8) {
+                Button(action: { 
+                    HapticFeedback.buttonPress()
+                    store.send(.start) 
+                }) {
+                    Text("发牌")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Capsule().fill(Color.adaptiveButtonPrimary(colorScheme)))
+                        .shadow(color: .blue.opacity(0.4), radius: 6, y: 3)
+                }
+                .padding(.horizontal, 40)
+                
+                // 补码按钮 - 现金桌且筹码 < maxBuyIn 时显示
+                if let config = store.engine.cashGameConfig,
+                   let hero = store.engine.players.first(where: { $0.isHuman }),
+                   hero.chips < config.maxBuyIn {
+                    
+                    Button(action: { showTopUp = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus.circle")
+                            Text("补码")
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.green)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.green.opacity(0.15)))
+                    }
+                }
+                
+                LeaveTableButton(store: store, isInHand: false)
             }
-            .padding(.horizontal, 40)
             
         case .dealing:
             Text("发牌中...")
@@ -172,32 +198,54 @@ struct GameHeroControls: View {
                     }
                 } else {
                     // Hero alive, continue
-                    HStack(spacing: 12) {
-                        Button(action: { 
-                            HapticFeedback.buttonPress()
-                            store.send(.nextHand) 
-                        }) {
-                            Text("下一手")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(Capsule().fill(Color.green))
+                    VStack(spacing: 8) {
+                        HStack(spacing: 12) {
+                            Button(action: { 
+                                HapticFeedback.buttonPress()
+                                store.send(.nextHand) 
+                            }) {
+                                Text("下一手")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Capsule().fill(Color.green))
+                            }
+                            
+                            Button(action: {
+                                HapticFeedback.buttonPress()
+                                store.send(.startSpectating)
+                            }) {
+                                Text("观战")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                    .background(Capsule().fill(Color.purple.opacity(0.7)))
+                            }
+                        }
+                        .padding(.horizontal, 40)
+                        
+                        // 补码按钮 - 现金桌且筹码 < maxBuyIn 时显示
+                        if let config = store.engine.cashGameConfig,
+                           let hero = store.engine.players.first(where: { $0.isHuman }),
+                           hero.chips < config.maxBuyIn {
+                            
+                            Button(action: { showTopUp = true }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "plus.circle")
+                                    Text("补码")
+                                }
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.green)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Capsule().fill(Color.green.opacity(0.15)))
+                            }
                         }
                         
-                        Button(action: {
-                            HapticFeedback.buttonPress()
-                            store.send(.startSpectating)
-                        }) {
-                            Text("观战")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(Capsule().fill(Color.purple.opacity(0.7)))
-                        }
+                        LeaveTableButton(store: store, isInHand: false)
                     }
-                    .padding(.horizontal, 40)
                 }
             }
             
@@ -219,45 +267,49 @@ struct GameHeroControls: View {
                     )
                 } else {
                     // Main action buttons
-                    HStack(spacing: 10) {
-                        Button(action: { 
-                            HapticFeedback.fold()
-                            store.engine.processAction(.fold)
-                            store.send(.playerActed)
-                            if settings.soundEnabled { SoundManager.shared.playSound(.fold) }
-                        }) {
-                            Text("弃牌")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 80, height: 44)
-                                .background(Capsule().fill(Color.red.opacity(0.8)))
+                    VStack(spacing: 6) {
+                        HStack(spacing: 10) {
+                            Button(action: { 
+                                HapticFeedback.fold()
+                                store.engine.processAction(.fold)
+                                store.send(.playerActed)
+                                if settings.soundEnabled { SoundManager.shared.playSound(.fold) }
+                            }) {
+                                Text("弃牌")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 80, height: 44)
+                                    .background(Capsule().fill(Color.red.opacity(0.8)))
+                            }
+                            
+                            Button(action: { 
+                                HapticFeedback.buttonPress()
+                                store.engine.processAction(callAmount == 0 ? .check : .call)
+                                store.send(.playerActed)
+                                if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
+                            }) {
+                                Text(callAmount == 0 ? "让牌" : "跟注 $\(callAmount)")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 100, height: 44)
+                                    .background(Capsule().fill(Color.blue.opacity(0.8)))
+                            }
+                            
+                            // Open raise panel
+                            Button(action: { 
+                                HapticFeedback.buttonPress()
+                                raiseSliderValue = 0
+                                showRaisePanel = true
+                            }) {
+                                Text("加注")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 80, height: 44)
+                                    .background(Capsule().fill(Color.orange))
+                            }
                         }
                         
-                        Button(action: { 
-                            HapticFeedback.buttonPress()
-                            store.engine.processAction(callAmount == 0 ? .check : .call)
-                            store.send(.playerActed)
-                            if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
-                        }) {
-                            Text(callAmount == 0 ? "让牌" : "跟注 $\(callAmount)")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 100, height: 44)
-                                .background(Capsule().fill(Color.blue.opacity(0.8)))
-                        }
-                        
-                        // Open raise panel
-                        Button(action: { 
-                            HapticFeedback.buttonPress()
-                            raiseSliderValue = 0
-                            showRaisePanel = true
-                        }) {
-                            Text("加注")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 80, height: 44)
-                                .background(Capsule().fill(Color.orange))
-                        }
+                        LeaveTableButton(store: store, isInHand: true)
                     }
                 }
             } else {
@@ -273,18 +325,50 @@ struct GameHeroControls: View {
             }
             
         case .betting:
-            HStack(spacing: 4) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .scaleEffect(0.7)
-                Text("AI 思考中...")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
+            VStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.7)
+                    Text("AI 思考中...")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                
+                LeaveTableButton(store: store, isInHand: true)
             }
             
         case .spectating:
             // 观战模式下控制区由 SpectatorOverlay 接管
             EmptyView()
+        }
+        }
+        .sheet(isPresented: $showTopUp) {
+            if let config = store.engine.cashGameConfig,
+               let hero = store.engine.players.first(where: { $0.isHuman }) {
+                TopUpView(
+                    currentChips: hero.chips,
+                    maxBuyIn: config.maxBuyIn,
+                    bigBlind: config.bigBlind,
+                    onConfirm: { targetAmount in
+                        // 调用 engine.topUpPlayer
+                        if let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) {
+                            let addedChips = targetAmount - store.engine.players[heroIndex].chips
+                            store.engine.topUpPlayer(playerIndex: heroIndex, toAmount: targetAmount)
+                            
+                            // 更新 session 的 topUpTotal
+                            if var session = store.currentSession {
+                                session.topUpTotal += addedChips
+                                store.currentSession = session
+                            }
+                        }
+                        showTopUp = false
+                    },
+                    onCancel: {
+                        showTopUp = false
+                    }
+                )
+            }
         }
     }
     

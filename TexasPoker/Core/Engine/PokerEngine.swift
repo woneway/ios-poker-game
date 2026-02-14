@@ -53,6 +53,9 @@ class PokerEngine: ObservableObject {
     @Published var anteAmount: Int = 0
     @Published var rebuyCount: Int = 0
     
+    // Cash game support
+    @Published var cashGameConfig: CashGameConfig?
+    
     init(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         self.deck = Deck()
         self.players = []
@@ -66,6 +69,10 @@ class PokerEngine: ObservableObject {
         
         self.gameMode = mode
         self.tournamentConfig = config
+        
+        if mode == .cashGame {
+            self.cashGameConfig = .default
+        }
         
         if mode == .tournament, let config = config {
             let blinds = TournamentManager.applyConfig(config, players: &players)
@@ -101,6 +108,12 @@ class PokerEngine: ObservableObject {
                 aiProfile: profile
             ))
         }
+        
+        // Use cashGameConfig blind values if in cash game mode
+        if gameMode == .cashGame, let config = cashGameConfig {
+            smallBlindAmount = config.smallBlind
+            bigBlindAmount = config.bigBlind
+        }
     }
     
     /// Legacy setup for backward compatibility
@@ -115,6 +128,12 @@ class PokerEngine: ObservableObject {
             Player(name: "艾米", chips: 1000, isHuman: false, aiProfile: .academic),
             Player(name: "大卫", chips: 1000, isHuman: false, aiProfile: .tiltDavid),
         ]
+        
+        // Use cashGameConfig blind values if in cash game mode
+        if gameMode == .cashGame, let config = cashGameConfig {
+            smallBlindAmount = config.smallBlind
+            bigBlindAmount = config.bigBlind
+        }
     }
     
     // MARK: - Rebuy
@@ -131,6 +150,19 @@ class PokerEngine: ObservableObject {
         #if DEBUG
         print("💰 \(players[playerIndex].name) Rebuy 成功，筹码: \(chips)，总 Rebuy 次数: \(rebuyCount)")
         #endif
+    }
+    
+    // MARK: - Top Up
+    
+    /// Top up a player to a specific chip amount (cash game buy-in)
+    func topUpPlayer(playerIndex: Int, toAmount: Int) {
+        guard let config = cashGameConfig else { return }
+        guard playerIndex >= 0 && playerIndex < players.count else { return }
+        guard players[playerIndex].status != .eliminated else { return }
+        guard toAmount > players[playerIndex].chips else { return }
+        guard toAmount <= config.maxBuyIn else { return }
+        
+        players[playerIndex].chips = toAmount
     }
     
     // MARK: - Position Helpers
@@ -323,5 +355,61 @@ class PokerEngine: ObservableObject {
         minRaise = state.minRaise
         hasActed = state.hasActed
         lastRaiserID = nil
+    }
+
+    // MARK: - Profile Switch Handling
+
+    /// Reset game engine when profile changes
+    /// Called by ProfileManager when creating or switching profiles
+    func resetForProfile() {
+        // Reset hand counter
+        handNumber = 0
+
+        // Reset all players to initial chips
+        for i in 0..<players.count {
+            players[i].chips = 1000
+            players[i].currentBet = 0
+            players[i].status = .active
+            players[i].holeCards = []
+        }
+
+        // Reset pot
+        pot = Pot()
+
+        // Clear community cards
+        communityCards = []
+
+        // Reset dealer
+        dealerIndex = -1
+
+        // Reset betting state
+        currentBet = 0
+        minRaise = 0
+        hasActed = [:]
+        lastRaiserID = nil
+
+        // Reset street
+        currentStreet = .preFlop
+        activePlayerIndex = 0
+
+        // Reset hand state
+        isHandOver = false
+        winners = []
+        winMessage = ""
+
+        // Clear action log
+        actionLog = []
+
+        // Reset elimination tracking
+        eliminationOrder = []
+
+        // Reset internal tracking
+        preflopAggressorID = nil
+        lastHandLosers = []
+        lastPotSize = 0
+
+        #if DEBUG
+        print("🔄 PokerEngine.resetForProfile() called - game state reset for new profile")
+        #endif
     }
 }

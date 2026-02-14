@@ -20,6 +20,8 @@ struct SettingsView: View {
     @State private var selectedTab: SettingsTab = .game
     @State private var showWeChatQR = false
     @State private var showDonateQR = false
+    @State private var showDeleteProfileAlert = false
+    @State private var profileToDelete: UserProfile?
     
     enum SettingsTab {
         case game, sound, statistics, about
@@ -77,6 +79,21 @@ struct SettingsView: View {
             } message: {
                 Text("确定要将所有设置恢复为默认值吗？")
             }
+            .alert("删除档案", isPresented: $showDeleteProfileAlert) {
+                Button("取消", role: .cancel) {
+                    profileToDelete = nil
+                }
+                Button("删除", role: .destructive) {
+                    if let profile = profileToDelete {
+                        profiles.deleteProfile(id: profile.id)
+                    }
+                    profileToDelete = nil
+                }
+            } message: {
+                if let profile = profileToDelete {
+                    Text("确定要删除档案「\(profile.name)」吗？\n此操作将永久删除该档案的所有游戏数据和统计数据，且不可恢复。")
+                }
+            }
             .sheet(isPresented: $showHistory) {
                 HistoryView(isPresented: $showHistory)
             }
@@ -127,7 +144,7 @@ struct SettingsView: View {
                     .tag(profile.id)
                 }
             }
-            
+
             Button(action: {
                 newProfileName = ""
                 showNewProfileAlert = true
@@ -137,6 +154,23 @@ struct SettingsView: View {
                         .foregroundColor(.blue)
                     Text("新建档案")
                         .foregroundColor(.primary)
+                }
+            }
+
+            // Delete profile button (only for non-default profiles)
+            ForEach(profiles.profiles) { profile in
+                if profile.id != ProfileManager.defaultProfileId {
+                    Button(action: {
+                        profileToDelete = profile
+                        showDeleteProfileAlert = true
+                    }) {
+                        HStack {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                            Text("删除「\(profile.name)」")
+                                .foregroundColor(.red)
+                        }
+                    }
                 }
             }
         } header: {

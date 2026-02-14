@@ -17,11 +17,16 @@
 
 ## ✨ 功能特性
 
-### 🎮 核心游戏引擎
+### 🎮 游戏模式
+- **锦标赛模式** — 与 AI 对手竞争，盲注逐步提升
+- **现金桌模式** — 灵活买入/补充筹码系统
+
+### 🎯 核心游戏引擎
 - 完整的德州扑克规则实现
 - 多玩家支持（2-8人）
-- 锦标赛和现金桌模式
 - 高级下注系统（过牌、跟注、加注、弃牌、全下）
+- 买入和补充筹码支持
+- 会话追踪和盈亏分析
 
 ### 🤖 AI 对手（7种独特个性）
 
@@ -48,6 +53,8 @@
 - VPIP/PFR 追踪
 - 对局历史
 - 表现图表
+- 现金桌盈亏追踪
+- 会话时长和统计数据
 
 ---
 
@@ -85,19 +92,21 @@ TexasPoker/
 │   ├── Data/
 │   │   ├── PersistenceController.swift # Core Data 栈
 │   │   ├── StatisticsCalculator.swift  # 统计计算
+│   │   ├── ProfileManager.swift        # 玩家档案管理
 │   │   ├── DataMigrationManager.swift  # 架构迁移
 │   │   ├── ActionRecorder.swift       # 对局记录
 │   │   └── DataExporter.swift         # 导出功能
 │   │
 │   ├── Engine/
-│   │   ├── PokerEngine.swift         # 主游戏循环
-│   │   ├── HandEvaluator.swift        # 牌力评估
-│   │   ├── BettingManager.swift      # 下注逻辑
-│   │   ├── DealingManager.swift       # 发牌管理
-│   │   ├── ShowdownManager.swift     # 胜负判定
-│   │   ├── TournamentManager.swift   # 锦标赛逻辑
-│   │   ├── GameResultsManager.swift  # 结果计算
-│   │   └── TiltManager.swift         # 情绪追踪
+│   │   ├── PokerEngine.swift            # 主游戏循环
+│   │   ├── HandEvaluator.swift          # 牌力评估
+│   │   ├── BettingManager.swift         # 下注逻辑
+│   │   ├── DealingManager.swift         # 发牌管理
+│   │   ├── ShowdownManager.swift        # 胜负判定
+│   │   ├── TournamentManager.swift      # 锦标赛逻辑
+│   │   ├── CashGameManager.swift        # 现金桌逻辑
+│   │   ├── GameResultsManager.swift     # 结果计算
+│   │   └── TiltManager.swift            # 情绪追踪
 │   │
 │   ├── FSM/
 │   │   ├── GameState.swift           # 状态定义
@@ -113,6 +122,12 @@ TexasPoker/
 │   │   ├── Pot.swift                # 底池模型
 │   │   ├── ActionLogEntry.swift     # 动作记录
 │   │   ├── BlindLevel.swift         # 盲注结构
+│   │   ├── GameRecord.swift         # 对局记录
+│   │   ├── GameSettings.swift       # 游戏设置
+│   │   ├── GameMode.swift           # 游戏模式枚举
+│   │   ├── TournamentConfig.swift   # 锦标赛配置
+│   │   ├── CashGameConfig.swift     # 现金桌配置
+│   │   ├── CashGameSession.swift    # 现金桌会话
 │   │   └── 更多模型...
 │   │
 │   └── Utils/
@@ -124,22 +139,27 @@ TexasPoker/
 │   ├── Components/
 │   │   ├── CardView.swift          # 扑克牌视图
 │   │   ├── ChipStackView.swift     # 筹码堆显示
-│   │   ├── FlippingCard.swift      # 翻牌动画
+│   │   , FlippingCard.swift      # 翻牌动画
 │   │   └── ActionButtons.swift     # 操作按钮
 │   │
 │   └── Views/
 │       ├── GameTableView.swift      # 主牌桌视图
 │       ├── PlayerView.swift         # 玩家信息
-│       ├── ControlPanel.swift       # 控制面板
+│       , ControlPanel.swift       # 控制面板
 │       ├── SettingsView.swift       # 设置页面
 │       ├── StatisticsView.swift     # 统计面板
+│       , EnhancedStatisticsView.swift # 增强统计面板
 │       ├── RankingsView.swift      # 排行榜
 │       └── GameSubviews/          # 子组件
 │           ├── GameTopBar.swift
 │           ├── GamePotDisplay.swift
 │           ├── GameHeroControls.swift
 │           ├── GameActionLogPanel.swift
-│           └── GameTournamentInfo.swift
+│           ├── GameTournamentInfo.swift
+│           ├── BuyInView.swift
+│           ├── TopUpView.swift
+│           ├── LeaveTableButton.swift
+│           └── CashSessionSummaryView.swift
 │
 ├── Resources/
 │   ├── Assets.xcassets
@@ -149,9 +169,14 @@ TexasPoker/
 └── TexasPokerTests/
     ├── Core/
     │   └── Engine/
-    │       └── HandEvaluatorTests.swift
+    │       ├── HandEvaluatorTests.swift
+    │       └── PokerEngineTests.swift
     ├── UI/
-    │   └── ColorThemeTests.swift
+    │   ├── ColorThemeTests.swift
+    │   └── GameViewLayoutTests.swift
+    ├── CashGameConfigTests.swift
+    ├── CashGameManagerTests.swift
+    ├── CashGameSessionTests.swift
     └── UncalledBetTests.swift
 ```
 
@@ -203,7 +228,7 @@ xcodebuild -project TexasPoker.xcodeproj \
 - **跟注 (Call)**: 匹配当前下注
 - **加注 (Raise)**: 增加下注金额
 - **弃牌 (Fold)**: 放弃当前手牌
-- **全下 (All-In)**: 投入全部筹码
+- **全下 (All-IN)**: 投入全部筹码
 
 ### AI 自定义
 每个 AI 对手都可以自定义：
