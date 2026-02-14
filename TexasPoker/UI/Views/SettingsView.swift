@@ -1,325 +1,601 @@
 import SwiftUI
 import CoreData
-import Combine
 
-class GameSettings: ObservableObject {
-    // Persistence keys
-    private let gameSpeedKey = "gameSpeed"
-    private let soundEnabledKey = "soundEnabled"
-    private let difficultyKey = "difficulty"
-    private let gameModeKey = "gameMode"
-    private let tournamentPresetKey = "tournamentPreset"
-    
-    // Game speed
-    @Published var gameSpeed: Double {
-        didSet { UserDefaults.standard.set(gameSpeed, forKey: gameSpeedKey) }
-    }
-    
-    // Sound
-    @Published var soundEnabled: Bool {
-        didSet { 
-            UserDefaults.standard.set(soundEnabled, forKey: soundEnabledKey)
-            SoundManager.shared.isMuted = !soundEnabled
-        }
-    }
-    
-    @Published var soundVolume: Double {
-        didSet {
-            SoundManager.shared.volume = Float(soundVolume)
-        }
-    }
-    
-    // Difficulty
-    @Published var difficulty: Difficulty {
-        didSet { UserDefaults.standard.set(difficulty.rawValue, forKey: difficultyKey) }
-    }
-    
-    // Game mode
-    @Published var gameMode: GameMode {
-        didSet { UserDefaults.standard.set(gameMode.rawValue, forKey: gameModeKey) }
-    }
-    
-    // Tournament preset
-    @Published var tournamentPreset: String {
-        didSet { UserDefaults.standard.set(tournamentPreset, forKey: tournamentPresetKey) }
-    }
-    
-    // Dynamic difficulty
-    @Published var autoDifficulty: Bool = true
-    @Published var manualDifficulty: DifficultyLevel = .medium
-    
-    enum Difficulty: String, CaseIterable, Identifiable {
-        case easy = "简单"
-        case normal = "普通"
-        case hard = "困难"
-        case pro = "专业"
-        
-        var id: String { self.rawValue }
-    }
-    
-    init() {
-        let defaults = UserDefaults.standard
-        
-        // Load existing values or defaults
-        self.gameSpeed = defaults.object(forKey: gameSpeedKey) as? Double ?? 1.0
-        self.soundEnabled = defaults.object(forKey: soundEnabledKey) as? Bool ?? true
-        self.soundVolume = Double(SoundManager.shared.volume)
-        
-        let diffRaw = defaults.string(forKey: difficultyKey) ?? "Normal"
-        self.difficulty = Difficulty(rawValue: diffRaw) ?? .normal
-        
-        let modeRaw = defaults.string(forKey: gameModeKey) ?? GameMode.cashGame.rawValue
-        self.gameMode = GameMode(rawValue: modeRaw) ?? .cashGame
-        
-        self.tournamentPreset = defaults.string(forKey: tournamentPresetKey) ?? "Standard"
-    }
-    
-    /// Get the tournament config based on current preset selection
-    func getTournamentConfig() -> TournamentConfig? {
-        guard gameMode == .tournament else { return nil }
-        switch tournamentPreset {
-        case "Turbo":
-            return .turbo
-        case "Deep Stack":
-            return .deepStack
-        default:
-            return .standard
-        }
-    }
-}
-
+// MARK: - Optimized Settings View
 struct SettingsView: View {
     @ObservedObject var settings: GameSettings
     @Binding var isPresented: Bool
     var onQuit: (() -> Void)? = nil
+    
+    @StateObject private var historyManager = GameHistoryManager.shared
+    @StateObject private var profiles = ProfileManager.shared
+    @StateObject private var statsManager = TournamentStatsManager.shared
+    
     @State private var showHistory = false
     @State private var showStatistics = false
-    @ObservedObject private var historyManager = GameHistoryManager.shared
-    @ObservedObject private var profiles = ProfileManager.shared
     @State private var showNewProfileAlert = false
-    @State private var newProfileName: String = ""
+    @State private var newProfileName = ""
+    @State private var showResetConfirmation = false
+    @State private var showTournamentSetup = false
+    @State private var selectedTab: SettingsTab = .game
+    
+    enum SettingsTab {
+        case game, sound, statistics, about
+    }
     
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("档案")) {
-                    Picker("Active Profile", selection: $profiles.currentProfileId) {
-                        ForEach(profiles.profiles) { p in
-                            Text(p.name).tag(p.id)
-                        }
-                    }
-
-                    Button(action: {
-                        newProfileName = ""
-                        showNewProfileAlert = true
-                    }) {
-                        HStack {
-                            Image(systemName: "person.badge.plus")
-                                .foregroundColor(.blue)
-                            Text("新建档案")
-                        }
-                    }
-                }
-
-                Section(header: Text("通用")) {
-                    VStack(alignment: .leading) {
-                        Text("Game Speed: \(String(format: "%.1fx", settings.gameSpeed))")
-                        Slider(value: $settings.gameSpeed, in: 0.5...3.0, step: 0.5)
-                    }
-                    
-                    Picker("难度", selection: $settings.difficulty) {
-                        ForEach(GameSettings.Difficulty.allCases) { diff in
-                            Text(diff.rawValue).tag(diff)
-                        }
-                    }
-                }
+                // Profile Section
+                profileSection
                 
-                Section(header: Text("音效设置")) {
-                    Toggle("音效", isOn: $settings.soundEnabled)
-                    
-                    if settings.soundEnabled {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("音量")
-                                Spacer()
-                                Text("\(Int(settings.soundVolume * 100))%")
-                                    .foregroundColor(.secondary)
-                            }
-                            Slider(value: $settings.soundVolume, in: 0...1, step: 0.1)
-                        }
-                    }
-                }
+                // Game Settings Section
+                gameSettingsSection
                 
-                Section(header: Text("游戏模式")) {
-                    Picker("模式", selection: $settings.gameMode) {
-                        Text("现金局").tag(GameMode.cashGame)
-                        Text("锦标赛").tag(GameMode.tournament)
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                    
-                    if settings.gameMode == .tournament {
-                        Picker("锦标赛类型", selection: $settings.tournamentPreset) {
-                            Text("Turbo").tag("Turbo")
-                            Text("标准").tag("Standard")
-                            Text("深筹赛").tag("Deep Stack")
-                        }
-                        .pickerStyle(MenuPickerStyle())
-                        
-                        // Show preset details
-                        if let config = settings.getTournamentConfig() {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("起始筹码: \(config.startingChips)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text("每级别手牌数: \(config.handsPerLevel)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text("奖励圈: 前 \(config.payoutStructure.count)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.top, 4)
-                        }
-                    }
-                }
+                // Sound Settings Section
+                soundSettingsSection
                 
-                Section(header: Text("AI 难度")) {
-                    Toggle("自动难度调整", isOn: $settings.autoDifficulty)
-                        .onChangeCompat(of: settings.autoDifficulty) { newValue in
-                            DecisionEngine.difficultyManager.isAutoDifficulty = newValue
-                        }
-                    
-                    if !settings.autoDifficulty {
-                        Picker("难度等级", selection: $settings.manualDifficulty) {
-                            ForEach(DifficultyLevel.allCases, id: \.self) { level in
-                                Text(level.description).tag(level)
-                            }
-                        }
-                        .onChangeCompat(of: settings.manualDifficulty) { newValue in
-                            DecisionEngine.difficultyManager.currentDifficulty = newValue
-                        }
-                    }
-                    
-                    if settings.autoDifficulty {
-                        HStack {
-                            Text("当前难度")
-                            Spacer()
-                            Text(DecisionEngine.difficultyManager.currentDifficulty.description)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        HStack {
-                            Text("你的胜率")
-                            Spacer()
-                            let winRate = DecisionEngine.difficultyManager.heroWinRate
-                            Text(String(format: "%.1f%%", winRate * 100))
-                                .foregroundColor(winRate > 0.55 ? .green : (winRate < 0.45 ? .red : .orange))
-                        }
-                    }
-                }
+                // AI Difficulty Section
+                difficultySection
                 
-                Section(header: Text("历史与统计")) {
-                    Button(action: { showHistory = true }) {
-                        HStack {
-                            Image(systemName: "clock.arrow.circlepath")
-                                .foregroundColor(.blue)
-                            Text("游戏历史")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            
-                            if !historyManager.records.isEmpty {
-                                Text("\(historyManager.records.count) games")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(.secondary.opacity(0.5))
-                        }
-                    }
-                    
-                    Button(action: { showStatistics = true }) {
-                        HStack {
-                            Image(systemName: "chart.bar.fill")
-                                .foregroundColor(.green)
-                            Text("玩家统计")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(.secondary.opacity(0.5))
-                        }
-                    }
-                    
-                    if !historyManager.records.isEmpty {
-                        // Quick stats
-                        let wins = historyManager.records.filter { $0.heroRank == 1 }.count
-                        let total = historyManager.records.count
-                        let winPct = total > 0 ? Int(round(Double(wins) * 100.0 / Double(total))) : 0
-                        let avgRank = total > 0 ? Int(round(Double(historyManager.records.map { $0.heroRank }.reduce(0, +)) / Double(total))) : 0
-                        
-                        HStack {
-                            statBadge(title: "总局数", value: "\(total)", color: .blue)
-                            statBadge(title: "获胜次数", value: "\(wins)", color: .green)
-                            statBadge(title: "胜率", value: "\(winPct)%", color: .orange)
-                            statBadge(title: "平均排名", value: "#\(avgRank)", color: .purple)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
+                // Statistics Section
+                statisticsSection
                 
-                Section(header: Text("About")) {
-                    Text("德州扑克 v1.1")
-                    Text("基于 SwiftUI + SpriteKit")
-                }
+                // About Section
+                aboutSection
                 
-                if let onQuit = onQuit {
-                    Section {
-                        Button(action: {
-                            onQuit()
-                            isPresented = false
-                        }) {
-                            Text("退出当前游戏")
-                                .foregroundColor(.red)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                        }
+                // Quit Button
+                quitSection
+            }
+            .navigationTitle("游戏设置")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("完成") {
+                        isPresented = false
                     }
                 }
             }
-            .navigationTitle("设置")
-            .navigationBarItems(trailing: Button("完成") {
-                isPresented = false
-            })
             .alert("新建档案", isPresented: $showNewProfileAlert) {
                 TextField("档案名称", text: $newProfileName)
-                Button("创建") {
-                    _ = profiles.createProfile(name: newProfileName)
-                }
                 Button("取消", role: .cancel) {}
+                Button("创建") {
+                    if !newProfileName.isEmpty {
+                        _ = profiles.createProfile(name: newProfileName)
+                    }
+                }
             } message: {
-                Text("统计数据和游戏记录将按档案隔离保存。")
+                Text("创建新档案后，游戏数据和统计将独立保存。")
+            }
+            .alert("重置设置", isPresented: $showResetConfirmation) {
+                Button("取消", role: .cancel) {}
+                Button("重置", role: .destructive) {
+                    settings.resetToDefaults()
+                }
+            } message: {
+                Text("确定要将所有设置恢复为默认值吗？")
             }
             .sheet(isPresented: $showHistory) {
                 HistoryView(isPresented: $showHistory)
             }
             .sheet(isPresented: $showStatistics) {
-                StatisticsView()
+                EnhancedStatisticsView()
                     .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
+            }
+            .sheet(isPresented: $showTournamentSetup) {
+                TournamentSetupView { config, difficulty in
+                    settings.gameMode = .tournament
+                    settings.aiDifficulty = difficulty
+                }
             }
         }
     }
     
-    private func statBadge(title: String, value: String, color: Color) -> some View {
-        VStack(spacing: 2) {
+    // MARK: - Profile Section
+    private var profileSection: some View {
+        Section {
+            Picker("当前档案", selection: $profiles.currentProfileId) {
+                ForEach(profiles.profiles) { profile in
+                    HStack {
+                        Text(profile.name)
+                        if profile.isDefault {
+                            Text("(默认)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .tag(profile.id)
+                }
+            }
+            
+            Button(action: {
+                newProfileName = ""
+                showNewProfileAlert = true
+            }) {
+                HStack {
+                    Image(systemName: "person.badge.plus")
+                        .foregroundColor(.blue)
+                    Text("新建档案")
+                        .foregroundColor(.primary)
+                }
+            }
+        } header: {
+            Text("档案管理")
+        } footer: {
+            Text("不同档案的数据和统计相互独立")
+                .font(.caption)
+        }
+    }
+    
+    // MARK: - Game Settings Section
+    private var gameSettingsSection: some View {
+        Section {
+            // Game Speed
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("游戏速度")
+                    Spacer()
+                    Text(settings.gameSpeedDescription)
+                        .foregroundColor(.secondary)
+                        .font(.subheadline)
+                }
+                
+                Slider(
+                    value: $settings.gameSpeed,
+                    in: 0.5...3.0,
+                    step: 0.5
+                ) {
+                    Text("游戏速度")
+                } minimumValueLabel: {
+                    Text("慢")
+                        .font(.caption)
+                } maximumValueLabel: {
+                    Text("快")
+                        .font(.caption)
+                }
+            }
+            .padding(.vertical, 4)
+            
+            // Game Mode
+            Picker("游戏模式", selection: $settings.gameMode) {
+                Text("现金局").tag(GameMode.cashGame)
+                Text("锦标赛").tag(GameMode.tournament)
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            
+            // Tournament Settings
+            if settings.gameMode == .tournament {
+                tournamentSettings
+            }
+            
+            // Player Count
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("玩家数量")
+                    Spacer()
+                    Text("\(settings.playerCount) 人")
+                        .foregroundColor(.secondary)
+                }
+                
+                Slider(
+                    value: .init(
+                        get: { Double(settings.playerCount) },
+                        set: { settings.playerCount = Int($0) }
+                    ),
+                    in: 2...8,
+                    step: 1
+                )
+            }
+            .padding(.vertical, 4)
+            
+        } header: {
+            Text("游戏设置")
+        }
+    }
+    
+    // MARK: - Tournament Settings
+    private var tournamentSettings: some View {
+        Group {
+            Picker("锦标赛类型", selection: $settings.tournamentPreset) {
+                ForEach(GameSettings.TournamentPreset.allCases) { preset in
+                    Text(preset.displayName).tag(preset)
+                }
+            }
+            
+            if let config = settings.getTournamentConfig() {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label("起始筹码: \(config.startingChips)", systemImage: "dollarsign.circle")
+                        Spacer()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    
+                    HStack {
+                        Label("升级间隔: \(config.handsPerLevel) 手", systemImage: "clock")
+                        Spacer()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    
+                    HStack {
+                        Label("奖励圈: 前 \(config.payoutStructure.count) 名", systemImage: "trophy")
+                        Spacer()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+    
+    // MARK: - Sound Settings Section
+    private var soundSettingsSection: some View {
+        Section {
+            Toggle(isOn: $settings.soundEnabled) {
+                HStack {
+                    Image(systemName: settings.soundEnabled ? "speaker.wave.3" : "speaker.slash")
+                        .foregroundColor(settings.soundEnabled ? .blue : .gray)
+                    Text("启用音效")
+                }
+            }
+            
+            if settings.soundEnabled {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("音量")
+                        Spacer()
+                        Text(settings.volumePercentage)
+                            .foregroundColor(.secondary)
+                            .font(.subheadline)
+                    }
+                    
+                    Slider(
+                        value: $settings.soundVolume,
+                        in: 0...1,
+                        step: 0.1
+                    ) {
+                        Text("音量")
+                    } minimumValueLabel: {
+                        Image(systemName: "speaker")
+                            .font(.caption)
+                    } maximumValueLabel: {
+                        Image(systemName: "speaker.wave.3")
+                            .font(.caption)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        } header: {
+            Text("音效设置")
+        }
+    }
+    
+    // MARK: - Difficulty Section
+    private var difficultySection: some View {
+        Section {
+            Picker("AI 难度", selection: $settings.aiDifficulty) {
+                ForEach(AIProfile.Difficulty.allCases) { difficulty in
+                    HStack {
+                        Text(difficulty.rawValue)
+                        Text(difficulty.description)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .tag(difficulty)
+                }
+            }
+            
+            Toggle(isOn: $settings.useRandomOpponents) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("随机对手")
+                    Text("每局随机选择不同类型的 AI 对手")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            if !settings.useRandomOpponents {
+                NavigationLink(destination: OpponentSelectorView(settings: settings)) {
+                    HStack {
+                        Text("自选对手")
+                        Spacer()
+                        Text("\(settings.playerCount - 1) 个对手")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+        } header: {
+            Text("难度设置")
+        } footer: {
+            Text(settings.aiDifficulty.recommendedFor)
+                .font(.caption)
+        }
+    }
+    
+    // MARK: - Statistics Section
+    private var statisticsSection: some View {
+        Section {
+            // Game History
+            Button(action: { showHistory = true }) {
+                HStack {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .foregroundColor(.blue)
+                    Text("游戏历史")
+                    Spacer()
+                    
+                    if !historyManager.records.isEmpty {
+                        Text("\(historyManager.records.count) 局")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+            }
+            
+            // Player Statistics
+            Button(action: { showStatistics = true }) {
+                HStack {
+                    Image(systemName: "chart.bar.fill")
+                        .foregroundColor(.green)
+                    Text("数据统计")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+            }
+            
+            // Quick Stats Summary
+            if !historyManager.records.isEmpty {
+                QuickStatsView(historyManager: historyManager)
+            }
+            
+        } header: {
+            Text("历史与统计")
+        }
+    }
+    
+    // MARK: - About Section
+    private var aboutSection: some View {
+        Section {
+            HStack {
+                Text("版本")
+                Spacer()
+                Text("1.2.0")
+                    .foregroundColor(.secondary)
+            }
+            
+            HStack {
+                Text("技术栈")
+                Spacer()
+                Text("SwiftUI + SpriteKit")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+            }
+            
+            Button(action: { showResetConfirmation = true }) {
+                HStack {
+                    Image(systemName: "arrow.counterclockwise")
+                        .foregroundColor(.orange)
+                    Text("恢复默认设置")
+                        .foregroundColor(.orange)
+                }
+            }
+            
+        } header: {
+            Text("关于")
+        }
+    }
+    
+    // MARK: - Quit Section
+    private var quitSection: some View {
+        Group {
+            if let onQuit = onQuit {
+                Section {
+                    Button(action: {
+                        onQuit()
+                        isPresented = false
+                    }) {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "xmark.circle")
+                            Text("退出当前游戏")
+                            Spacer()
+                        }
+                        .foregroundColor(.red)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Quick Stats View
+struct QuickStatsView: View {
+    @ObservedObject var historyManager: GameHistoryManager
+    
+    var body: some View {
+        let stats = calculateStats()
+        
+        HStack(spacing: 12) {
+            StatBadge(title: "总局数", value: "\(stats.total)", color: .blue, icon: "number")
+            StatBadge(title: "冠军", value: "\(stats.wins)", color: .yellow, icon: "crown")
+            StatBadge(title: "胜率", value: "\(stats.winRate)%", color: .green, icon: "percent")
+            StatBadge(title: "均名", value: "#\(stats.avgRank)", color: .purple, icon: "list.number")
+        }
+        .padding(.vertical, 8)
+    }
+    
+    private func calculateStats() -> (total: Int, wins: Int, winRate: Int, avgRank: Int) {
+        let total = historyManager.records.count
+        guard total > 0 else { return (0, 0, 0, 0) }
+        
+        let wins = historyManager.records.filter { $0.heroRank == 1 }.count
+        let winRate = Int(round(Double(wins) * 100.0 / Double(total)))
+        let avgRank = Int(round(Double(historyManager.records.map { $0.heroRank }.reduce(0, +)) / Double(total)))
+        
+        return (total, wins, winRate, avgRank)
+    }
+}
+
+// MARK: - Stat Badge
+struct StatBadge: View {
+    let title: String
+    let value: String
+    let color: Color
+    let icon: String
+    
+    var body: some View {
+        VStack(spacing: 4) {
             Text(value)
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundColor(color)
+            
             Text(title)
-                .font(.system(size: 10))
+                .font(.system(size: 9))
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(color.opacity(0.1))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Opponent Selector View
+struct OpponentSelectorView: View {
+    @ObservedObject var settings: GameSettings
+    @Environment(\.dismiss) var dismiss
+    
+    @State private var selectedOpponents: [AIProfile] = []
+    
+    var body: some View {
+        List {
+            Section(header: Text("选择对手类型")) {
+                ForEach(AIProfile.allProfiles, id: \.name) { profile in
+                    OpponentRow(
+                        profile: profile,
+                        isSelected: selectedOpponents.contains(where: { $0.name == profile.name })
+                    ) {
+                        toggleOpponent(profile)
+                    }
+                }
+            }
+            
+            Section {
+                Text("已选择 \(selectedOpponents.count)/\(settings.playerCount - 1) 个对手")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("自选对手")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("完成") {
+                    dismiss()
+                }
+                .disabled(selectedOpponents.count != settings.playerCount - 1)
+            }
+        }
+        .onAppear {
+            // Initialize with random opponents if empty
+            if selectedOpponents.isEmpty {
+                selectedOpponents = settings.aiDifficulty.randomOpponents(count: settings.playerCount - 1)
+            }
+        }
+    }
+    
+    private func toggleOpponent(_ profile: AIProfile) {
+        if let index = selectedOpponents.firstIndex(where: { $0.name == profile.name }) {
+            selectedOpponents.remove(at: index)
+        } else if selectedOpponents.count < settings.playerCount - 1 {
+            selectedOpponents.append(profile)
+        }
+    }
+}
+
+// MARK: - Opponent Row
+struct OpponentRow: View {
+    let profile: AIProfile
+    let isSelected: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Text(profile.avatar)
+                    .font(.system(size: 32))
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(profile.name)
+                        .font(.system(size: 16, weight: .semibold))
+                    
+                    Text(profile.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.blue)
+                        .font(.system(size: 22))
+                } else {
+                    Image(systemName: "circle")
+                        .foregroundColor(.secondary.opacity(0.3))
+                        .font(.system(size: 22))
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - AIProfile Extension for Settings
+extension AIProfile.Difficulty {
+    var description: String {
+        switch self {
+        case .easy:
+            return "新手友好，对手较弱"
+        case .normal:
+            return "标准难度，平衡体验"
+        case .hard:
+            return "较高难度，需要技巧"
+        case .expert:
+            return "专家级，地狱难度"
+        }
+    }
+    
+    var recommendedFor: String {
+        switch self {
+        case .easy:
+            return "推荐：刚接触德州扑克的新手玩家"
+        case .normal:
+            return "推荐：有一定经验的休闲玩家"
+        case .hard:
+            return "推荐：熟悉基本策略的玩家"
+        case .expert:
+            return "推荐：追求挑战的资深玩家"
+        }
+    }
+}
+
+// MARK: - Preview
+struct SettingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        SettingsView(
+            settings: GameSettings(),
+            isPresented: .constant(true)
+        )
     }
 }

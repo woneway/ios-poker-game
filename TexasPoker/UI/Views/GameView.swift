@@ -25,6 +25,13 @@ struct GameView: View {
     @State private var toastEntry: ActionLogEntry? = nil
     @State private var lastKnownLogCount: Int = 0
     
+    // MARK: - Session Summary State
+    @State private var showSessionSummary = false
+    @State private var sessionSummaryData: SessionSummaryData?
+    
+    // MARK: - Tournament Leaderboard State
+    @State private var showTournamentLeaderboard = false
+    
     @State private var scene: PokerTableScene = {
         let scene = PokerTableScene()
         scene.size = CGSize(width: 300, height: 600)  // 高度增加到 600
@@ -56,6 +63,15 @@ struct GameView: View {
                     }
                 )
                 .animation(.easeInOut(duration: 0.3), value: store.showRankings)
+            }
+            
+            // Tournament Leaderboard Overlay
+            if showTournamentLeaderboard {
+                TournamentLeaderboardOverlay(
+                    store: store,
+                    isPresented: $showTournamentLeaderboard
+                )
+                .transition(.move(edge: .trailing))
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -109,6 +125,18 @@ struct GameView: View {
         }
         .onChangeCompat(of: store.engine.isHandOver) { isOver in
             if isOver && settings.soundEnabled { SoundManager.shared.playSound(.win) }
+            if isOver {
+                // Update tournament stats
+                if store.engine.gameMode == .tournament {
+                    TournamentStatsManager.shared.updateAfterHand(
+                        handNumber: store.engine.handNumber,
+                        players: store.engine.players,
+                        engine: store.engine
+                    )
+                }
+                // Trigger session summary
+                prepareSessionSummary()
+            }
         }
         .onChangeCompat(of: store.engine.actionLog.count) { newCount in
             let delta = newCount - lastKnownLogCount
@@ -142,6 +170,69 @@ struct GameView: View {
                 )
             }
         }
+        .overlay(sessionSummaryOverlay)
+    }
+    
+    // MARK: - Session Summary
+    
+    private var sessionSummaryOverlay: some View {
+        Group {
+            if showSessionSummary, let data = sessionSummaryData {
+                SessionSummaryView(
+                    handNumber: data.handNumber,
+                    heroWinnings: data.winnings,
+                    heroCards: data.heroCards,
+                    communityCards: data.communityCards,
+                    handResult: data.result,
+                    totalHands: data.totalHands,
+                    totalProfit: data.totalProfit,
+                    onDismiss: {
+                        withAnimation { showSessionSummary = false }
+                    },
+                    onNextHand: {
+                        withAnimation { showSessionSummary = false }
+                        store.send(.nextHand)
+                    }
+                )
+                .transition(.opacity)
+            }
+        }
+    }
+    
+    private func prepareSessionSummary() {
+        guard let hero = store.engine.players.first(where: { $0.isHuman }) else { return }
+        
+        // Calculate winnings from the last hand
+        let heroWasWinner = store.engine.winners.contains(hero.id)
+        let winnings = heroWasWinner ? store.engine.pot.total : -hero.currentBet
+        
+        // Determine hand result
+        let result: HandResult = {
+            if hero.status == .folded { return .fold }
+            if heroWasWinner { return .win }
+            return .loss
+        }()
+        
+        sessionSummaryData = SessionSummaryData(
+            handNumber: store.engine.handNumber,
+            winnings: winnings,
+            heroCards: hero.cards,
+            communityCards: store.engine.communityCards,
+            result: result,
+            totalHands: store.engine.handNumber,
+            totalProfit: calculateTotalProfit()
+        )
+        
+        // Delay showing the summary slightly for better UX
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation { showSessionSummary = true }
+        }
+    }
+    
+    private func calculateTotalProfit() -> Int {
+        // This would ideally calculate from hand history
+        // For now, return approximate value
+        return store.engine.players.first(where: { $0.isHuman })?.chips ?? 0 - 1000
     }
     
     // MARK: - Layout Functions
@@ -235,7 +326,10 @@ struct GameView: View {
                     store: store,
                     showSettings: $showSettings,
                     unreadLogCount: unreadLogCount,
-                    onToggleActionLog: toggleActionLog
+                    onToggleActionLog: toggleActionLog,
+                    onShowLeaderboard: {
+                        withAnimation { showTournamentLeaderboard = true }
+                    }
                 )
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
@@ -331,7 +425,10 @@ struct GameView: View {
                             store: store,
                             showSettings: $showSettings,
                             unreadLogCount: unreadLogCount,
-                            onToggleActionLog: toggleActionLog
+                            onToggleActionLog: toggleActionLog,
+                            onShowLeaderboard: {
+                                withAnimation { showTournamentLeaderboard = true }
+                            }
                         )
                         .padding(.horizontal, 12)
                         

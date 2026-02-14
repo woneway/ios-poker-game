@@ -104,7 +104,16 @@ class PokerEngine: ObservableObject {
     
     /// Legacy setup for backward compatibility
     private func setup8PlayerTable() {
-        setupTable(difficulty: .normal, playerCount: 8)
+        players = [
+            Player(name: "Hero", chips: 1000, isHuman: true),
+            Player(name: "石头", chips: 1000, isHuman: false, aiProfile: .rock),
+            Player(name: "疯子麦克", chips: 1000, isHuman: false, aiProfile: .maniac),
+            Player(name: "安娜", chips: 1000, isHuman: false, aiProfile: .callingStation),
+            Player(name: "老狐狸", chips: 1000, isHuman: false, aiProfile: .fox),
+            Player(name: "鲨鱼汤姆", chips: 1000, isHuman: false, aiProfile: .shark),
+            Player(name: "艾米", chips: 1000, isHuman: false, aiProfile: .academic),
+            Player(name: "大卫", chips: 1000, isHuman: false, aiProfile: .tiltDavid),
+        ]
     }
     
     // MARK: - Position Helpers

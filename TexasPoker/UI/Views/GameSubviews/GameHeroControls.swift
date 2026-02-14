@@ -9,13 +9,21 @@ struct GameHeroControls: View {
     
     @Environment(\.colorScheme) var colorScheme
     
+    // MARK: - Session Summary State
+    @State private var showSessionSummary = false
+    @State private var lastHandProfit: Int = 0
+    @State private var totalProfit: Int = 0
+    
     var body: some View {
         let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
         let hero = store.engine.players.count > heroIndex ? store.engine.players[heroIndex] : nil
         
         switch store.state {
         case .idle:
-            Button(action: { store.send(.start) }) {
+            Button(action: { 
+                HapticFeedback.buttonPress()
+                store.send(.start) 
+            }) {
                 Text("发牌")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.white)
@@ -119,7 +127,10 @@ struct GameHeroControls: View {
                     }
                 } else {
                     // Hero alive, continue
-                    Button(action: { store.send(.nextHand) }) {
+                    Button(action: { 
+                        HapticFeedback.buttonPress()
+                        store.send(.nextHand) 
+                    }) {
                         Text("下一手")
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
@@ -150,26 +161,26 @@ struct GameHeroControls: View {
                 } else {
                     // Main action buttons
                     HStack(spacing: 10) {
-                        ActionButton(title: "Fold", color: Color.adaptiveButtonDanger(colorScheme)) {
+                        Button(action: { 
+                            HapticFeedback.fold()
                             store.engine.processAction(.fold)
                             store.send(.playerActed)
                             if settings.soundEnabled { SoundManager.shared.playSound(.fold) }
-                        }
+                        }) {
                         
-                        ActionButton(
-                            title: callAmount == 0 ? "Check" : "Call $\(callAmount)",
-                            color: .green
-                        ) {
+                        Button(action: { 
+                            HapticFeedback.buttonPress()
                             store.engine.processAction(callAmount == 0 ? .check : .call)
                             store.send(.playerActed)
                             if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
-                        }
+                        }) {
                         
                         // Open raise panel
-                        ActionButton(title: "Raise", color: .orange) {
+                        Button(action: { 
+                            HapticFeedback.buttonPress()
                             raiseSliderValue = 0
                             showRaisePanel = true
-                        }
+                        }) {
                     }
                 }
             } else {
@@ -276,6 +287,7 @@ struct GameHeroControls: View {
                 HStack(spacing: 6) {
                     ForEach(presets, id: \.0) { preset in
                         Button(action: {
+                            HapticFeedback.buttonPress()
                             if range > 0 {
                                 let normalizedValue = Double(preset.1 - minRaiseTo) / Double(max(1, range))
                                 raiseSliderValue = min(1.0, max(0.0, normalizedValue))
@@ -302,6 +314,7 @@ struct GameHeroControls: View {
             // Confirm / Cancel
             HStack(spacing: 12) {
                 Button(action: {
+                    HapticFeedback.fold()
                     showRaisePanel = false
                 }) {
                     Text("取消")
@@ -313,6 +326,12 @@ struct GameHeroControls: View {
                 }
                 
                 Button(action: {
+                    let isAllIn = currentRaiseTo >= maxRaiseTo || minRaiseTo > maxRaiseTo
+                    if isAllIn {
+                        HapticFeedback.allIn()
+                    } else {
+                        HapticFeedback.actionConfirm()
+                    }
                     if currentRaiseTo >= maxRaiseTo || minRaiseTo > maxRaiseTo {
                         store.engine.processAction(.allIn)
                     } else {

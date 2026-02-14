@@ -5,6 +5,7 @@ struct GameTopBar: View {
     @Binding var showSettings: Bool
     let unreadLogCount: Int
     let onToggleActionLog: () -> Void
+    var onShowLeaderboard: (() -> Void)? = nil
     
     var body: some View {
         HStack {
@@ -24,6 +25,26 @@ struct GameTopBar: View {
                 .background(Capsule().fill(Color.black.opacity(0.4)))
             
             Spacer()
+            
+            // Tournament leaderboard button
+            if store.engine.gameMode == .tournament,
+               let onShowLeaderboard = onShowLeaderboard {
+                Button(action: onShowLeaderboard) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "list.number")
+                            .font(.system(size: 12))
+                        Text("\(store.engine.players.count)")
+                            .font(.system(size: 11))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.6))
+                    .cornerRadius(8)
+                }
+                
+                Spacer()
+            }
             
             Text("手牌 #\(store.engine.handNumber)")
                 .font(.caption)
