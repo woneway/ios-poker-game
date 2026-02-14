@@ -4,23 +4,31 @@ import AVFoundation
 class SoundManager {
     static let shared = SoundManager()
     
+    // 使用与GameSettings一致的UserDefaults key
+    private let soundEnabledKey = "soundEnabled"
+    private let soundVolumeKey = "soundVolume"
+    
     private var audioPlayers: [SoundType: AVAudioPlayer] = [:]
-    var isMuted: Bool = UserDefaults.standard.bool(forKey: "soundMuted") {
-        didSet {
-            UserDefaults.standard.set(isMuted, forKey: "soundMuted")
+    var isMuted: Bool {
+        get { !UserDefaults.standard.bool(forKey: soundEnabledKey) }
+        set {
+            UserDefaults.standard.set(!newValue, forKey: soundEnabledKey)
         }
     }
-    var volume: Float = UserDefaults.standard.float(forKey: "soundVolume") {
-        didSet {
-            UserDefaults.standard.set(volume, forKey: "soundVolume")
+    var volume: Float {
+        get { UserDefaults.standard.float(forKey: soundVolumeKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: soundVolumeKey)
         }
     }
     
     init() {
         // Set default volume if not set
-        if UserDefaults.standard.object(forKey: "soundVolume") == nil {
-            volume = 1.0
-            UserDefaults.standard.set(1.0, forKey: "soundVolume")
+        if UserDefaults.standard.object(forKey: soundVolumeKey) == nil {
+            UserDefaults.standard.set(Float(0.7), forKey: soundVolumeKey)
+        }
+        if UserDefaults.standard.object(forKey: soundEnabledKey) == nil {
+            UserDefaults.standard.set(true, forKey: soundEnabledKey)
         }
         loadSounds()
     }
