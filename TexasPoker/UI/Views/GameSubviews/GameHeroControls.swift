@@ -167,6 +167,12 @@ struct GameHeroControls: View {
                             store.send(.playerActed)
                             if settings.soundEnabled { SoundManager.shared.playSound(.fold) }
                         }) {
+                            Text("弃牌")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 80, height: 44)
+                                .background(Capsule().fill(Color.red.opacity(0.8)))
+                        }
                         
                         Button(action: { 
                             HapticFeedback.buttonPress()
@@ -174,6 +180,12 @@ struct GameHeroControls: View {
                             store.send(.playerActed)
                             if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
                         }) {
+                            Text(callAmount == 0 ? "让牌" : "跟注 $\(callAmount)")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 100, height: 44)
+                                .background(Capsule().fill(Color.blue.opacity(0.8)))
+                        }
                         
                         // Open raise panel
                         Button(action: { 
@@ -181,6 +193,12 @@ struct GameHeroControls: View {
                             raiseSliderValue = 0
                             showRaisePanel = true
                         }) {
+                            Text("加注")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 80, height: 44)
+                                .background(Capsule().fill(Color.orange))
+                        }
                     }
                 }
             } else {
