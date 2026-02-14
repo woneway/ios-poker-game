@@ -50,6 +50,34 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty || true
 
+  lint:
+    name: Lint
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -switch /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: Install SwiftLint
+        run: |
+          brew install swiftlint
+
+      - name: Run SwiftLint
+        run: |
+          swiftlint || true
+
+      - name: Upload SwiftLint Results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftlint-results
+          path: .swiftlint-result.json
+
   test:
     name: Test
     runs-on: macos-14

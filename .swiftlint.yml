@@ -1,0 +1,65 @@
+# SwiftLint Configuration
+# https://github.com/realm/SwiftLint
+
+# 排除的文件和目录
+excluded:
+  - .build
+  - Pods
+  - Packages
+  - DerivedData
+  - TexasPokerTests
+  - "**/.build"
+  - "**/Pods"
+  - "**/DerivedData"
+
+# 规则启用/禁用
+disabled_rules:
+  - trailing_whitespace
+  - line_length
+  - function_body_length
+  - type_body_length
+  - file_length
+  - identifier_name
+  - cyclomatic_complexity
+  - for_whitespace
+  - empty_count
+
+# 可选规则（警告级别）
+opt_in_rules:
+  - empty_count
+  - missing_docs
+  - closure_spacing
+  - explicit_init
+  - first_where
+  - sorted_imports
+  - redundant_nil_coalescing
+  - contains_over_first_not_nil
+  - fallthrough
+  - fatal_error_message
+  - multiline_parameters
+  - unneeded_parentheses_in_closure_argument
+
+# 自定义规则配置
+custom_rules:
+  empty_line_after_guard:
+    name: "Empty line after guard"
+    regex: "guard .* else \\{[^}]*\\}\\n[^\\n]"
+    message: "Add an empty line after guard statement"
+    severity: warning
+
+# 命名规则
+type_name:
+  min_length: 3
+  max_length: 50
+
+identifier_name:
+  min_length: 1
+  max_length: 60
+  excluded:
+    - id
+    - i
+    - j
+    - k
+
+# 报告风格
+reporter: "xcode"
