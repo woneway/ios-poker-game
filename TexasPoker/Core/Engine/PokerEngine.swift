@@ -261,7 +261,15 @@ class PokerEngine: ObservableObject {
                 hasActed[p.id] = false
             }
         }
-        hasActed[playerID] = true
+        
+        // 只有当操作有效（potAddition > 0 或 状态改变）时才标记为已完成行动
+        // 无效的check等操作不应该被认为完成了行动
+        let actionChangedState = result.potAddition > 0 || 
+                                 result.playerUpdate.status != player.status ||
+                                 result.playerUpdate.currentBet != player.currentBet
+        if actionChangedState {
+            hasActed[playerID] = true
+        }
         
         // Side effects: sound, log, stats, animation
         playSoundForAction(action)
