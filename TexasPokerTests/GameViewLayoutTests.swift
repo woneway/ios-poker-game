@@ -18,18 +18,19 @@ class GameViewLayoutTests: XCTestCase {
     
     func testHeroCardsVisible_whenPlayerIsAreHuman() {
         // Given: A human player (Hero) with hole cards
-        let hero = Player(
+        var hero = Player(
             name: "Hero",
             chips: 1000,
             isHuman: true,
             aiProfile: nil
         )
-        hero.receiveCards([Card(suit: .spades, rank: .ace), Card(suit: .hearts, rank: .king)])
+        hero.holeCards = [Card(rank: .ace, suit: .spades), Card(rank: .king, suit: .hearts)]
         
         // When: PlayerCardsView is rendered with isHuman = true
         let cardWidth: CGFloat = 42
         let view = PlayerCardsView(
             player: hero,
+            isHero: true,
             showCards: true,
             cardWidth: cardWidth
         )
@@ -43,12 +44,12 @@ class GameViewLayoutTests: XCTestCase {
     
     func testHeroCardsShownFaceUp() {
         // Given: A human player with cards
-        let hero = Player(
+        var hero = Player(
             name: "Hero",
             chips: 1000,
             isHuman: true
         )
-        hero.receiveCards([Card(suit: .clubs, rank: .queen), Card(suit: .diamonds, rank: .jack)])
+        hero.holeCards = [Card(rank: .queen, suit: .clubs), Card(rank: .jack, suit: .diamonds)]
         
         // When: Using FlippingCard with isHero = true
         let flippingCard = FlippingCard(
@@ -69,7 +70,7 @@ class GameViewLayoutTests: XCTestCase {
     
     func testPlayerAvatarsOutsideTable() {
         // Given: 8 players in oval layout
-        let store = PokerGameStore(mode: .cashGame, config: TournamentConfig.default)
+        let store = PokerGameStore(mode: .cashGame, config: TournamentConfig.standard)
         store.engine.players = create8Players()
         
         // When: Calculating player positions for oval layout
@@ -87,7 +88,7 @@ class GameViewLayoutTests: XCTestCase {
         let seatAngles: [Double] = [270, 225, 180, 135, 90, 45, 0, 315]
         
         // Verify bottom players (Hero at 270°) extend below table center
-        let heroAngle = 270 * .pi / 180
+        let heroAngle = 270 * Double.pi / 180
         let heroX = centerX + radiusX * CGFloat(cos(heroAngle))
         let heroY = centerY - radiusY * CGFloat(sin(heroAngle))
         
@@ -95,7 +96,7 @@ class GameViewLayoutTests: XCTestCase {
         XCTAssertGreaterThan(heroY, centerY, "Hero should be below table center (outside table)")
         
         // Verify top players (seat 4 at 90°) extend above table
-        let topAngle = 90 * .pi / 180
+        let topAngle = 90 * Double.pi / 180
         let topY = centerY - radiusY * CGFloat(sin(topAngle))
         
         XCTAssertLessThan(topY, centerY, "Top player should be above table center (outside table)")
