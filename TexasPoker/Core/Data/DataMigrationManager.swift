@@ -97,10 +97,14 @@ class DataMigrationManager {
         let threeBet = dict["threeBet"] as? Double ?? 0.0
         let handsWon = dict["handsWon"] as? Int ?? 0
         let totalWinnings = dict["totalWinnings"] as? Int ?? 0
-        
+
+        // Determine if this player is human (hero player is human)
+        let isHuman = playerName.lowercased() == "hero"
+
         return PlayerStats(
             playerName: playerName,
             gameMode: gameMode,
+            isHuman: isHuman,
             totalHands: totalHands,
             vpip: vpip,
             pfr: pfr,
