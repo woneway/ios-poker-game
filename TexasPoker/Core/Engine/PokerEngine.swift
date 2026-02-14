@@ -378,6 +378,7 @@ class PokerEngine: ObservableObject {
         for i in 0..<players.count {
             players[i].chips = 1000
             players[i].currentBet = 0
+            players[i].totalBetThisHand = 0  // 修复：重置本手牌总投注额
             players[i].status = .active
             players[i].holeCards = []
         }
