@@ -10,8 +10,8 @@ class PokerEngineTests: XCTestCase {
         engine = PokerEngine()
         // Force simple state
         engine.players = [
-            Player(name: "P1", chips: 1000),
-            Player(name: "P2", chips: 1000)
+            Player(name: "P1", chips: 1000, isHuman: false),
+            Player(name: "P2", chips: 1000, isHuman: false)
         ]
         engine.pot = Pot()
         engine.currentBet = 0
