@@ -76,7 +76,7 @@ struct PlayerView: View {
             // Current Bet
             PlayerBetView(bet: player.currentBet)
         }
-        .opacity(player.status == .folded || player.status == .eliminated ? 0.45 : 1.0)
+        .opacity(player.status == .folded || player.status == .eliminated ? 0.55 : 1.0)
         .scaleEffect(isActive ? 1.05 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isActive)
         .popover(isPresented: $showProfile) {

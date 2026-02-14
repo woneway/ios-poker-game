@@ -94,20 +94,20 @@ struct PlayerAvatarView: View {
                 .offset(x: avatarSize * 0.35, y: -avatarSize * 0.35)
             }
             
-            // Stats Badge (VPIP/PFR)
-            if let stats = playerStats, stats.totalHands >= 10 {
+            // Stats Badge (VPIP/PFR) - unified display, threshold = 20 hands
+            if let stats = playerStats, stats.totalHands >= 20, playerStatus != .folded {
                 HStack(spacing: 2) {
                     Text("\(Int(stats.vpip))")
                         .foregroundColor(.green)
                     Text("/")
                         .foregroundColor(.white.opacity(0.5))
                     Text("\(Int(stats.pfr))")
-                        .foregroundColor(.red)
+                        .foregroundColor(.orange)
                 }
-                .font(.system(size: 8, weight: .bold))
-                .padding(.horizontal, 4)
+                .font(.system(size: 9, weight: .bold))
+                .padding(.horizontal, 5)
                 .padding(.vertical, 2)
-                .background(.ultraThinMaterial)
+                .background(Color.black.opacity(0.7))
                 .clipShape(Capsule())
                 .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
                 .offset(x: 0, y: avatarSize * 0.55)
@@ -116,11 +116,11 @@ struct PlayerAvatarView: View {
             // Status Overlay (Fold/All-in)
             if playerStatus == .folded {
                 Text("FOLD")
-                    .font(.system(size: 9, weight: .heavy))
-                    .foregroundColor(.white.opacity(0.9))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.black.opacity(0.6))
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.black.opacity(0.7))
                     .cornerRadius(4)
                     .rotationEffect(.degrees(-15))
             } else if playerStatus == .allIn {

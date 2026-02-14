@@ -129,15 +129,13 @@ class StatisticsCalculator {
     private func calculateVPIP(actions: [NSManagedObject], totalHands: Int) -> Double {
         guard totalHands > 0 else { return 0.0 }
         
-        // Group actions by hand
+        // VPIP = hands where player voluntarily put money in preflop (Call, Raise, All In)
+        // Use action type directly instead of isVoluntary flag to avoid inconsistency with PFR
         let preflopVoluntary = actions.filter { action in
             let street = action.value(forKey: "street") as? String ?? ""
-            let isVoluntary = action.value(forKey: "isVoluntary") as? Bool ?? false
             let actionStr = action.value(forKey: "action") as? String ?? ""
             return street == Street.preFlop.rawValue
-                && isVoluntary
-                && actionStr != "Fold"
-                && actionStr != "Check"
+                && (actionStr == "Call" || actionStr.hasPrefix("Raise") || actionStr == "All In")
         }
         
         // Count unique hands with voluntary preflop action
