@@ -21,7 +21,7 @@ struct PlayerCardsView: View {
             } else {
                 // Visible cards
                 HStack(spacing: -cardWidth * 0.3) {
-                    ForEach(player.cards) { card in
+                    ForEach(player.holeCards) { card in
                         CardView(card: card, width: cardWidth)
                             .overlay(
                                 // Premium glow effect for Hero

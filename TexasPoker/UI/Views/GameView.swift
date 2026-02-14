@@ -216,7 +216,7 @@ struct GameView: View {
         sessionSummaryData = SessionSummaryData(
             handNumber: store.engine.handNumber,
             winnings: winnings,
-            heroCards: hero.cards,
+            heroCards: hero.holeCards,
             communityCards: store.engine.communityCards,
             result: result,
             totalHands: store.engine.handNumber,
