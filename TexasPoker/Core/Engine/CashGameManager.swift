@@ -98,6 +98,7 @@ struct CashGameManager {
     /// - 筹码 > maxBuyIn * 1.5 时 10% 概率离场
     /// - 筹码 < maxBuyIn * 0.3 时 20% 概率离场
     /// - 人类玩家不离场
+    /// - 离场时筹码归零（为新玩家腾出座位）
     static func checkAIDepartures(
         players: inout [Player],
         config: CashGameConfig
@@ -105,7 +106,7 @@ struct CashGameManager {
         var departedPlayers: [Player] = []
 
         for i in 0..<players.count {
-            let player = players[i]
+            var player = players[i]
 
             // 人类玩家不离场
             guard !player.isHuman else { continue }
@@ -116,6 +117,9 @@ struct CashGameManager {
             // 筹码 > maxBuyIn * 1.5 时 10% 概率离场
             if player.chips > config.maxBuyIn * 3 / 2 {
                 if Double.random(in: 0...1) < 0.1 {
+                    // 离场时归零筹码，为新玩家腾出座位
+                    player.chips = 0
+                    players[i].chips = 0
                     players[i].status = .sittingOut
                     departedPlayers.append(player)
                 }
@@ -123,6 +127,9 @@ struct CashGameManager {
             // 筹码 < maxBuyIn * 0.3 时 20% 概率离场
             else if player.chips < config.maxBuyIn * 3 / 10 {
                 if Double.random(in: 0...1) < 0.2 {
+                    // 离场时归零筹码，为新玩家腾出座位
+                    player.chips = 0
+                    players[i].chips = 0
                     players[i].status = .sittingOut
                     departedPlayers.append(player)
                 }

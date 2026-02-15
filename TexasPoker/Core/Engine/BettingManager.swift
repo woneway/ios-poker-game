@@ -9,6 +9,7 @@ struct BetActionResult {
     var newLastRaiserID: UUID?     // 新的最后加注者（nil = 未改变）
     var isNewAggressor: Bool       // 是否成为新的翻前攻击者
     var reopenAction: Bool         // 是否需要重新开启其他玩家的行动
+    var isValid: Bool             // 操作是否有效
 }
 
 /// 下注管理器 — 处理下注动作和轮次判断
@@ -37,7 +38,7 @@ enum BettingManager {
             // 检查是否可以check（下注额必须相等）
             if p.currentBet != currentBet {
                 // 无效的check应该被忽略，而不是强制fold
-                // 返回原始状态，让上层处理这个无效操作
+                // 返回原始状态，并标记为无效，让上层处理这个无效操作
                 return BetActionResult(
                     playerUpdate: p,
                     potAddition: 0,
@@ -45,7 +46,8 @@ enum BettingManager {
                     newMinRaise: minRaise,
                     newLastRaiserID: nil,
                     isNewAggressor: false,
-                    reopenAction: false
+                    reopenAction: false,
+                    isValid: false
                 )
             }
             // 有效的check，不需要改变任何状态
@@ -104,7 +106,8 @@ enum BettingManager {
             newMinRaise: newMinRaise,
             newLastRaiserID: newLastRaiser,
             isNewAggressor: isNewAggressor,
-            reopenAction: reopenAction
+            reopenAction: reopenAction,
+            isValid: true
         )
     }
 

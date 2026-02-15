@@ -4,20 +4,27 @@ import Foundation
 struct TournamentManager {
     
     /// 应用锦标赛配置到引擎参数
+    /// - Parameters:
+    ///   - config: 锦标赛配置
+    ///   - players: 玩家列表
+    ///   - resetPlayers: 是否重置玩家筹码（默认为false，仅在游戏开始时设为true）
     static func applyConfig(
         _ config: TournamentConfig,
-        players: inout [Player]
+        players: inout [Player],
+        resetPlayers: Bool = false
     ) -> (smallBlind: Int, bigBlind: Int, ante: Int) {
         guard !config.blindSchedule.isEmpty else {
             return (10, 20, 0)
         }
         let firstLevel = config.blindSchedule[0]
-        
-        // Update starting chips for all players
-        for i in 0..<players.count {
-            players[i].chips = config.startingChips
+
+        // 仅在游戏开始时（resetPlayers=true）才重置玩家筹码
+        if resetPlayers {
+            for i in 0..<players.count {
+                players[i].chips = config.startingChips
+            }
         }
-        
+
         return (firstLevel.smallBlind, firstLevel.bigBlind, firstLevel.ante)
     }
     

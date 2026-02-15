@@ -180,7 +180,12 @@ class PokerEngine: ObservableObject {
         players[playerIndex].chips = toAmount
     }
     
-    // MARK: - Position Helpers
+    // MARK: - Lifecycle
+
+    deinit {
+        // 清理对手模型，避免内存泄漏
+        DecisionEngine.resetOpponentModels(for: self)
+    }
     
     func seatOffsetFromDealer(playerIndex: Int) -> Int {
         (playerIndex - dealerIndex + players.count) % players.count
@@ -244,14 +249,22 @@ class PokerEngine: ObservableObject {
         guard activePlayerIndex >= 0 && activePlayerIndex < players.count else { return }
         guard players[activePlayerIndex].status == .active else { return }
         guard !isHandOver else { return }
-        
+
         let player = players[activePlayerIndex]
         let playerID = player.id
-        
+
         let result = BettingManager.processAction(
             action, player: player, currentBet: currentBet, minRaise: minRaise
         )
-        
+
+        // 检查操作是否有效，无效则忽略
+        guard result.isValid else {
+            #if DEBUG
+            print("⚠️ 无效操作被忽略: \(player.name) 尝试 \(action.description)")
+            #endif
+            return
+        }
+
         // Apply results back to engine state
         players[activePlayerIndex] = result.playerUpdate
         pot.add(result.potAddition)

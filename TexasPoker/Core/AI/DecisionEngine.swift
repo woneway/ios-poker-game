@@ -150,8 +150,7 @@ class DecisionEngine {
     /// - Parameters:
     ///   - equity: Win probability
     ///   - callAmount: Cost to call
-    ///   - potSize: Current pot size
-    ///   - opponentRange: Estimated opponent range (0-1)
+    ///   - potSize: Current pot size (does NOT include our call amount)
     /// - Returns: Expected value as multiplier of call amount
     static func calculateCallEV(
         equity: Double,
@@ -161,10 +160,10 @@ class DecisionEngine {
     ) -> Double {
         guard callAmount > 0 else { return 0 }
 
-        // EV = p(win) * (pot + opponent_bet) - p(lose) * call_amount
-        // Simplified: assume opponent's bet = callAmount (for calculating total pot)
-        let totalPot = Double(potSize + callAmount)
-        let winValue = equity * totalPot
+        // EV = p(win) * pot - p(lose) * call_amount
+        // When we win: we get the entire pot (opponent's bet is already in pot)
+        // When we lose: we lose our call amount
+        let winValue = equity * Double(potSize)
         let loseValue = (1.0 - equity) * Double(callAmount)
 
         return winValue - loseValue

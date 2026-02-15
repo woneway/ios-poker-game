@@ -16,9 +16,12 @@ enum DealingManager {
         let playerCount = players.count
         guard playerCount > 0 else { return }
 
+        // 扑克发牌是顺时针发给所有位置，不管玩家状态
+        // 每轮发牌从 dealer+1 开始，依次发给每个座位
         for _ in 0..<2 {
-            var idx = nextActiveIndex(after: dealerIndex, players: players)
+            var idx = (dealerIndex + 1) % playerCount
             for _ in 0..<playerCount {
+                // 只给 active 或 allIn 的玩家发牌
                 if players[idx].status == .active || players[idx].status == .allIn {
                     if let card = deck.deal() {
                         players[idx].holeCards.append(card)
