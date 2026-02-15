@@ -116,7 +116,7 @@ class TournamentStatsManager: ObservableObject {
             // Check for elimination
             let isEliminated = player.chips <= 0
             if isEliminated && !eliminationOrder.contains(where: { $0.playerId == player.id }) {
-                recordElimination(player: player, rank: currentRank, handNumber: handNumber)
+                recordElimination(player: player, rank: currentRank, handNumber: handNumber, config: engine.tournamentConfig)
             }
             
             newRankings.append(PlayerRanking(
@@ -158,7 +158,7 @@ class TournamentStatsManager: ObservableObject {
         }
     }
     
-    private func recordElimination(player: Player, rank: Int, handNumber: Int) {
+    private func recordElimination(player: Player, rank: Int, handNumber: Int, config: TournamentConfig?) {
         let record = EliminationRecord(
             playerId: player.id,
             name: player.name,
@@ -167,9 +167,9 @@ class TournamentStatsManager: ObservableObject {
             chipsWhenEliminated: player.chips
         )
         eliminationOrder.append(record)
-        
-        // Check for bubble
-        if let config = TournamentConfig.current,
+
+        // Check for bubble (使用传入的 config 参数)
+        if let config = config,
            eliminationOrder.count == config.totalEntrants - config.payoutStructure.count {
             keyMoments.append(TournamentMoment(
                 type: .bubbleBurst,
@@ -287,6 +287,9 @@ class TournamentStatsManager: ObservableObject {
 }
 
 // MARK: - Tournament Config Extension
+/// 注意：不再使用静态变量追踪当前配置
+/// 配置应该通过参数传递或依赖注入
 extension TournamentConfig {
-    static var current: TournamentConfig?
+    // 已移除：static var current: TournamentConfig?
+    // 如需追踪当前配置，请通过 PokerEngine 或其他上下文传递
 }
