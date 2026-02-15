@@ -15,6 +15,48 @@ struct GameView: View {
             config: config
         ))
     }
+
+    // MARK: - Notification Observers
+
+    private var chipAnimationObserver: NSObjectProtocol?
+    private var winnerChipAnimationObserver: NSObjectProtocol?
+
+    private func setupNotificationObservers() {
+        // Listen for chip animation notifications
+        chipAnimationObserver = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("ChipAnimation"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let seatIndex = notification.userInfo?["seatIndex"] as? Int,
+               let amount = notification.userInfo?["amount"] as? Int {
+                self.scene.animateChipToPot(from: seatIndex, amount: amount)
+            }
+        }
+
+        // Listen for winner chip animation notifications
+        winnerChipAnimationObserver = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("WinnerChipAnimation"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let seatIndex = notification.userInfo?["seatIndex"] as? Int,
+               let amount = notification.userInfo?["amount"] as? Int {
+                self.scene.animateWinnerChips(to: seatIndex, amount: amount)
+            }
+        }
+    }
+
+    private func removeNotificationObservers() {
+        if let observer = chipAnimationObserver {
+            NotificationCenter.default.removeObserver(observer)
+            chipAnimationObserver = nil
+        }
+        if let observer = winnerChipAnimationObserver {
+            NotificationCenter.default.removeObserver(observer)
+            winnerChipAnimationObserver = nil
+        }
+    }
     @State private var showSettings = false
     @State private var lastProfileId: String = ProfileManager.shared.currentProfileId
     @State private var showRaisePanel = false
@@ -107,33 +149,16 @@ struct GameView: View {
             )
         }
         .onAppear {
+            // Setup notification observers (with cleanup)
+            setupNotificationObservers()
+
             scene.onAnimationComplete = {
                 DispatchQueue.main.async { store.send(.dealComplete) }
             }
-            
-            // Listen for chip animation notifications
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("ChipAnimation"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                if let seatIndex = notification.userInfo?["seatIndex"] as? Int,
-                   let amount = notification.userInfo?["amount"] as? Int {
-                    scene.animateChipToPot(from: seatIndex, amount: amount)
-                }
-            }
-            
-            // Listen for winner chip animation notifications
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("WinnerChipAnimation"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                if let seatIndex = notification.userInfo?["seatIndex"] as? Int,
-                   let amount = notification.userInfo?["amount"] as? Int {
-                    scene.animateWinnerChips(to: seatIndex, amount: amount)
-                }
-            }
+        }
+        .onDisappear {
+            // Cleanup notification observers to prevent memory leaks
+            removeNotificationObservers()
         }
         .onChangeCompat(of: store.state) { newState in
             if newState == .dealing {
