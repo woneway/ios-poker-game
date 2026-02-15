@@ -84,6 +84,11 @@ struct HandRange {
 
 // MARK: - Range Narrowing Factors
 
+/// Range narrowing factor types
+enum NarrowFactorType {
+    case wetBoardBet, dryBoardBet, check, raise, call
+}
+
 /// Constants for range narrowing based on postflop actions
 /// 这些值基于GTO理论和经验值
 /// 注意：优先使用实例 config 中的值
@@ -104,7 +109,7 @@ private enum RangeNarrowFactors {
     static let call: Double = 0.75
 
     /// 从配置获取因子
-    static func factor(for type: FactorType, config: RangeConfig? = nil) -> Double {
+    static func factor(for type: NarrowFactorType, config: RangeAnalyzer.RangeConfig? = nil) -> Double {
         guard let config = config else {
             return defaultValue(for: type)
         }
@@ -118,11 +123,7 @@ private enum RangeNarrowFactors {
         }
     }
 
-    enum FactorType {
-        case wetBoardBet, dryBoardBet, check, raise, call
-    }
-
-    private static func defaultValue(for type: FactorType) -> Double {
+    private static func defaultValue(for type: NarrowFactorType) -> Double {
         switch type {
         case .wetBoardBet: return 0.85
         case .dryBoardBet: return 0.95

@@ -127,10 +127,30 @@ enum BettingManager {
         let activePlayers = players.filter { $0.status == .active || $0.status == .allIn }
         if activePlayers.isEmpty { return true }
 
+        #if DEBUG
+        var debugInfo = "🔍 isRoundComplete: activePlayers=\(activePlayers.count), currentBet=\(currentBet)"
+        #endif
+
         for player in activePlayers {
-            if hasActed[player.id] != true { return false }
-            if player.currentBet != currentBet { return false }
+            #if DEBUG
+            debugInfo += " | \(player.name): hasActed=\(hasActed[player.id] == true), currentBet=\(player.currentBet)"
+            #endif
+            if hasActed[player.id] != true {
+                #if DEBUG
+                print(debugInfo)
+                #endif
+                return false
+            }
+            if player.currentBet != currentBet {
+                #if DEBUG
+                print(debugInfo)
+                #endif
+                return false
+            }
         }
+        #if DEBUG
+        print(debugInfo + " => true (round complete!)")
+        #endif
         return true
     }
 

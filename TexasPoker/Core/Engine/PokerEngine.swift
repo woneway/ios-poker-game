@@ -353,6 +353,8 @@ class PokerEngine: ObservableObject {
         if BettingManager.isRoundComplete(players: players, hasActed: hasActed, currentBet: currentBet) {
             dealNextStreet()
         } else {
+            // DEBUG: 追踪轮次没有结束的问题
+            print("⚠️ isRoundComplete=false, 调用 advanceTurn()")
             advanceTurn()
         }
     }

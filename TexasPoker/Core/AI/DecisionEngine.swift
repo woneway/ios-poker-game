@@ -1,6 +1,5 @@
 import Foundation
 import CoreData
-import Random
 
 // MARK: - EV Calculation Models
 
@@ -75,93 +74,139 @@ struct BoardTexture {
     let connectivity: Double // 0 = scattered, 1 = very connected
 }
 
+// 确定性随机数生成器（用于测试）
+#if DEBUG
+private struct DeterministicRandom {
+    private static var seed: UInt64 = 0
+    private static var isSeeded = false
+    
+    static func seed(_ newSeed: UInt64) {
+        seed = newSeed
+        isSeeded = true
+    }
+    
+    static func reset() {
+        isSeeded = false
+    }
+    
+    static func random(in range: ClosedRange<Double>) -> Double {
+        if isSeeded {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            let diff = range.upperBound - range.lowerBound
+            return range.lowerBound + Double(seed % 1000000) / 1000000.0 * diff
+        } else {
+            return Double.random(in: range)
+        }
+    }
+    
+    static func random(in range: ClosedRange<Int>) -> Int {
+        if isSeeded {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            let diff = range.upperBound - range.lowerBound + 1
+            return range.lowerBound + Int(seed % UInt64(diff))
+        } else {
+            return Int.random(in: range)
+        }
+    }
+    
+    static func randomElement<T>(from array: [T]) -> T? {
+        if isSeeded, !array.isEmpty {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return array[Int(seed % UInt64(array.count))]
+        } else {
+            return array.randomElement()
+        }
+    }
+}
+#endif
+
 class DecisionEngine {
-
+    
     // MARK: - Constants
-
+    
     /// 默认对手 call probability for EV calculation
     private static let defaultOpponentCallProb: Double = 0.5
-
+    
     /// 测试辅助：随机数生成器（可设置种子以实现确定性测试）
-    #if DEBUG
+#if DEBUG
     private static var randomGenerator: RandomGenerator = .system
-    #endif
-
+#endif
+    
     /// 测试辅助：随机数来源
-    #if DEBUG
+#if DEBUG
     enum RandomGenerator {
         case system  // 使用系统随机数
         case seeded(Int)  // 使用固定种子
-
+        
         func random(in range: ClosedRange<Double>) -> Double {
             switch self {
             case .system:
                 return Double.random(in: range)
             case .seeded(let seed):
-                // 简单确定性随机（仅用于测试）
-                var rng = SeededRandomNumberGenerator(seed: UInt64(seed))
-                return Double.random(in: range, using: &rng)
+                DeterministicRandom.seed(UInt64(seed))
+                return DeterministicRandom.random(in: range)
             }
         }
-
+        
         func randomElement<T>(from array: [T]) -> T? {
             switch self {
             case .system:
                 return array.randomElement()
             case .seeded(let seed):
-                var rng = SeededRandomNumberGenerator(seed: UInt64(seed))
-                return array.randomElement(using: &rng)
+                DeterministicRandom.seed(UInt64(seed))
+                return DeterministicRandom.randomElement(from: array)
             }
         }
-
+        
         func random(in range: ClosedRange<Int>) -> Int {
             switch self {
             case .system:
                 return Int.random(in: range)
             case .seeded(let seed):
-                var rng = SeededRandomNumberGenerator(seed: UInt64(seed))
-                return Int.random(in: range, using: &rng)
+                DeterministicRandom.seed(UInt64(seed))
+                return DeterministicRandom.random(in: range)
             }
         }
     }
-
+    
     /// 测试辅助：设置随机数生成器
     static func debugSetRandomGenerator(_ generator: RandomGenerator) {
         randomGenerator = generator
     }
-
+    
     /// 测试辅助：重置为系统随机数
     static func debugResetRandomGenerator() {
         randomGenerator = .system
+        DeterministicRandom.reset()
     }
-    #endif
-
+#endif
+    
     /// Default opponent range for EV calculation
     private static let defaultOpponentRange: Double = 0.5
-
+    
     /// SPR thresholds for implied odds
     private static let sprHighThreshold: Double = 10.0
     private static let sprMediumThreshold: Double = 5.0
     private static let sprTurnHighThreshold: Double = 8.0
     private static let sprTurnMediumThreshold: Double = 4.0
-
+    
     /// Implied odds bonuses
     private static let impliedOddsFlopHigh: Double = 0.15
     private static let impliedOddsFlopMedium: Double = 0.08
     private static let impliedOddsTurnHigh: Double = 0.10
     private static let impliedOddsTurnMedium: Double = 0.05
-
+    
     /// Tendency adjustment factors
     private static let raiseTendencyFactor: Double = 0.1
     private static let callTendencyFactor: Double = 0.05
     private static let aggressionMidpoint: Double = 0.5
-
+    
     // MARK: - Difficulty Manager
-
+    
     static let difficultyManager = DifficultyManager()
-
+    
     // MARK: - Opponent Modeling
-
+    
     // 使用引擎实例作为 key 的一部分，避免全局状态污染
     // key 格式: "ObjectIdentifier_gameMode_playerName"
     // 注意：fileprivate 以便测试可以访问
@@ -169,10 +214,10 @@ class DecisionEngine {
     
     // 追踪活跃的引擎标识符，用于自动清理
     private static var activeEngineIds: Set<ObjectIdentifier> = []
-
+    
     // 线程安全：使用串行队列保护静态状态
     private static let stateQueue = DispatchQueue(label: "com.poker.decisionengine.state")
-
+    
     // 最大对手模型数量限制，防止内存无限增长
     private static let maxModelCount = 50
     
@@ -180,13 +225,13 @@ class DecisionEngine {
     private static var lastCleanupTime: Date = Date()
     /// 清理时间间隔（秒）
     private static let cleanupInterval: TimeInterval = 300  // 5 分钟
-
+    
     /// 测试辅助：获取对手模型数量
-    #if DEBUG
+#if DEBUG
     static var opponentModelCount: Int {
         return opponentModels.count
     }
-    #endif
+#endif
     
     /// 注册一个活跃的引擎（在新游戏开始时调用）
     static func registerEngine(_ engine: PokerEngine) {
@@ -195,75 +240,75 @@ class DecisionEngine {
             performCleanupIfNeededLocked()
         }
     }
-
+    
     /// 注销一个引擎（在新游戏结束时调用）
     static func unregisterEngine(_ engine: PokerEngine) {
         stateQueue.sync {
             let engineId = ObjectIdentifier(engine)
             activeEngineIds.remove(engineId)
-
+            
             // 清理该引擎的所有对手模型
             opponentModels = opponentModels.filter { !$0.key.hasPrefix("\(engineId)_") }
         }
     }
-
+    
     /// 如果需要则执行清理（需在 stateQueue 内调用）
     private static func performCleanupIfNeededLocked() {
         let now = Date()
-
+        
         // 检查是否需要清理：时间间隔到了 或者 模型数量超过限制
         if now.timeIntervalSince(lastCleanupTime) > cleanupInterval || opponentModels.count > maxModelCount {
             cleanupInactiveModelsLocked()
             lastCleanupTime = now
         }
     }
-
+    
     /// 清理不再活跃的引擎对应的模型（需在 stateQueue 内调用）
     private static func cleanupInactiveModelsLocked() {
         let activeIds = activeEngineIds.map { "\($0)_" }
-
+        
         // 保留活跃引擎的模型，清理不活跃的
         opponentModels = opponentModels.filter { key, _ in
             activeIds.contains { key.hasPrefix($0) }
         }
-
-        #if DEBUG
+        
+#if DEBUG
         print("🧹 对手模型清理完成，剩余模型数: \(opponentModels.count)")
-        #endif
+#endif
     }
-
+    
     /// 加载对手模型（线程安全）
     private static func loadOpponentModel(playerName: String, gameMode: GameMode, engineIdentifier: ObjectIdentifier) -> OpponentModel {
         // 定期清理（在队列内执行）
         performCleanupIfNeededLocked()
-
+        
         let key = "\(engineIdentifier)_\(playerName)_\(gameMode.rawValue)"
-
+        
         // 检查是否已存在（在队列内）
         if let existing = opponentModels[key] {
             return existing
         }
-
+        
         let model = OpponentModel(playerName: playerName, gameMode: gameMode)
         model.loadStats(from: PersistenceController.shared.container.viewContext)
         opponentModels[key] = model
         return model
     }
-
+    
     /// 清空对手模型（新游戏开始时调用）
     /// 同时清理所有引擎对应的模型，避免内存泄漏
     static func resetOpponentModels() {
         opponentModels.removeAll()
     }
-
+    
     /// 清理特定引擎的模型
     static func resetOpponentModels(for engine: PokerEngine) {
         let engineId = ObjectIdentifier(engine)
         opponentModels = opponentModels.filter { !$0.key.hasPrefix("\(engineId)_") }
     }
-
+    
     // MARK: - EV Calculation Core
-
+    
     /// Calculate the expected value of calling
     /// - Parameters:
     ///   - equity: Win probability
@@ -277,16 +322,16 @@ class DecisionEngine {
         opponentRange: Double = defaultOpponentRange
     ) -> Double {
         guard callAmount > 0 else { return 0 }
-
+        
         // EV = p(win) * pot - p(lose) * call_amount
         // When we win: we get the entire pot (opponent's bet is already in pot)
         // When we lose: we lose our call amount
         let winValue = equity * Double(potSize)
         let loseValue = (1.0 - equity) * Double(callAmount)
-
+        
         return winValue - loseValue
     }
-
+    
     /// Calculate the expected value of raising
     static func calculateRaiseEV(
         equity: Double,
@@ -296,27 +341,27 @@ class DecisionEngine {
         opponentCallProb: Double = defaultOpponentCallProb
     ) -> Double {
         guard raiseAmount > 0 else { return 0 }
-
+        
         // When raise, opponent may fold, call, or re-raise
         // Simplified: consider fold equity + when called, our equity
-
+        
         // If opponent folds (1 - opponentCallProb), we win the pot
         let foldEquity = (1.0 - opponentCallProb) * Double(potSize)
-
+        
         // If opponent calls, our EV = equity * (pot + raise) - (1-equity) * raise
         let callEV = opponentCallProb * (
             equity * Double(potSize + raiseAmount * 2) - (1.0 - equity) * Double(raiseAmount)
         )
-
+        
         return foldEquity + callEV
     }
-
+    
     /// Calculate pot odds
     static func calculatePotOdds(callAmount: Int, potSize: Int) -> Double {
         guard callAmount > 0 else { return 0 }
         return Double(callAmount) / Double(potSize + callAmount)
     }
-
+    
     /// Calculate implied odds based on SPR
     static func calculateImpliedOdds(spr: Double, street: Street) -> Double {
         // Higher SPR = more room to extract value = higher implied odds
@@ -333,7 +378,7 @@ class DecisionEngine {
         }
         return baseImplied
     }
-
+    
     /// Determine best action based on EV calculation
     static func selectBestAction(
         availableActions: [PlayerAction],
@@ -347,10 +392,10 @@ class DecisionEngine {
         let potOdds = calculatePotOdds(callAmount: callAmount, potSize: potSize)
         let impliedOdds = calculateImpliedOdds(spr: spr, street: street)
         let totalOdds = potOdds + impliedOdds
-
+        
         var bestEV = Double.infinity
         var bestAction: PlayerAction = .fold
-
+        
         for action in availableActions {
             let ev: Double
             switch action {
@@ -382,7 +427,7 @@ class DecisionEngine {
                     potSize: potSize
                 )
             }
-
+            
             // Factor in player's tendency: aggressive players prefer raise, passive prefer call
             let tendencyAdjustment: Double
             switch action {
@@ -393,15 +438,15 @@ class DecisionEngine {
             default:
                 tendencyAdjustment = 0
             }
-
+            
             let adjustedEV = ev + tendencyAdjustment
-
+            
             if adjustedEV > bestEV {
                 bestEV = adjustedEV
                 bestAction = action
             }
         }
-
+        
         return bestAction
     }
     
@@ -453,10 +498,10 @@ class DecisionEngine {
                 if opponentModel.confidence > 0.5 {
                     strategyAdjust = OpponentModeler.getStrategyAdjustment(style: opponentModel.style)
                     
-                    #if DEBUG
+#if DEBUG
                     print("🎯 \(player.name) 识别对手 \(lastBettor.name) 为 \(opponentModel.style.description)")
                     print("   策略调整：偷盲\(String(format:"%.0f%%", strategyAdjust.stealFreqBonus*100)) 诈唬\(String(format:"%.0f%%", strategyAdjust.bluffFreqAdjust*100))")
-                    #endif
+#endif
                 }
             }
         }
@@ -471,12 +516,12 @@ class DecisionEngine {
             )
             icmAdjust = ICMCalculator.getStrategyAdjustment(situation: situation)
             
-            #if DEBUG
+#if DEBUG
             if situation.isBubble {
                 print("💰 泡沫期！\(icmAdjust?.description ?? "")")
                 print("   筹码比率：\(String(format:"%.2f", situation.stackRatio))")
             }
-            #endif
+#endif
         }
         
         // 4. Apply strategy adjustment to profile
@@ -848,9 +893,9 @@ class DecisionEngine {
                     let narrowedRange = RangeAnalyzer.narrowRange(range: range, action: lastAction, board: board)
                     opponentRange = narrowedRange
                     
-                    #if DEBUG
+#if DEBUG
                     print("📊 对手翻后范围：\(narrowedRange.description)")
-                    #endif
+#endif
                 }
             }
         }
@@ -1011,13 +1056,13 @@ class DecisionEngine {
                         potSize: potSize
                     )
                     
-                    #if DEBUG
+#if DEBUG
                     if let indicator = bluffIndicator {
                         print("🎲 诈唬检测：概率 \(String(format:"%.1f%%", indicator.bluffProbability * 100))")
                         print("   信号：\(indicator.signals.map { $0.rawValue }.joined(separator: ", "))")
                         print("   建议：\(indicator.recommendation)")
                     }
-                    #endif
+#endif
                 }
             }
         }
@@ -1404,7 +1449,7 @@ class DecisionEngine {
     static func analyzeBoardTexture(_ community: [Card]) -> BoardTexture {
         guard !community.isEmpty else {
             return BoardTexture(wetness: 0, isPaired: false, isMonotone: false,
-                              isTwoTone: false, hasHighCards: false, connectivity: 0)
+                                isTwoTone: false, hasHighCards: false, connectivity: 0)
         }
         
         // Suit analysis

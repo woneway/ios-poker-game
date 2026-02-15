@@ -18,8 +18,8 @@ struct GameView: View {
 
     // MARK: - Notification Observers
 
-    private var chipAnimationObserver: NSObjectProtocol?
-    private var winnerChipAnimationObserver: NSObjectProtocol?
+    @State private var chipAnimationObserver: NSObjectProtocol?
+    @State private var winnerChipAnimationObserver: NSObjectProtocol?
 
     private func setupNotificationObservers() {
         // Listen for chip animation notifications

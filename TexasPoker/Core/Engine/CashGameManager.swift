@@ -1,5 +1,49 @@
 import Foundation
-import Random
+import CoreData
+
+// 使用自定义确定性随机数生成器（替代 SeededRandomNumberGenerator）
+private struct DeterministicRandom {
+    private static var seed: UInt64 = 0
+    private static var isSeeded = false
+    
+    static func seed(_ newSeed: UInt64) {
+        seed = newSeed
+        isSeeded = true
+    }
+    
+    static func reset() {
+        isSeeded = false
+    }
+    
+    static func random(in range: ClosedRange<Int>) -> Int {
+        if isSeeded {
+            // 简单的线性同余生成器
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            let diff = range.upperBound - range.lowerBound + 1
+            return range.lowerBound + Int(seed % UInt64(diff))
+        } else {
+            return Int.random(in: range)
+        }
+    }
+    
+    static func randomBool(probability: Double) -> Bool {
+        if isSeeded {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Double(seed % 1000000) / 1000000.0 < probability
+        } else {
+            return Double.random(in: 0...1) < probability
+        }
+    }
+    
+    static func randomElement<T>(from array: [T]) -> T? {
+        if isSeeded, !array.isEmpty {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return array[Int(seed % UInt64(array.count))]
+        } else {
+            return array.randomElement()
+        }
+    }
+}
 
 /// 管理现金游戏（Cash Game）的核心逻辑
 /// 包括 AI 买入、补码、入场和离场管理
@@ -21,8 +65,8 @@ struct CashGameManager {
             case .system:
                 return Int.random(in: range)
             case .seeded(let seed):
-                var rng = SeededRandomNumberGenerator(seed: seed)
-                return Int.random(in: range, using: &rng)
+                DeterministicRandom.seed(seed)
+                return DeterministicRandom.random(in: range)
             }
         }
 
@@ -31,8 +75,8 @@ struct CashGameManager {
             case .system:
                 return Double.random(in: 0...1) < probability
             case .seeded(let seed):
-                var rng = SeededRandomNumberGenerator(seed: seed)
-                return Double.random(in: 0...1, using: &rng) < probability
+                DeterministicRandom.seed(seed)
+                return DeterministicRandom.randomBool(probability: probability)
             }
         }
 
@@ -41,8 +85,8 @@ struct CashGameManager {
             case .system:
                 return array.randomElement()
             case .seeded(let seed):
-                var rng = SeededRandomNumberGenerator(seed: seed)
-                return array.randomElement(using: &rng)
+                DeterministicRandom.seed(seed)
+                return DeterministicRandom.randomElement(from: array)
             }
         }
     }
@@ -55,6 +99,7 @@ struct CashGameManager {
     /// 测试辅助：重置为系统随机数
     static func debugResetRandomGenerator() {
         randomGenerator = .system
+        DeterministicRandom.reset()
     }
     #endif
 
@@ -172,7 +217,7 @@ struct CashGameManager {
                     // 系统池部分筹码，不够的补齐
                     let systemChips = systemChipsPool
                     let neededChips = randomAIBuyIn(config: config) - systemChips
-                    drawSystemChips(amount: systemChips)  // 清空系统池
+                    _ = drawSystemChips(amount: systemChips)  // 清空系统池
                     buyInAmount = systemChips + neededChips
                 } else {
                     // 系统池为空，使用随机金额

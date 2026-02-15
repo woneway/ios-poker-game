@@ -630,8 +630,7 @@ class StatisticsCalculator {
 
         for action in actions {
             guard let position = action.value(forKey: "position") as? String,
-                  let handHistory = action.value(forKey: "handHistory") as? NSManagedObject,
-                  let handId = handHistory.value(forKey: "id") as? UUID else {
+                  let handHistory = action.value(forKey: "handHistory") as? NSManagedObject else {
                 continue
             }
 
