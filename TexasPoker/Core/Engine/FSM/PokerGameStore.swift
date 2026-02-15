@@ -114,13 +114,13 @@ class PokerGameStore: ObservableObject {
         // 取消之前的所有 poll 任务
         pollTasks.forEach { $0.cancel() }
         pollTasks.removeAll()
-        
+
         // 检查多次，覆盖 AI 延迟执行的时间窗口
         for delay in [0.1, 0.5, 1.0, 2.0, 3.0] {
             let task = DispatchWorkItem { [weak self] in
                 guard let self = self else { return }
                 guard self.state == .betting else { return }
-                
+
                 let isHuman = self.isHumanTurn
                 #if DEBUG
                 print("🔍 Poll: state=\(self.state), activeIdx=\(self.engine.activePlayerIndex), isHumanTurn=\(isHuman)")
@@ -128,7 +128,7 @@ class PokerGameStore: ObservableObject {
                     print("   ActivePlayer: \(player.name), status=\(player.status), isHuman=\(player.isHuman)")
                 }
                 #endif
-                
+
                 if isHuman {
                     print("✅ Poll detected human turn, switching to waitingForAction")
                     self.state = .waitingForAction
@@ -138,22 +138,22 @@ class PokerGameStore: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: task)
         }
     }
-    
+
     /// 监控 AI 是否卡住，如果卡住则强制触发
     private func scheduleAIWatchdog() {
         // 取消之前的 watchdog 任务
         watchdogTask?.cancel()
-        
+
         let task = DispatchWorkItem { [weak self] in
             guard let self = self, self.state == .betting else { return }
-            
+
             // 如果依然是 AI 回合（非人类回合），尝试踢一下引擎
             if !self.isHumanTurn {
                 #if DEBUG
                 print("⚠️ AI Watchdog: Kicking engine to check bot turn. ActiveIdx=\(self.engine.activePlayerIndex)")
                 #endif
                 self.engine.checkBotTurn()
-                
+
                 // 递归调度，直到状态改变（添加深度限制防止无限递归）
                 self.scheduleAIWatchdog()
             } else {
