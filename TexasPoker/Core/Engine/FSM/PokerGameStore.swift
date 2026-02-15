@@ -46,6 +46,11 @@ class PokerGameStore: ObservableObject {
     private var backgroundSimulationTask: DispatchWorkItem?
     private var spectateLoopTask: DispatchWorkItem?
     
+    // MARK: - 异步任务追踪（用于正确取消）
+    private var pollTasks: [DispatchWorkItem] = []
+    private var watchdogTask: DispatchWorkItem?
+    private var runOutBoardTasks: [DispatchWorkItem] = []
+    
     /// Number of background hands to simulate per batch
     private let backgroundHandsPerBatch = 100
     /// Number of batches to simulate
@@ -60,6 +65,8 @@ class PokerGameStore: ObservableObject {
     
     init(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         self.engine = PokerEngine(mode: mode, config: config)
+        // 注册引擎以追踪对手模型
+        DecisionEngine.registerEngine(self.engine)
         subscribeToEngine()
     }
     
@@ -104,9 +111,13 @@ class PokerGameStore: ObservableObject {
     
     /// 轮询检查是否轮到人类玩家（解决 AI 在 dealing 期间已完成行动的竞态问题）
     private func pollForHumanTurn() {
+        // 取消之前的所有 poll 任务
+        pollTasks.forEach { $0.cancel() }
+        pollTasks.removeAll()
+        
         // 检查多次，覆盖 AI 延迟执行的时间窗口
         for delay in [0.1, 0.5, 1.0, 2.0, 3.0] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            let task = DispatchWorkItem { [weak self] in
                 guard let self = self else { return }
                 guard self.state == .betting else { return }
                 
@@ -123,12 +134,17 @@ class PokerGameStore: ObservableObject {
                     self.state = .waitingForAction
                 }
             }
+            pollTasks.append(task)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: task)
         }
     }
     
     /// 监控 AI 是否卡住，如果卡住则强制触发
     private func scheduleAIWatchdog() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+        // 取消之前的 watchdog 任务
+        watchdogTask?.cancel()
+        
+        let task = DispatchWorkItem { [weak self] in
             guard let self = self, self.state == .betting else { return }
             
             // 如果依然是 AI 回合（非人类回合），尝试踢一下引擎
@@ -138,7 +154,7 @@ class PokerGameStore: ObservableObject {
                 #endif
                 self.engine.checkBotTurn()
                 
-                // 递归调度，直到状态改变
+                // 递归调度，直到状态改变（添加深度限制防止无限递归）
                 self.scheduleAIWatchdog()
             } else {
                 // It IS human turn, but state is still betting? Force switch.
@@ -146,6 +162,8 @@ class PokerGameStore: ObservableObject {
                 self.state = .waitingForAction
             }
         }
+        watchdogTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: task)
     }
     
     /// Number of players still in the game (chips > 0)
@@ -574,12 +592,26 @@ class PokerGameStore: ObservableObject {
     }
     
     func resetGame(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
+        // 取消所有异步任务
         dealCompleteTimer?.cancel()
         dealCompleteTimer = nil
         backgroundSimulationTask?.cancel()
         backgroundSimulationTask = nil
         spectateLoopTask?.cancel()
         spectateLoopTask = nil
+        
+        // 取消 poll 任务
+        pollTasks.forEach { $0.cancel() }
+        pollTasks.removeAll()
+        
+        // 取消 watchdog 任务
+        watchdogTask?.cancel()
+        watchdogTask = nil
+        
+        // 取消 runOutBoard 任务
+        runOutBoardTasks.forEach { $0.cancel() }
+        runOutBoardTasks.removeAll()
+        
         isGameOver = false
         isBackgroundSimulating = false
         isSpectating = false
@@ -597,7 +629,11 @@ class PokerGameStore: ObservableObject {
         showCashSessionSummary = false
         currentSession = nil
         
+        // 注销旧引擎并创建新引擎
+        DecisionEngine.unregisterEngine(engine)
         engine = PokerEngine(mode: mode, config: config)
+        // 注册新引擎
+        DecisionEngine.registerEngine(engine)
         
         // Re-subscribe
         cancellables.removeAll()

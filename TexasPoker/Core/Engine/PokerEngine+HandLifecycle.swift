@@ -217,19 +217,54 @@ extension PokerEngine {
     /// 所有人 All-in 时，快速依次发完剩余公共牌然后结算
     func runOutBoard() {
         let streetsToGo = DealingManager.streetsRemaining(from: currentStreet)
-        
+
         guard streetsToGo > 0 else {
             endHand()
             return
         }
-        
+
+        // 保存当前手牌标识，用于检测游戏状态变化
+        let handId = handNumber
+
         for i in 0..<streetsToGo {
             let delay = Double(i + 1) * 0.8
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self = self, !self.isHandOver else { return }
+                guard let self = self else { return }
+
+                // 检查手牌是否仍是同一手（防止竞态条件）
+                // 检查游戏是否已结束
+                guard self.handNumber == handId && !self.isHandOver else {
+                    #if DEBUG
+                    print("⚠️ runOutBoard: 跳过发牌，手牌已变化或游戏已结束")
+                    #endif
+                    return
+                }
+
+                // 再次确认当前 street 仍是预期值（防止重复发牌）
+                let expectedStreet: Street
+                switch i {
+                case 0: expectedStreet = .flop
+                case 1: expectedStreet = .turn
+                case 2: expectedStreet = .river
+                default: return
+                }
+
+                guard self.currentStreet == expectedStreet else {
+                    #if DEBUG
+                    print("⚠️ runOutBoard: 当前 street 不匹配，跳过发牌")
+                    #endif
+                    return
+                }
+
                 DealingManager.dealStreetCards(deck: &self.deck, communityCards: &self.communityCards, currentStreet: &self.currentStreet)
+
                 if i == streetsToGo - 1 {
-                    self.endHand()
+                    // 最后一条街发完后结算
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                        guard let self = self else { return }
+                        guard self.handNumber == handId && !self.isHandOver else { return }
+                        self.endHand()
+                    }
                 }
             }
         }

@@ -89,8 +89,13 @@ enum BettingManager {
             p.totalBetThisHand += amount
             potAdd = amount
             if p.currentBet > currentBet {
+                // allIn 时的 minRaise 计算：
+                // 如果 allIn 金额 <= 当前下注额，不需要加注
+                // 如果 allIn 金额 > 当前下注额，最小加注到 allIn 金额
                 let raiseSize = p.currentBet - currentBet
-                newMinRaise = max(minRaise, raiseSize)
+                // 当 allIn 时，最小加注额应该是 allIn 金额（而不是差值）
+                // 这样其他玩家如果要继续，必须支付至少这个金额
+                newMinRaise = max(minRaise, p.currentBet - currentBet)
                 newCurrentBet = p.currentBet
                 newLastRaiser = p.id
                 isNewAggressor = true

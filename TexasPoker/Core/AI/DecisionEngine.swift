@@ -1,5 +1,6 @@
 import Foundation
 import CoreData
+import Random
 
 // MARK: - EV Calculation Models
 
@@ -78,8 +79,62 @@ class DecisionEngine {
 
     // MARK: - Constants
 
-    /// Default opponent call probability for EV calculation
+    /// 默认对手 call probability for EV calculation
     private static let defaultOpponentCallProb: Double = 0.5
+
+    /// 测试辅助：随机数生成器（可设置种子以实现确定性测试）
+    #if DEBUG
+    private static var randomGenerator: RandomGenerator = .system
+    #endif
+
+    /// 测试辅助：随机数来源
+    #if DEBUG
+    enum RandomGenerator {
+        case system  // 使用系统随机数
+        case seeded(Int)  // 使用固定种子
+
+        func random(in range: ClosedRange<Double>) -> Double {
+            switch self {
+            case .system:
+                return Double.random(in: range)
+            case .seeded(let seed):
+                // 简单确定性随机（仅用于测试）
+                var rng = SeededRandomNumberGenerator(seed: UInt64(seed))
+                return Double.random(in: range, using: &rng)
+            }
+        }
+
+        func randomElement<T>(from array: [T]) -> T? {
+            switch self {
+            case .system:
+                return array.randomElement()
+            case .seeded(let seed):
+                var rng = SeededRandomNumberGenerator(seed: UInt64(seed))
+                return array.randomElement(using: &rng)
+            }
+        }
+
+        func random(in range: ClosedRange<Int>) -> Int {
+            switch self {
+            case .system:
+                return Int.random(in: range)
+            case .seeded(let seed):
+                var rng = SeededRandomNumberGenerator(seed: UInt64(seed))
+                return Int.random(in: range, using: &rng)
+            }
+        }
+    }
+
+    /// 测试辅助：设置随机数生成器
+    static func debugSetRandomGenerator(_ generator: RandomGenerator) {
+        randomGenerator = generator
+    }
+
+    /// 测试辅助：重置为系统随机数
+    static func debugResetRandomGenerator() {
+        randomGenerator = .system
+    }
+    #endif
 
     /// Default opponent range for EV calculation
     private static let defaultOpponentRange: Double = 0.5
@@ -108,9 +163,23 @@ class DecisionEngine {
     // MARK: - Opponent Modeling
 
     // 使用引擎实例作为 key 的一部分，避免全局状态污染
-    // key 格式: "ObjectIdentifier_gameMode"
+    // key 格式: "ObjectIdentifier_gameMode_playerName"
     // 注意：fileprivate 以便测试可以访问
     fileprivate static var opponentModels: [String: OpponentModel] = [:]
+    
+    // 追踪活跃的引擎标识符，用于自动清理
+    private static var activeEngineIds: Set<ObjectIdentifier> = []
+
+    // 线程安全：使用串行队列保护静态状态
+    private static let stateQueue = DispatchQueue(label: "com.poker.decisionengine.state")
+
+    // 最大对手模型数量限制，防止内存无限增长
+    private static let maxModelCount = 50
+    
+    // 上次清理的时间戳
+    private static var lastCleanupTime: Date = Date()
+    /// 清理时间间隔（秒）
+    private static let cleanupInterval: TimeInterval = 300  // 5 分钟
 
     /// 测试辅助：获取对手模型数量
     #if DEBUG
@@ -118,10 +187,59 @@ class DecisionEngine {
         return opponentModels.count
     }
     #endif
+    
+    /// 注册一个活跃的引擎（在新游戏开始时调用）
+    static func registerEngine(_ engine: PokerEngine) {
+        stateQueue.sync {
+            activeEngineIds.insert(ObjectIdentifier(engine))
+            performCleanupIfNeededLocked()
+        }
+    }
 
-    /// 加载对手模型
+    /// 注销一个引擎（在新游戏结束时调用）
+    static func unregisterEngine(_ engine: PokerEngine) {
+        stateQueue.sync {
+            let engineId = ObjectIdentifier(engine)
+            activeEngineIds.remove(engineId)
+
+            // 清理该引擎的所有对手模型
+            opponentModels = opponentModels.filter { !$0.key.hasPrefix("\(engineId)_") }
+        }
+    }
+
+    /// 如果需要则执行清理（需在 stateQueue 内调用）
+    private static func performCleanupIfNeededLocked() {
+        let now = Date()
+
+        // 检查是否需要清理：时间间隔到了 或者 模型数量超过限制
+        if now.timeIntervalSince(lastCleanupTime) > cleanupInterval || opponentModels.count > maxModelCount {
+            cleanupInactiveModelsLocked()
+            lastCleanupTime = now
+        }
+    }
+
+    /// 清理不再活跃的引擎对应的模型（需在 stateQueue 内调用）
+    private static func cleanupInactiveModelsLocked() {
+        let activeIds = activeEngineIds.map { "\($0)_" }
+
+        // 保留活跃引擎的模型，清理不活跃的
+        opponentModels = opponentModels.filter { key, _ in
+            activeIds.contains { key.hasPrefix($0) }
+        }
+
+        #if DEBUG
+        print("🧹 对手模型清理完成，剩余模型数: \(opponentModels.count)")
+        #endif
+    }
+
+    /// 加载对手模型（线程安全）
     private static func loadOpponentModel(playerName: String, gameMode: GameMode, engineIdentifier: ObjectIdentifier) -> OpponentModel {
+        // 定期清理（在队列内执行）
+        performCleanupIfNeededLocked()
+
         let key = "\(engineIdentifier)_\(playerName)_\(gameMode.rawValue)"
+
+        // 检查是否已存在（在队列内）
         if let existing = opponentModels[key] {
             return existing
         }

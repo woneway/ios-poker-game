@@ -2,16 +2,20 @@ import Foundation
 
 /// 管理游戏最终排名和淘汰追踪
 struct GameResultsManager {
-    
+
     /// 追踪新淘汰的玩家，追加到淘汰顺序中
+    /// 使用 Set 优化查找效率 O(1)
     static func trackEliminations(
         players: [Player],
         handNumber: Int,
         eliminationOrder: inout [(name: String, avatar: String, hand: Int, isHuman: Bool)]
     ) {
+        // 构建已淘汰玩家名称 Set，O(n)
+        let existingNames = Set(eliminationOrder.map { $0.name })
+
         for player in players {
-            if player.chips <= 0 &&
-               !eliminationOrder.contains(where: { $0.name == player.name }) {
+            // O(1) 查找
+            if player.chips <= 0 && !existingNames.contains(player.name) {
                 let avatar = player.aiProfile?.avatar ?? (player.isHuman ? "🎯" : "🤖")
                 eliminationOrder.append((
                     name: player.name,
@@ -22,7 +26,7 @@ struct GameResultsManager {
             }
         }
     }
-    
+
     /// 生成最终排名结果（1st place first）
     static func generateFinalResults(
         players: [Player],
@@ -30,7 +34,7 @@ struct GameResultsManager {
         eliminationOrder: [(name: String, avatar: String, hand: Int, isHuman: Bool)]
     ) -> [PlayerResult] {
         var results: [PlayerResult] = []
-        
+
         // Winner(s) - players still with chips
         let alive = players.filter { $0.chips > 0 }
         for (i, p) in alive.enumerated() {
@@ -44,7 +48,7 @@ struct GameResultsManager {
                 isHuman: p.isHuman
             ))
         }
-        
+
         // Eliminated players - reverse elimination order (last eliminated = 2nd place)
         let eliminated = eliminationOrder.reversed()
         for (i, entry) in eliminated.enumerated() {
@@ -58,7 +62,7 @@ struct GameResultsManager {
                 isHuman: entry.isHuman
             ))
         }
-        
+
         return results.sorted { $0.rank < $1.rank }
     }
 }

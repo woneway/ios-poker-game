@@ -9,45 +9,45 @@ class PokerEngine: ObservableObject {
     @Published var dealerIndex: Int
     @Published var activePlayerIndex: Int
     @Published var currentStreet: Street
-    
+
     // Betting state
     @Published var currentBet: Int = 0
     @Published var minRaise: Int = 0
-    
+
     // Winner state
     @Published var winners: [UUID] = []
     @Published var winMessage: String = ""
     @Published var isHandOver: Bool = false
-    
+
     // Hand counter
     @Published var handNumber: Int = 0
-    
+
     // Action log
     @Published var actionLog: [ActionLogEntry] = []
     let maxLogEntries = 30
-    
+
     // Internal tracking (accessible to extensions)
     var hasActed: [UUID: Bool] = [:]
     var lastRaiserID: UUID? = nil
     var bigBlindIndex: Int = 0
     var smallBlindIndex: Int = 0
-    
+
     /// Tracks who was the preflop aggressor (raiser) for c-bet logic
     @Published var preflopAggressorID: UUID? = nil
-    
+
     // Previous hand results (for tilt system)
     var lastHandLosers: Set<UUID> = []
     var lastPotSize: Int = 0
-    
+
     // Elimination tracking (for final rankings)
     @Published var eliminationOrder: [(name: String, avatar: String, hand: Int, isHuman: Bool)] = []
-    
+
     /// 追踪本手牌所有街的下注动作（用于AI决策如triple barrel检测）
     var bettingHistory: [Street: [BetAction]] = [:]
-    
+
     var smallBlindAmount: Int = 10
     var bigBlindAmount: Int = 20
-    
+
     // Tournament support
     @Published var gameMode: GameMode = .cashGame
     @Published var tournamentConfig: TournamentConfig?
@@ -55,9 +55,15 @@ class PokerEngine: ObservableObject {
     @Published var handsAtCurrentLevel: Int = 0
     @Published var anteAmount: Int = 0
     @Published var rebuyCount: Int = 0
-    
+
     // Cash game support
     @Published var cashGameConfig: CashGameConfig?
+
+    /// 追踪引擎是否已注册到 DecisionEngine（避免重复注销）
+    private var isRegistered: Bool = false
+
+    /// 标记引擎已被销毁（防止 deinit 中重复操作）
+    private var isEngineDestroyed: Bool = false
     
     init(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         self.deck = Deck()
@@ -85,6 +91,10 @@ class PokerEngine: ObservableObject {
             self.currentBlindLevel = 0
             self.handsAtCurrentLevel = 0
         }
+
+        // 注册引擎到 DecisionEngine（用于对手模型管理）
+        DecisionEngine.registerEngine(self)
+        self.isRegistered = true
     }
     
     // MARK: - 8-Player Table Setup
@@ -183,8 +193,20 @@ class PokerEngine: ObservableObject {
     // MARK: - Lifecycle
 
     deinit {
-        // 清理对手模型，避免内存泄漏
-        DecisionEngine.resetOpponentModels(for: self)
+        // 只有已注册的引擎才需要注销，避免重复操作
+        if isRegistered && !isEngineDestroyed {
+            DecisionEngine.unregisterEngine(self)
+        }
+    }
+
+    /// 安全清理引擎资源（替代直接 deinit，供外部调用）
+    /// 调用后引擎将不再可用
+    func destroy() {
+        isEngineDestroyed = true
+        if isRegistered {
+            DecisionEngine.unregisterEngine(self)
+            isRegistered = false
+        }
     }
     
     func seatOffsetFromDealer(playerIndex: Int) -> Int {
@@ -461,6 +483,17 @@ class PokerEngine: ObservableObject {
         preflopAggressorID = nil
         lastHandLosers = []
         lastPotSize = 0
+
+        // Reset tilt system
+        TiltManager.resetAllTilt(players: &players)
+        
+        // Reset betting history (之前遗漏)
+        bettingHistory = [:]
+        
+        // Reset tournament state (之前遗漏)
+        rebuyCount = 0
+        handsAtCurrentLevel = 0
+        currentBlindLevel = 0
 
         #if DEBUG
         print("🔄 PokerEngine.resetForProfile() called - game state reset for new profile")

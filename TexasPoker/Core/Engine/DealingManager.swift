@@ -18,10 +18,12 @@ enum DealingManager {
 
         // 扑克发牌是顺时针发给所有位置，不管玩家状态
         // 每轮发牌从 dealer+1 开始，依次发给每个座位
+        // 注意：sittingOut 玩家也占用座位位置，保持发牌顺序一致
         for _ in 0..<2 {
             var idx = (dealerIndex + 1) % playerCount
             for _ in 0..<playerCount {
                 // 只给 active 或 allIn 的玩家发牌
+                // sittingOut 玩家不参与本手牌，但保持座位顺序
                 if players[idx].status == .active || players[idx].status == .allIn {
                     if let card = deck.deal() {
                         players[idx].holeCards.append(card)

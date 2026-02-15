@@ -1,5 +1,33 @@
 import Foundation
 
+// MARK: - ICM 配置常量
+
+/// ICM 计算配置
+enum ICMConfig {
+    /// 泡沫跳跃阈值（百分比）
+    enum BubbleJumpThreshold {
+        static let critical: Double = 50.0   // 关键泡沫期
+        static let high: Double = 30.0       // 高压力
+        static let medium: Double = 15.0     // 中等压力
+        static let low: Double = 5.0          // 低压力
+    }
+
+    /// 泡沫跳跃返回值
+    enum BubbleJumpReturn {
+        static let critical: Double = 1.0
+        static let high: Double = 0.7
+        static let medium: Double = 0.4
+        static let low: Double = 0.2
+        static let none: Double = 0.0
+    }
+
+    /// 筹码类别阈值
+    enum StackThreshold {
+        static let big: Double = 1.5   // >1.5x 平均 = 大筹码
+        static let short: Double = 0.7  // <0.7x 平均 = 短筹码
+    }
+}
+
 /// 筹码类别
 enum StackCategory {
     case big        // 大筹码 (>1.5x 平均)
@@ -19,8 +47,8 @@ struct ICMSituation {
     let bubbleJumpFactor: Double  // 奖金跳跃因子（泡沫期压力）
     
     var stackCategory: StackCategory {
-        if stackRatio > 1.5 { return .big }
-        if stackRatio < 0.7 { return .short }
+        if stackRatio > ICMConfig.StackThreshold.big { return .big }
+        if stackRatio < ICMConfig.StackThreshold.short { return .short }
         return .medium
     }
     
@@ -149,18 +177,18 @@ class ICMCalculator {
             jumpAmount = currentPayout > 0 ? 100.0 : 0.0
         }
 
-        // 如果跳跃很大（>50%），说明在泡沫期
-        if jumpAmount > 50.0 {
+        // 使用配置常量
+        if jumpAmount > ICMConfig.BubbleJumpThreshold.critical {
             return min(1.0, jumpAmount / 100.0)  // 最大1.0
-        } else if jumpAmount > 30.0 {
-            return 0.7
-        } else if jumpAmount > 15.0 {
-            return 0.4
-        } else if jumpAmount > 5.0 {
-            return 0.2
+        } else if jumpAmount > ICMConfig.BubbleJumpThreshold.high {
+            return ICMConfig.BubbleJumpReturn.high
+        } else if jumpAmount > ICMConfig.BubbleJumpThreshold.medium {
+            return ICMConfig.BubbleJumpReturn.medium
+        } else if jumpAmount > ICMConfig.BubbleJumpThreshold.low {
+            return ICMConfig.BubbleJumpReturn.low
         }
 
-        return 0.0
+        return ICMConfig.BubbleJumpReturn.none
     }
     
     /// 获取 ICM 策略调整

@@ -79,13 +79,37 @@ enum ShowdownManager {
             let remainder = portion.amount % potWinners.count
             let potLabel = potIdx == 0 ? "主池" : "边池\(potIdx)"
 
-            for (i, winner) in potWinners.enumerated() {
+            // 剩余筹码分配给庄家位置（Dealer）的玩家
+            // 找到在 potWinners 中位置最接近庄家的玩家
+            var dealerWinnerIndex = 0
+            if remainder > 0 {
+                // 简化处理：平均分配给所有赢家（每人多1直到分配完）
+                let bonusPerWinner = remainder / potWinners.count
+                let extraBonus = remainder % potWinners.count
+
+                for (i, winner) in potWinners.enumerated() {
+                    if let index = players.firstIndex(where: { $0.id == winner.id }) {
+                        let bonus = bonusPerWinner + (i < extraBonus ? 1 : 0)
+                        players[index].chips += winAmount + bonus
+                        allWinnerIDSet.insert(winner.id)
+                        if !allWinnerIDs.contains(winner.id) { allWinnerIDs.append(winner.id) }
+
+                        if bonus > 0 {
+                            message += "\(winner.name) 赢得\(potLabel) $\(winAmount + bonus) (含余数)! "
+                        } else {
+                            message += "\(winner.name) 赢得\(potLabel) $\(winAmount)! "
+                        }
+                    }
+                }
+                continue
+            }
+
+            for winner in potWinners {
                 if let index = players.firstIndex(where: { $0.id == winner.id }) {
-                    let bonus = (i == 0) ? remainder : 0
-                    players[index].chips += winAmount + bonus
+                    players[index].chips += winAmount
                     allWinnerIDSet.insert(winner.id)
                     if !allWinnerIDs.contains(winner.id) { allWinnerIDs.append(winner.id) }
-                    message += "\(winner.name) 赢得\(potLabel) $\(winAmount + bonus)! "
+                    message += "\(winner.name) 赢得\(potLabel) $\(winAmount)! "
                 }
             }
         }

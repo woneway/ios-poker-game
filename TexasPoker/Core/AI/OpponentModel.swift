@@ -24,7 +24,7 @@ enum PlayerStyle: String, Codable {
 class OpponentModel {
     let playerName: String
     let gameMode: GameMode
-    
+
     // 统计数据（来自 S3）
     var vpip: Double = 0.0
     var pfr: Double = 0.0
@@ -33,24 +33,34 @@ class OpponentModel {
     var wsd: Double = 0.0
     var threeBet: Double = 0.0
     var totalHands: Int = 0
-    
+
     // 风格分类
     var style: PlayerStyle = .unknown
-    
-    // 置信度计算
-    // 基于样本量：至少需要100手才有统计意义
-    // PokerStove等工具建议100+手
-    private let minHandsForConfidence = 100
-    
+
+    // MARK: - 置信度配置
+
+    /// 置信度计算常量
+    /// 达到此手数时置信度为 1.0
+    private static let minHandsForFullConfidence = 100
+
+    /// 可信阈值（达到此比例的置信度则认为数据可用）
+    private static let reliabilityThreshold: Double = 0.5
+
     var confidence: Double {
         guard totalHands > 0 else { return 0.0 }
         // 置信度从0到1，100手达到1.0
-        return min(1.0, Double(totalHands) / Double(minHandsForConfidence))
+        return min(1.0, Double(totalHands) / Double(Self.minHandsForFullConfidence))
     }
-    
+
     /// 是否可信（置信度高于阈值）
     var isReliable: Bool {
-        return confidence > 0.5  // 至少50手才认为可信
+        // 使用统一的阈值常量，与置信度计算保持一致
+        return confidence >= Self.reliabilityThreshold
+    }
+
+    /// 获取用于显示的置信度百分比
+    var confidencePercentage: String {
+        return String(format: "%.0f%%", confidence * 100)
     }
     
     init(playerName: String, gameMode: GameMode) {
@@ -73,21 +83,34 @@ class OpponentModel {
                 playerName, gameMode.rawValue, profileId
             )
         }
-        
-        guard let results = try? context.fetch(request),
-              let stats = results.first else {
-            return
+
+        do {
+            let results = try context.fetch(request)
+            guard let stats = results.first else {
+                #if DEBUG
+                print("⚠️ OpponentModel: 未找到玩家 \(playerName) 的统计数据")
+                #endif
+                return
+            }
+
+            self.vpip = stats.value(forKey: "vpip") as? Double ?? 0.0
+            self.pfr = stats.value(forKey: "pfr") as? Double ?? 0.0
+            self.af = stats.value(forKey: "af") as? Double ?? 0.0
+            self.wtsd = stats.value(forKey: "wtsd") as? Double ?? 0.0
+            self.wsd = stats.value(forKey: "wsd") as? Double ?? 0.0
+            self.threeBet = stats.value(forKey: "threeBet") as? Double ?? 0.0
+            self.totalHands = Int(stats.value(forKey: "totalHands") as? Int32 ?? 0)
+
+            #if DEBUG
+            print("📊 OpponentModel: 加载 \(playerName) 统计数据，\(totalHands) 手")
+            #endif
+
+            updateStyle()
+        } catch {
+            #if DEBUG
+            print("❌ OpponentModel: 加载 \(playerName) 统计数据失败: \(error.localizedDescription)")
+            #endif
         }
-        
-        self.vpip = stats.value(forKey: "vpip") as? Double ?? 0.0
-        self.pfr = stats.value(forKey: "pfr") as? Double ?? 0.0
-        self.af = stats.value(forKey: "af") as? Double ?? 0.0
-        self.wtsd = stats.value(forKey: "wtsd") as? Double ?? 0.0
-        self.wsd = stats.value(forKey: "wsd") as? Double ?? 0.0
-        self.threeBet = stats.value(forKey: "threeBet") as? Double ?? 0.0
-        self.totalHands = Int(stats.value(forKey: "totalHands") as? Int32 ?? 0)
-        
-        updateStyle()
     }
     
     /// 更新风格分类

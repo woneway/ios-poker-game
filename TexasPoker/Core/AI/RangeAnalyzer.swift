@@ -86,27 +86,150 @@ struct HandRange {
 
 /// Constants for range narrowing based on postflop actions
 /// 这些值基于GTO理论和经验值
+/// 注意：优先使用实例 config 中的值
 private enum RangeNarrowFactors {
     /// Wet board bet: range更极化，需要更紧
     static let wetBoardBet: Double = 0.85
-    
+
     /// Dry board bet: 可以包括更多诈唬
     static let dryBoardBet: Double = 0.95
-    
+
     /// Check: 大幅弱化范围
     static let check: Double = 0.70
-    
+
     /// Raise: 大幅强化范围（强牌+听牌）
     static let raise: Double = 0.50
-    
+
     /// Call: 中等牌力
     static let call: Double = 0.75
+
+    /// 从配置获取因子
+    static func factor(for type: FactorType, config: RangeConfig? = nil) -> Double {
+        guard let config = config else {
+            return defaultValue(for: type)
+        }
+
+        switch type {
+        case .wetBoardBet: return config.narrowFactors.wetBoardBet
+        case .dryBoardBet: return config.narrowFactors.dryBoardBet
+        case .check: return config.narrowFactors.check
+        case .raise: return config.narrowFactors.raise
+        case .call: return config.narrowFactors.call
+        }
+    }
+
+    enum FactorType {
+        case wetBoardBet, dryBoardBet, check, raise, call
+    }
+
+    private static func defaultValue(for type: FactorType) -> Double {
+        switch type {
+        case .wetBoardBet: return 0.85
+        case .dryBoardBet: return 0.95
+        case .check: return 0.70
+        case .raise: return 0.50
+        case .call: return 0.75
+        }
+    }
 }
 
 // MARK: - Range Analyzer
 
 /// Analyzes and estimates opponent hand ranges based on position and action
 class RangeAnalyzer {
+
+    // MARK: - 可配置范围（可通过 GameSettings 覆盖）
+
+    /// 预置范围配置
+    struct RangeConfig {
+        /// 位置对应的 Chen 分数阈值
+        let preflopRanges: [Position: Double]
+
+        /// 范围缩窄因子
+        let narrowFactors: NarrowFactors
+
+        struct NarrowFactors {
+            let wetBoardBet: Double
+            let dryBoardBet: Double
+            let check: Double
+            let raise: Double
+            let call: Double
+        }
+
+        /// 默认配置（GTO 8-max）
+        static let defaultConfig = RangeConfig(
+            preflopRanges: [
+                .utg: 7.0,      // ~14% of hands (88+, ATs+, KQs, AJo+)
+                .utgPlus1: 6.5, // ~17%
+                .mp: 6.0,       // ~20%
+                .hj: 5.0,       // ~25%
+                .co: 4.0,       // ~30%
+                .btn: 3.0,      // ~42%
+                .sb: 4.5,       // ~30% (3-bet or fold preferred)
+                .bb: 2.0        // ~45% (defend vs BTN open)
+            ],
+            narrowFactors: NarrowFactors(
+                wetBoardBet: 0.85,
+                dryBoardBet: 0.95,
+                check: 0.70,
+                raise: 0.50,
+                call: 0.75
+            )
+        )
+
+        /// 紧凶配置（更适合初学者）
+        static let tightConfig = RangeConfig(
+            preflopRanges: [
+                .utg: 9.0,
+                .utgPlus1: 8.0,
+                .mp: 7.0,
+                .hj: 6.0,
+                .co: 5.0,
+                .btn: 4.0,
+                .sb: 6.0,
+                .bb: 4.0
+            ],
+            narrowFactors: NarrowFactors(
+                wetBoardBet: 0.80,
+                dryBoardBet: 0.90,
+                check: 0.65,
+                raise: 0.45,
+                call: 0.70
+            )
+        )
+
+        /// 松凶配置（高风险）
+        static let looseAggressiveConfig = RangeConfig(
+            preflopRanges: [
+                .utg: 5.0,
+                .utgPlus1: 4.5,
+                .mp: 4.0,
+                .hj: 3.5,
+                .co: 2.5,
+                .btn: 2.0,
+                .sb: 3.0,
+                .bb: 1.5
+            ],
+            narrowFactors: NarrowFactors(
+                wetBoardBet: 0.90,
+                dryBoardBet: 1.0,
+                check: 0.75,
+                raise: 0.55,
+                call: 0.80
+            )
+        )
+    }
+
+    // MARK: - 实例属性
+
+    /// 当前使用的范围配置
+    var config: RangeConfig
+
+    // MARK: - 初始化
+
+    init(config: RangeConfig = .defaultConfig) {
+        self.config = config
+    }
 
     // MARK: - Constants
 
@@ -237,49 +360,50 @@ extension RangeAnalyzer {
     static func narrowRange(
         range: HandRange,
         action: PostflopAction,
-        board: BoardTexture
+        board: BoardTexture,
+        config: RangeConfig? = nil
     ) -> HandRange {
         var newWidth = range.rangeWidth
         var newDescription = range.description
-        
+
         switch action {
         case .bet:
             // Bet: maintain or slightly strengthen range
             if board.wetness > 0.6 {
                 // Wet board bet is tighter (more polarized)
-                newWidth *= RangeNarrowFactors.wetBoardBet
+                newWidth *= RangeNarrowFactors.factor(for: .wetBoardBet, config: config)
                 newDescription += " → Bet on wet board (强化)"
             } else {
                 // Dry board may include more bluffs
-                newWidth *= RangeNarrowFactors.dryBoardBet
+                newWidth *= RangeNarrowFactors.factor(for: .dryBoardBet, config: config)
                 newDescription += " → Bet on dry board (可能诈唬)"
             }
-            
+
         case .check:
             // Check: weaken range significantly
-            newWidth *= RangeNarrowFactors.check
+            newWidth *= RangeNarrowFactors.factor(for: .check, config: config)
             newDescription += " → Check (弱化)"
-            
+
         case .raise:
             // Raise: strengthen range significantly (strong hands + draws)
-            newWidth *= RangeNarrowFactors.raise
+            newWidth *= RangeNarrowFactors.factor(for: .raise, config: config)
             newDescription += " → Raise (强牌/听牌)"
-            
+
         case .call:
             // Call: medium strength (draws, medium pairs, showdown value)
-            newWidth *= RangeNarrowFactors.call
+            newWidth *= RangeNarrowFactors.factor(for: .call, config: config)
             newDescription += " → Call (中等牌力)"
-            
+
         case .fold:
             // Fold: range is eliminated
             newWidth = 0.0
             newDescription = "已弃牌"
         }
-        
+
         #if DEBUG
         print("📊 范围缩窄：\(Int(range.rangeWidth * 100))% → \(Int(newWidth * 100))%")
         #endif
-        
+
         return HandRange(
             position: range.position,
             action: range.action,

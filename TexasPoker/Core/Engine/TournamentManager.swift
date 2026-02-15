@@ -132,39 +132,51 @@ struct TournamentManager {
         handNumber: Int
     ) -> Player? {
         guard players.count < 8 else { return nil }
-        
+
         guard let newPlayer = generateRandomEntry(
             difficulty: difficulty,
             config: config,
             handNumber: handNumber
         ) else { return nil }
-        
-        // 检查名称是否重复，如果重复则添加编号
-        var finalName = newPlayer.name
-        var counter = 2
-        let existingNames = Set(players.map { $0.name })
-        
-        while existingNames.contains(finalName) {
-            finalName = "\(newPlayer.name)\(counter)"
-            counter += 1
-        }
-        
+
+        // 使用通用方法处理名称去重
+        let finalName = makeUniqueName(baseName: newPlayer.name, existingNames: Set(players.map { $0.name }))
+
         let playerToAdd = Player(
             name: finalName,
             chips: newPlayer.chips,
             isHuman: false,
             aiProfile: newPlayer.aiProfile
         )
-        
+
         players.append(playerToAdd)
-        
+
         #if DEBUG
         print("🎉 新玩家 \(finalName) 入场，筹码: \(playerToAdd.chips)")
         #endif
-        
+
         return playerToAdd
     }
-    
+
+    // MARK: - 通用辅助方法
+
+    /// 生成唯一的玩家名称（处理重复）
+    /// - Parameters:
+    ///   - baseName: 基础名称
+    ///   - existingNames: 已有名称集合
+    /// - Returns: 不重复的唯一名称
+    static func makeUniqueName(baseName: String, existingNames: Set<String>) -> String {
+        var finalName = baseName
+        var counter = 2
+
+        while existingNames.contains(finalName) {
+            finalName = "\(baseName)\(counter)"
+            counter += 1
+        }
+
+        return finalName
+    }
+
     // MARK: - AI Dynamic Entry (called from endHand)
     
     /// 检查并执行 AI 入场，返回新入场的玩家列表
@@ -206,23 +218,20 @@ struct TournamentManager {
         ) {
             // 使用 rebuy 筹码而非默认筹码
             let existingNames = Set(players.map { $0.name })
-            var finalName = newPlayer.name
-            var counter = 2
-            while existingNames.contains(finalName) {
-                finalName = "\(newPlayer.name)\(counter)"
-                counter += 1
-            }
-            
+
+            // 使用通用方法处理名称去重
+            let finalName = makeUniqueName(baseName: newPlayer.name, existingNames: existingNames)
+
             let entryPlayer = Player(
                 name: finalName,
                 chips: rebuyChips,
                 isHuman: false,
                 aiProfile: newPlayer.aiProfile
             )
-            
+
             replaceEliminatedPlayer(at: seatIndex, with: entryPlayer, players: &players)
             newEntries.append(entryPlayer)
-            
+
             #if DEBUG
             print("🎉 锦标赛新 AI \(finalName) 入场座位 \(seatIndex)，筹码: \(rebuyChips)")
             #endif
