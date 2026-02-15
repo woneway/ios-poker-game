@@ -37,9 +37,20 @@ class OpponentModel {
     // 风格分类
     var style: PlayerStyle = .unknown
     
-    // 置信度（基于样本量）
+    // 置信度计算
+    // 基于样本量：至少需要100手才有统计意义
+    // PokerStove等工具建议100+手
+    private let minHandsForConfidence = 100
+    
     var confidence: Double {
-        return min(1.0, Double(totalHands) / 50.0)
+        guard totalHands > 0 else { return 0.0 }
+        // 置信度从0到1，100手达到1.0
+        return min(1.0, Double(totalHands) / Double(minHandsForConfidence))
+    }
+    
+    /// 是否可信（置信度高于阈值）
+    var isReliable: Bool {
+        return confidence > 0.5  // 至少50手才认为可信
     }
     
     init(playerName: String, gameMode: GameMode) {

@@ -18,8 +18,8 @@ extension AIProfile {
         aggression: 0.08,
         bluffFreq: 0.02,
         foldTo3Bet: 0.10,
-        cbetFreq: 0.12,
-        cbetTurnFreq: 0.08,
+        cbetFreq: 0.05,        // 被动玩家很少c-bet
+        cbetTurnFreq: 0.03,
         positionAwareness: 0.05,
         tiltSensitivity: 0.4,
         callDownTendency: 0.90
@@ -36,8 +36,8 @@ extension AIProfile {
         aggression: 0.15,
         bluffFreq: 0.01,
         foldTo3Bet: 0.45,
-        cbetFreq: 0.25,
-        cbetTurnFreq: 0.15,
+        cbetFreq: 0.10,        // 紧弱玩家很少c-bet
+        cbetTurnFreq: 0.05,
         positionAwareness: 0.25,
         tiltSensitivity: 0.15,
         callDownTendency: 0.40
@@ -88,7 +88,7 @@ extension AIProfile {
         tightness: 0.60,
         aggression: 0.95,
         bluffFreq: 0.15,
-        foldTo3Bet: 0.75,
+        foldTo3Bet: 0.35,     // 短筹码不应该频繁fold 3bet
         cbetFreq: 0.90,
         cbetTurnFreq: 0.80,
         positionAwareness: 0.90,
@@ -106,7 +106,7 @@ extension AIProfile {
         aggression: 0.70,
         bluffFreq: 0.20,
         foldTo3Bet: 0.55,
-        cbetFreq: 0.35,
+        cbetFreq: 0.60,        // 正常c-bet频率，只是偶尔慢打
         cbetTurnFreq: 0.50,
         positionAwareness: 0.75,
         tiltSensitivity: 0.12,

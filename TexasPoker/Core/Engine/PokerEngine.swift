@@ -42,6 +42,9 @@ class PokerEngine: ObservableObject {
     // Elimination tracking (for final rankings)
     @Published var eliminationOrder: [(name: String, avatar: String, hand: Int, isHuman: Bool)] = []
     
+    /// 追踪本手牌所有街的下注动作（用于AI决策如triple barrel检测）
+    var bettingHistory: [Street: [BetAction]] = [:]
+    
     var smallBlindAmount: Int = 10
     var bigBlindAmount: Int = 20
     
@@ -269,6 +272,22 @@ class PokerEngine: ObservableObject {
                                  result.playerUpdate.currentBet != player.currentBet
         if actionChangedState {
             hasActed[playerID] = true
+            
+            // 记录下注历史（用于AI决策如triple barrel检测）
+            if result.potAddition > 0 {
+                let betType: BetAction.ActionType
+                switch action {
+                case .call: betType = .call
+                case .raise: betType = .raise
+                case .allIn: betType = .raise  // allIn treated as raise for betting history
+                case .check, .fold: betType = .check
+                }
+                let betAction = BetAction(street: currentStreet, type: betType, amount: result.potAddition)
+                if bettingHistory[currentStreet] == nil {
+                    bettingHistory[currentStreet] = []
+                }
+                bettingHistory[currentStreet]?.append(betAction)
+            }
         }
         
         // Side effects: sound, log, stats, animation

@@ -52,7 +52,56 @@ struct BetAction {
 // MARK: - Bluff Detector
 
 /// Detects bluffing patterns based on betting history and opponent stats
+///
+/// Bluff weights are based on poker heuristics:
+/// - High AF: Aggressive players bluff more often (经验值)
+/// - Triple barrel: 3 streets of betting often indicates polarization (GTO理论)
+/// - Dry board + bet: Easier to represent strong hands, so more likely to be bluff (GTO理论)
+/// - Wet board + bet: Usually value-heavy, but continued aggression can be bluff (经验值)
+/// - River overbet: Most polarized play, often bluff (GTO理论)
+/// - Inconsistent sizing: Sign of weakness/indecision (经验值)
 class BluffDetector {
+
+    // MARK: - Constants
+
+    /// Threshold for high aggression factor
+    private static let highAFThreshold: Double = 3.0
+
+    /// Minimum bet history count for triple barrel detection
+    private static let tripleBarrelMinCount: Int = 3
+
+    /// Dry board wetness threshold
+    private static let dryBoardThreshold: Double = 0.3
+
+    /// Wet board wetness threshold
+    private static let wetBoardThreshold: Double = 0.7
+
+    /// Minimum bet history for wet board continuation check
+    private static let wetBoardContinuationMinCount: Int = 2
+
+    /// River overbet ratio threshold (> 1.2x pot)
+    private static let overbetRatioThreshold: Double = 1.2
+
+    /// Variance threshold for inconsistent sizing
+    private static let sizingVarianceThreshold: Double = 0.3
+
+    /// Minimum hands for good confidence
+    private static let minHandsForConfidence: Int = 30
+
+    /// Maximum bluff probability cap
+    private static let maxBluffProbability: Double = 0.90
+
+    // MARK: - Bluff Weights
+
+    /// Weights for each bluff signal (经验值，来自GTO理论和数据)
+    private struct BluffWeights {
+        static let highAF: Double = 0.20         // AF > 3.0 高于正常
+        static let tripleBarrel: Double = 0.25   // 3条街持续下注
+        static let dryBoard: Double = 0.15       // 干燥面+大注
+        static let wetBoard: Double = 0.10       // 湿润面持续攻击
+        static let riverOverbet: Double = 0.20   // 河牌超池下注
+        static let inconsistentSizing: Double = 0.10 // 尺寸不一致
+    }
     
     /// Calculate bluff probability based on opponent behavior and betting patterns
     /// - Parameters:
@@ -72,57 +121,65 @@ class BluffDetector {
         var signals: [BluffSignal] = []
         
         // 1. High aggression factor (AF > 3.0 indicates aggressive player)
-        if opponent.af > 3.0 {
-            bluffScore += 0.20
+        // 激进玩家诈唬频率更高
+        if opponent.af > Self.highAFThreshold {
+            bluffScore += BluffWeights.highAF
             signals.append(.highAggression)
         }
-        
+
         // 2. Triple barrel (3 streets of continuous betting)
-        if betHistory.count >= 3 {
-            let allBets = betHistory.allSatisfy { $0.type == .bet || $0.type == .raise }
+        // 三条街持续下注通常表示极化范围（强牌或纯诈）
+        if betHistory.count >= Self.tripleBarrelMinCount {
+            // 使用兼容性写法替代 allSatisfy
+            let allBets = betHistory.allSatisfy { $0.type == .bet || $0.type == .raise } ||
+                          betHistory.filter { $0.type == .bet || $0.type == .raise }.count == betHistory.count
             if allBets {
-                bluffScore += 0.25
+                bluffScore += BluffWeights.tripleBarrel
                 signals.append(.tripleBarrel)
             }
         }
-        
+
         // 3. Board texture analysis
-        if board.wetness < 0.3 {
+        // 干燥面：容易代表强牌，诈唬机会更大
+        // 湿润面：持续攻击通常是真强牌
+        if board.wetness < Self.dryBoardThreshold {
             // Dry board: easier to represent strong hands (bluff opportunity)
-            bluffScore += 0.15
+            bluffScore += BluffWeights.dryBoard
             signals.append(.dryBoardLargeBet)
-        } else if board.wetness > 0.7 {
+        } else if board.wetness > Self.wetBoardThreshold {
             // Wet board: continued aggression may indicate bluff
-            if betHistory.count >= 2 {
-                bluffScore += 0.10
+            if betHistory.count >= Self.wetBoardContinuationMinCount {
+                bluffScore += BluffWeights.wetBoard
                 signals.append(.wetBoardContinue)
             }
         }
-        
+
         // 4. River overbet (bet > 1.2x pot on river)
+        // 河牌超池是最极化的下注，通常是诈
         if let lastBet = betHistory.last, lastBet.street == .river {
             let sizeRatio = Double(lastBet.amount) / Double(max(1, potSize))
-            if sizeRatio > 1.2 {
-                bluffScore += 0.20
+            if sizeRatio > Self.overbetRatioThreshold {
+                bluffScore += BluffWeights.riverOverbet
                 signals.append(.riverOverbet)
             }
         }
-        
+
         // 5. Inconsistent bet sizing (high variance in bet sizes)
+        // 尺寸不一致表示软弱或犹豫
         if betHistory.count >= 2 {
             let sizes = betHistory.map { Double($0.amount) / Double(max(1, potSize)) }
             let variance = calculateVariance(sizes)
-            if variance > 0.3 {
-                bluffScore += 0.10
+            if variance > Self.sizingVarianceThreshold {
+                bluffScore += BluffWeights.inconsistentSizing
                 signals.append(.inconsistentSizing)
             }
         }
-        
-        // Cap probability at 85% (never 100% certain)
-        let probability = min(0.85, bluffScore)
-        
+
+        // Cap probability at 90% (永远不要100%确定)
+        let probability = min(Self.maxBluffProbability, bluffScore)
+
         // Confidence based on sample size (need at least 30 hands for good confidence)
-        let confidence = min(1.0, Double(opponent.totalHands) / 30.0)
+        let confidence = min(1.0, Double(opponent.totalHands) / Double(Self.minHandsForConfidence))
         
         return BluffIndicator(
             bluffProbability: probability,
@@ -131,11 +188,12 @@ class BluffDetector {
         )
     }
     
-    /// Calculate variance of a set of values
+    /// Calculate variance of a set of values (sample variance)
     private static func calculateVariance(_ values: [Double]) -> Double {
-        guard !values.isEmpty else { return 0 }
+        guard values.count > 1 else { return 0 }
         let mean = values.reduce(0, +) / Double(values.count)
         let squaredDiffs = values.map { pow($0 - mean, 2) }
-        return squaredDiffs.reduce(0, +) / Double(values.count)
+        // 使用样本方差 (n-1) 而不是总体方差 (n)
+        return squaredDiffs.reduce(0, +) / Double(values.count - 1)
     }
 }

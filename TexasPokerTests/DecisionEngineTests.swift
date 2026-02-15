@@ -127,8 +127,10 @@ class DecisionEngineTests: XCTestCase {
     func testOpponentModelCache() {
         // Reset cache
         DecisionEngine.resetOpponentModels()
-        XCTAssertEqual(DecisionEngine.opponentModels.count, 0)
-        
+        #if DEBUG
+        XCTAssertEqual(DecisionEngine.opponentModelCount, 0)
+        #endif
+
         // Note: This test would require Core Data setup to fully test loadOpponentModel
         // For now, we just verify the cache reset works
     }

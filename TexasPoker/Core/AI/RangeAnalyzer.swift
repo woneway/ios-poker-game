@@ -82,11 +82,40 @@ struct HandRange {
     var description: String
 }
 
+// MARK: - Range Narrowing Factors
+
+/// Constants for range narrowing based on postflop actions
+/// 这些值基于GTO理论和经验值
+private enum RangeNarrowFactors {
+    /// Wet board bet: range更极化，需要更紧
+    static let wetBoardBet: Double = 0.85
+    
+    /// Dry board bet: 可以包括更多诈唬
+    static let dryBoardBet: Double = 0.95
+    
+    /// Check: 大幅弱化范围
+    static let check: Double = 0.70
+    
+    /// Raise: 大幅强化范围（强牌+听牌）
+    static let raise: Double = 0.50
+    
+    /// Call: 中等牌力
+    static let call: Double = 0.75
+}
+
 // MARK: - Range Analyzer
 
 /// Analyzes and estimates opponent hand ranges based on position and action
 class RangeAnalyzer {
-    
+
+    // MARK: - Constants
+
+    /// Default range width for unknown position
+    private static let defaultRangeWidth: Double = 0.20
+
+    /// Position awareness threshold (below this, position is ignored)
+    private static let positionAwarenessThreshold: Double = 0.1
+
     /// Preflop opening ranges by position (Chen score threshold)
     /// Based on GTO solver outputs for 8-max games
     static let preflopRanges: [Position: Double] = [
@@ -99,7 +128,24 @@ class RangeAnalyzer {
         .sb: 4.5,       // ~30% (3-bet or fold preferred)
         .bb: 2.0        // ~45% (defend vs BTN open)
     ]
-    
+
+    // MARK: - Chen Formula Conversion Constants
+
+    /// Chen threshold range minimum
+    private static let chenThresholdMin: Double = 2.0
+
+    /// Chen threshold range maximum
+    private static let chenThresholdMax: Double = 14.0
+
+    /// Base range multiplier
+    private static let chenRangeMultiplier: Double = 0.45
+
+    /// Minimum possible range width
+    private static let minRangeWidth: Double = 0.05
+
+    /// Maximum possible range width
+    private static let maxRangeWidth: Double = 0.50
+
     /// Estimate opponent's hand range based on position and action
     /// - Parameters:
     ///   - position: Player's position at the table
@@ -111,15 +157,15 @@ class RangeAnalyzer {
         action: PreflopAction,
         facingRaise: Bool
     ) -> HandRange {
-        
+
         var rangeWidth: Double
         var description: String
-        
+
         switch action {
         case .fold:
             rangeWidth = 0.0
             description = "已弃牌"
-            
+
         case .call:
             if facingRaise {
                 // Calling a raise: set-mining pairs, suited connectors (~15%)
@@ -130,11 +176,11 @@ class RangeAnalyzer {
                 rangeWidth = 0.25
                 description = "跟注/平跟：小对子, 同花牌, 连牌 (~25%)"
             }
-            
+
         case .raise:
             // Opening raise: use position-based threshold
-            guard let threshold = preflopRanges[position] else {
-                rangeWidth = 0.20
+            guard let threshold = Self.preflopRanges[position] else {
+                rangeWidth = Self.defaultRangeWidth
                 description = "加注：未知位置"
                 return HandRange(
                     position: position,
@@ -144,11 +190,13 @@ class RangeAnalyzer {
                     description: description
                 )
             }
-            
+
             // Convert Chen threshold to range width
-            // Chen 7.0 → 30% width (1.0 - 7.0/10.0)
-            // Chen 3.0 → 70% width (1.0 - 3.0/10.0)
-            rangeWidth = 1.0 - (threshold / 10.0)
+            // Chen 7.0 at UTG ~14% range
+            // Chen 3.0 at BTN ~42% range
+            // 使用非线性映射
+            let baseRange = max(Self.minRangeWidth, min(Self.maxRangeWidth, (threshold - Self.chenThresholdMin) / (Self.chenThresholdMax - Self.chenThresholdMin) * Self.chenRangeMultiplier))
+            rangeWidth = baseRange
             
             // Generate position-specific description
             let posName = position.rawValue.uppercased()
@@ -182,52 +230,62 @@ extension RangeAnalyzer {
     
     /// Narrow range based on postflop action and board texture
     /// - Parameters:
-    ///   - range: The range to narrow (modified in place)
+    ///   - range: The range to narrow
     ///   - action: The postflop action taken
     ///   - board: The board texture
+    /// - Returns: New narrowed range (immutable, functional approach)
     static func narrowRange(
-        range: inout HandRange,
+        range: HandRange,
         action: PostflopAction,
         board: BoardTexture
-    ) {
-        let originalWidth = range.rangeWidth
+    ) -> HandRange {
+        var newWidth = range.rangeWidth
+        var newDescription = range.description
         
         switch action {
         case .bet:
             // Bet: maintain or slightly strengthen range
             if board.wetness > 0.6 {
                 // Wet board bet is tighter (more polarized)
-                range.rangeWidth *= 0.85
-                range.description += " → Bet on wet board (强化)"
+                newWidth *= RangeNarrowFactors.wetBoardBet
+                newDescription += " → Bet on wet board (强化)"
             } else {
                 // Dry board may include more bluffs
-                range.rangeWidth *= 0.95
-                range.description += " → Bet on dry board (可能诈唬)"
+                newWidth *= RangeNarrowFactors.dryBoardBet
+                newDescription += " → Bet on dry board (可能诈唬)"
             }
             
         case .check:
             // Check: weaken range significantly
-            range.rangeWidth *= 0.70
-            range.description += " → Check (弱化)"
+            newWidth *= RangeNarrowFactors.check
+            newDescription += " → Check (弱化)"
             
         case .raise:
             // Raise: strengthen range significantly (strong hands + draws)
-            range.rangeWidth *= 0.50
-            range.description += " → Raise (强牌/听牌)"
+            newWidth *= RangeNarrowFactors.raise
+            newDescription += " → Raise (强牌/听牌)"
             
         case .call:
             // Call: medium strength (draws, medium pairs, showdown value)
-            range.rangeWidth *= 0.75
-            range.description += " → Call (中等牌力)"
+            newWidth *= RangeNarrowFactors.call
+            newDescription += " → Call (中等牌力)"
             
         case .fold:
             // Fold: range is eliminated
-            range.rangeWidth = 0.0
-            range.description = "已弃牌"
+            newWidth = 0.0
+            newDescription = "已弃牌"
         }
         
         #if DEBUG
-        print("📊 范围缩窄：\(Int(originalWidth * 100))% → \(Int(range.rangeWidth * 100))%")
+        print("📊 范围缩窄：\(Int(range.rangeWidth * 100))% → \(Int(newWidth * 100))%")
         #endif
+        
+        return HandRange(
+            position: range.position,
+            action: range.action,
+            street: range.street,
+            rangeWidth: newWidth,
+            description: newDescription
+        )
     }
 }

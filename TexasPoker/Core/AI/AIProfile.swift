@@ -1,10 +1,56 @@
 import Foundation
 
 struct AIProfile: Equatable {
+
+    // MARK: - Tilt Adjustment Coefficients (常量定义)
+
+    /// Tilt 对 tightness 的影响系数：tilt 增加 1.0 会降低 tightness
+    private static let tiltEffectOnTightness: Double = 0.4
+
+    /// Tilt 对 aggression 的影响系数：tilt 增加 1.0 会增加 aggression
+    private static let tiltEffectOnAggression: Double = 0.3
+
+    /// Tilt 对 bluff frequency 的影响系数
+    private static let tiltEffectOnBluffFreq: Double = 0.25
+
+    /// Tilt 对 call-down tendency 的影响系数
+    private static let tiltEffectOnCallDown: Double = 0.2
+
+    /// Minimum effective tightness after tilt (防止过紧)
+    private static let minEffectiveTightness: Double = 0.05
+
+    /// Maximum effective values (防止超出范围)
+    private static let maxEffectiveAggression: Double = 1.0
+    private static let maxEffectiveBluffFreq: Double = 0.8
+    private static let maxEffectiveCallDown: Double = 1.0
+
+    // MARK: - Position Bonus Constants (GTO-based)
+
+    /// Position bonuses for VPIP adjustment
+    private static let positionBonuses: [Int: Double] = [
+        0: 0.20,   // BTN - widest opening range
+        1: -0.05,  // SB - positional disadvantage postflop
+        2: 0.05,   // BB - already invested, wider defense
+        3: -0.18,  // UTG - tightest opening range
+        4: -0.14,  // UTG+1
+        5: -0.08,  // MP
+        6: 0.06,   // HJ (hijack)
+        7: 0.14    // CO (cutoff)
+    ]
+
+    struct Constants {
+        // Preflop threshold base multiplier
+        static let preflopThresholdBase: Double = 0.7
+
+        // Minimum and maximum threshold values
+        static let minPreflopThreshold: Double = 0.05
+        static let maxPreflopThreshold: Double = 0.9
+    }
+
     let name: String
     let avatar: String           // Emoji avatar
     let description: String
-    
+
     // Core parameters (0.0 - 1.0)
     var tightness: Double        // High = plays fewer hands (low VPIP)
     var aggression: Double       // High = raises more, calls less (PFR/VPIP)
@@ -12,85 +58,83 @@ struct AIProfile: Equatable {
     let foldTo3Bet: Double       // How often folds facing a re-raise
     let cbetFreq: Double         // Continuation bet frequency on flop
     let cbetTurnFreq: Double     // Turn c-bet frequency (barrel rate)
-    
+
     // Position awareness (0.0 = ignores position, 1.0 = fully position-dependent)
     let positionAwareness: Double
-    
+
     // Tilt sensitivity (0.0 = never tilts, 1.0 = tilts easily after bad beats)
     let tiltSensitivity: Double
-    
+
     // Call-down tendency: how willing to call bets without strong hand (for calling stations)
     var callDownTendency: Double
-    
+
     // Current tilt level (mutable, adjusted after each hand)
     var currentTilt: Double = 0.0
-    
+
     // MARK: - Effective Parameters (adjusted by tilt)
-    
+
     /// Effective tightness after tilt adjustment
     /// Tilt makes players looser (play more hands)
     var effectiveTightness: Double {
-        return max(0.05, tightness - currentTilt * 0.4)
+        return max(Self.minEffectiveTightness, tightness - currentTilt * Self.tiltEffectOnTightness)
     }
-    
+
     /// Effective aggression after tilt adjustment
     /// Tilt makes players more aggressive (raise more)
     var effectiveAggression: Double {
-        return min(1.0, aggression + currentTilt * 0.3)
+        return min(Self.maxEffectiveAggression, aggression + currentTilt * Self.tiltEffectOnAggression)
     }
-    
+
     /// Effective bluff frequency after tilt adjustment
     /// Tilt increases bluffing
     var effectiveBluffFreq: Double {
-        return min(0.8, bluffFreq + currentTilt * 0.25)
+        return min(Self.maxEffectiveBluffFreq, bluffFreq + currentTilt * Self.tiltEffectOnBluffFreq)
     }
-    
+
     /// Effective call-down tendency after tilt
     /// Tilt increases stubbornness (calling more)
     var effectiveCallDown: Double {
-        return min(1.0, callDownTendency + currentTilt * 0.2)
+        return min(Self.maxEffectiveCallDown, callDownTendency + currentTilt * Self.tiltEffectOnCallDown)
     }
-    
+
     // MARK: - Position Adjustments
-    
+
     /// VPIP adjustment based on seat position relative to dealer
     /// seatOffset: 0=BTN, 1=SB, 2=BB, 3=UTG, 4=UTG+1, 5=MP, 6=HJ, 7=CO
     func vpipAdjustment(seatOffset: Int, totalPlayers: Int) -> Double {
         guard positionAwareness > 0.1 else { return 0 }
-        
+
         // GTO-based position adjustments
         // BTN is the best position, UTG is the worst
-        let posBonus: Double
-        switch seatOffset {
-        case 0:  posBonus = 0.20   // BTN - widest opening range
-        case 1:  posBonus = -0.05  // SB - positional disadvantage postflop
-        case 2:  posBonus = 0.05   // BB - already invested, wider defense
-        case 3:  posBonus = -0.18  // UTG - tightest opening range
-        case 4:  posBonus = -0.14  // UTG+1
-        case 5:  posBonus = -0.08  // MP
-        case 6:  posBonus = 0.06   // HJ (hijack)
-        case 7:  posBonus = 0.14   // CO (cutoff)
-        default: posBonus = 0.0
-        }
-        
+        let posBonus = Self.positionBonuses[seatOffset] ?? 0.0
+
         return posBonus * positionAwareness
     }
-    
+
     // MARK: - Starting Hand Strength Threshold
-    
+
     /// Returns the minimum hand strength (0-1) to voluntarily enter the pot preflop
     /// Lower threshold = plays more hands
     func preflopThreshold(seatOffset: Int, totalPlayers: Int) -> Double {
-        let base = effectiveTightness * 0.7  // 0.0 ~ 0.7
+        let base = effectiveTightness * Constants.preflopThresholdBase  // 0.0 ~ 0.7
         let posAdj = vpipAdjustment(seatOffset: seatOffset, totalPlayers: totalPlayers)
-        return max(0.05, min(0.9, base - posAdj))
+        return max(Constants.minPreflopThreshold, min(Constants.maxPreflopThreshold, base - posAdj))
     }
     
     // MARK: - Equatable
-    
+
     static func == (lhs: AIProfile, rhs: AIProfile) -> Bool {
         return lhs.name == rhs.name
-            && lhs.currentTilt == rhs.currentTilt  // 修复：包含可变的tilt状态
+            && lhs.tightness == rhs.tightness
+            && lhs.aggression == rhs.aggression
+            && lhs.bluffFreq == rhs.bluffFreq
+            && lhs.foldTo3Bet == rhs.foldTo3Bet
+            && lhs.cbetFreq == rhs.cbetFreq
+            && lhs.cbetTurnFreq == rhs.cbetTurnFreq
+            && lhs.positionAwareness == rhs.positionAwareness
+            && lhs.tiltSensitivity == rhs.tiltSensitivity
+            && lhs.callDownTendency == rhs.callDownTendency
+            && lhs.currentTilt == rhs.currentTilt
     }
     
     // MARK: - 7 Preset Characters
@@ -148,8 +192,8 @@ struct AIProfile: Equatable {
         aggression: 0.12,      // Almost never raises
         bluffFreq: 0.03,       // Doesn't bluff (just calls)
         foldTo3Bet: 0.15,      // Doesn't fold to 3-bets either (calls!)
-        cbetFreq: 0.18,        // Rarely bets, prefers to check-call
-        cbetTurnFreq: 0.10,    // Almost never fires turn
+        cbetFreq: 0.05,        // Almost never c-bets (passive player)
+        cbetTurnFreq: 0.02,    // Almost never fires turn
         positionAwareness: 0.1, // Ignores position
         tiltSensitivity: 0.2,
         callDownTendency: 0.85  // THE defining trait: calls down with anything

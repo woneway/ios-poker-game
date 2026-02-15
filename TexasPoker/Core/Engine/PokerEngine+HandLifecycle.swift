@@ -22,6 +22,7 @@ extension PokerEngine {
         hasActed = [:]
         lastRaiserID = nil
         preflopAggressorID = nil
+        bettingHistory = [:]  // 重置下注历史
         
         // Reset player states
         for i in 0..<players.count {
@@ -129,11 +130,6 @@ extension PokerEngine {
         
         // Record hand end for statistics
         recordHandEnd()
-        
-        // Record Hero win/loss for difficulty adjustment
-        if let hero = players.first(where: { $0.isHuman }) {
-            DecisionEngine.difficultyManager.recordHand(heroWon: winners.contains(hero.id))
-        }
         
         // Check for blind level up in tournaments
         if gameMode == .tournament, let config = tournamentConfig {
