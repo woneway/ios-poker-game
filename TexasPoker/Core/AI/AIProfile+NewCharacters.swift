@@ -11,6 +11,7 @@ extension AIProfile {
     /// VPIP 60%, PFR 5%, AF 0.8
     /// 经常limp入池，很少加注，喜欢跟注看牌
     static let newbieBob = AIProfile(
+        id: "newbie_bob",
         name: "新手鲍勃",
         avatar: "🐟",
         description: "刚学打牌，什么牌都玩，从不弃牌",
@@ -29,6 +30,7 @@ extension AIProfile {
     /// VPIP 12%, PFR 3%, AF 0.5
     /// 只打好牌，但是只跟注不加注，容易被挤出底池
     static let tightMary = AIProfile(
+        id: "tight_mary",
         name: "玛丽",
         avatar: "🐢",
         description: "只打好牌，但太被动，从不主动加注",
@@ -47,6 +49,7 @@ extension AIProfile {
     /// VPIP 6%, PFR 5%, AF 5.0
     /// 只玩 AA/KK/QQ/AK，几乎不参与任何牌
     static let nitSteve = AIProfile(
+        id: "nit_steve",
         name: "史蒂夫",
         avatar: "🥶",
         description: "超级紧凶，只玩顶级牌，一小时看不到几手牌",
@@ -65,6 +68,7 @@ extension AIProfile {
     /// VPIP 45%, PFR 40%, AF 4.5
     /// 经常诈唬，难读，但容易被抓
     static let bluffJack = AIProfile(
+        id: "bluff_jack",
         name: "杰克",
         avatar: "🎭",
         description: "诈唬狂魔，半池以上都是诈唬，容易被抓鸡",
@@ -82,6 +86,7 @@ extension AIProfile {
     /// 12. 短筹码专家 (Short Stack Sam)
     /// 擅长 push/fold 策略，经常 all-in
     static let shortStackSam = AIProfile(
+        id: "short_stack_sam",
         name: "山姆",
         avatar: "💰",
         description: "短筹码专家，要么全下要么弃牌",
@@ -99,6 +104,7 @@ extension AIProfile {
     /// 13. 陷阱大师 (Trapper Tony)
     /// 喜欢慢打大牌，经常 check-raise
     static let trapperTony = AIProfile(
+        id: "trapper_tony",
         name: "托尼",
         avatar: "🕸️",
         description: "陷阱大师，喜欢慢打大牌，check-raise 高手",
@@ -116,6 +122,7 @@ extension AIProfile {
     /// 14. 天才少年 (Prodigy Pete)
     /// 适应性强，会根据对手调整策略
     static let prodigyPete = AIProfile(
+        id: "prodigy_pete",
         name: "皮特",
         avatar: "🧠",
         description: "天才少年，适应性强，会根据对手调整策略",
@@ -133,6 +140,7 @@ extension AIProfile {
     /// 15. 老手维克多 (Veteran Victor)
     /// 经验丰富，会针对对手弱点
     static let veteranVictor = AIProfile(
+        id: "veteran_victor",
         name: "维克多",
         avatar: "🎖️",
         description: "老牌高手，经验丰富，专门抓鱼",

@@ -1,18 +1,22 @@
 import SwiftUI
 import CoreData
+import TexasPoker
 
 // MARK: - Enhanced Statistics View
 /// Enhanced statistics view with charts and detailed analytics
 struct EnhancedStatisticsView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @ObservedObject private var profiles = ProfileManager.shared
-    
+
     @State private var selectedMode: GameMode = .cashGame
     @State private var selectedTimeRange: StatisticsCalculator.TimeRange = .all
     @State private var showExportSheet = false
     @State private var exportURL: URL?
     @State private var handHistoryData: [StatisticsCalculator.HandHistorySummary] = []
     @State private var positionStats: [StatisticsCalculator.PositionStat] = []
+
+    // AI opponent names for batch stats calculation
+    private let aiNames = ["石头", "疯子麦克", "安娜", "老狐狸", "鲨鱼汤姆", "艾米", "大卫"]
 
     // Use TimeRange from StatisticsCalculator
     
@@ -226,7 +230,35 @@ struct EnhancedStatisticsView: View {
         handHistoryData = fetchHandHistory()
         positionStats = calculatePositionStatsFromHistory()
     }
-    
+
+    // MARK: - Batch Stats Calculation (Performance Optimization)
+    // Cache for batch stats to avoid repeated queries
+    @State private var cachedBatchStats: [String: PlayerStats?] = [:]
+    @State private var lastStatsCalculationTime: Date = Date.distantPast
+    private let statsCacheValidityInterval: TimeInterval = 5.0 // Cache for 5 seconds
+
+    /// Get batch stats using optimized single-query approach
+    private func getBatchStats() -> [String: PlayerStats?] {
+        // Return cached stats if still valid
+        if Date().timeIntervalSince(lastStatsCalculationTime) < statsCacheValidityInterval,
+           !cachedBatchStats.isEmpty {
+            return cachedBatchStats
+        }
+
+        let profileId = profiles.currentProfileIdForData
+        let allPlayers = ["Hero"] + aiNames
+
+        // Use batch calculation - much more efficient than individual queries
+        cachedBatchStats = StatisticsCalculator.shared.calculateBatchStats(
+            playerNames: allPlayers,
+            gameMode: selectedMode,
+            profileId: profileId
+        )
+        lastStatsCalculationTime = Date()
+
+        return cachedBatchStats
+    }
+
     private func fetchHandHistory() -> [StatisticsCalculator.HandHistorySummary] {
         // Fetch from Core Data via StatisticsCalculator
         return StatisticsCalculator.shared.fetchHandHistorySummaries(
@@ -247,16 +279,13 @@ struct EnhancedStatisticsView: View {
     
     // MARK: - Data Calculation Helpers
     private func getHeroStats() -> HeroStatsSummary {
-        let profileId = profiles.currentProfileIdForData
-        
-        if let stats = StatisticsCalculator.shared.calculateStats(
-            playerName: "Hero",
-            gameMode: selectedMode,
-            profileId: profileId
-        ) {
+        // Use batch stats for better performance
+        let batchStats = getBatchStats()
+
+        if let stats = batchStats["Hero"] ?? nil {
             let bb = 20 // Default big blind
             let bbPer100 = stats.totalHands > 0 ? Double(stats.totalWinnings) / Double(bb) / Double(stats.totalHands) * 100 : 0
-            
+
             return HeroStatsSummary(
                 profit: stats.totalWinnings,
                 hands: stats.totalHands,
@@ -271,20 +300,16 @@ struct EnhancedStatisticsView: View {
                 showdownRate: stats.wtsd
             )
         }
-        
+
         return HeroStatsSummary()
     }
-    
+
     private func getAIStats() -> [AIOpponentStats] {
-        let profileId = profiles.currentProfileIdForData
-        let aiNames = ["石头", "疯子麦克", "安娜", "老狐狸", "鲨鱼汤姆", "艾米", "大卫"]
-        
+        // Use batch stats for better performance
+        let batchStats = getBatchStats()
+
         return aiNames.compactMap { name in
-            if let stats = StatisticsCalculator.shared.calculateStats(
-                playerName: name,
-                gameMode: selectedMode,
-                profileId: profileId
-            ) {
+            if let stats = batchStats[name] ?? nil {
                 return AIOpponentStats(
                     name: name,
                     hands: stats.totalHands,

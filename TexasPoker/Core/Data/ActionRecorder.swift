@@ -55,6 +55,7 @@ class ActionRecorder {
     ///   - isHuman: Whether this player is a human (for stats isolation)
     func recordAction(
         playerName: String,
+        playerUniqueId: String?,  // 新增参数
         action: PlayerAction,
         amount: Int,
         street: Street,
@@ -70,6 +71,7 @@ class ActionRecorder {
             actionEntity.setValue(UUID(), forKey: "id")
             actionEntity.setValue(hand, forKey: "handHistory")
             actionEntity.setValue(playerName, forKey: "playerName")
+            actionEntity.setValue(playerUniqueId, forKey: "playerUniqueId")  // 新增
             actionEntity.setValue(action.description, forKey: "action")
             actionEntity.setValue(Int32(amount), forKey: "amount")
             actionEntity.setValue(street.rawValue, forKey: "street")

@@ -65,6 +65,12 @@ class PokerEngine: ObservableObject {
     /// 标记引擎已被销毁（防止 deinit 中重复操作）
     private var isEngineDestroyed: Bool = false
     
+    /// 标记引擎的异步任务是否已取消（用于防止销毁后异步任务访问已释放对象）
+    private var isTaskCancelled: Bool = false
+    
+    /// 当前异步任务的唯一标识符，用于防止竞态条件
+    private var currentTaskId: Int = 0
+    
     init(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         self.deck = Deck()
         self.players = []
@@ -193,8 +199,13 @@ class PokerEngine: ObservableObject {
     // MARK: - Lifecycle
 
     deinit {
+        // 先取消所有异步任务，防止销毁后访问已释放对象
+        isTaskCancelled = true
+        currentTaskId += 1  // 使所有待处理的异步任务失效
+        isEngineDestroyed = true
+        
         // 只有已注册的引擎才需要注销，避免重复操作
-        if isRegistered && !isEngineDestroyed {
+        if isRegistered {
             DecisionEngine.unregisterEngine(self)
         }
     }
@@ -202,6 +213,8 @@ class PokerEngine: ObservableObject {
     /// 安全清理引擎资源（替代直接 deinit，供外部调用）
     /// 调用后引擎将不再可用
     func destroy() {
+        isTaskCancelled = true
+        currentTaskId += 1  // 使所有待处理的异步任务失效
         isEngineDestroyed = true
         if isRegistered {
             DecisionEngine.unregisterEngine(self)
@@ -234,15 +247,25 @@ class PokerEngine: ObservableObject {
             return
         }
         
-        let canBet = players.filter { $0.status == .active }
+        // canBet 应该同时考虑 active 和 allIn 玩家
+        // allIn 玩家不能再下注，但仍然参与后续发牌和底池争夺
+        let canBet = players.filter { $0.status == .active || $0.status == .allIn }
         
         DealingManager.dealStreetCards(deck: &deck, communityCards: &communityCards, currentStreet: &currentStreet)
-        
+
         if currentStreet == .river {
+            // Fix: river 街的判断也应该同时考虑 active 和 allIn 玩家
+            // 而不是只检查 active 玩家数量
             resetBettingState()
             if canBet.count >= 2 {
-                activePlayerIndex = nextActivePlayerIndex(after: dealerIndex)
-                checkBotTurn()
+                let nextIdx = nextActivePlayerIndex(after: dealerIndex)
+                if nextIdx >= 0 {
+                    activePlayerIndex = nextIdx
+                    checkBotTurn()
+                } else {
+                    // 没有活跃玩家，结束手牌
+                    endHand()
+                }
             } else {
                 endHand()
             }
@@ -256,7 +279,20 @@ class PokerEngine: ObservableObject {
             return
         }
         
-        activePlayerIndex = nextActivePlayerIndex(after: dealerIndex)
+        let nextIdx = nextActivePlayerIndex(after: dealerIndex)
+        if nextIdx >= 0 {
+            activePlayerIndex = nextIdx
+        } else {
+            // 没有活跃玩家（但可能还有 allIn 玩家）
+            // 检查是否应该 runOutBoard 而非直接结束游戏
+            let allInPlayers = players.filter { $0.status == .allIn }
+            if allInPlayers.count >= 2 {
+                runOutBoard()
+            } else {
+                endHand()
+            }
+            return
+        }
         
         #if DEBUG
         print("--- \(currentStreet.rawValue) | Community: \(communityCards.map { $0.description }.joined(separator: " ")) ---")
@@ -264,7 +300,25 @@ class PokerEngine: ObservableObject {
         
         checkBotTurn()
     }
-    
+
+    // MARK: - Action Validation
+
+    /// 检查当前活跃玩家是否可以执行 check 操作
+    /// - Returns: 如果当前下注额等于玩家当前下注额（即不需要跟注），返回 true
+    func canCheck() -> Bool {
+        guard activePlayerIndex >= 0 && activePlayerIndex < players.count else { return false }
+        let player = players[activePlayerIndex]
+        return player.currentBet == currentBet
+    }
+
+    /// 获取当前玩家需要跟注的金额
+    /// - Returns: 需要跟注的金额（如果为 0 表示可以 check）
+    func callAmount() -> Int {
+        guard activePlayerIndex >= 0 && activePlayerIndex < players.count else { return 0 }
+        let player = players[activePlayerIndex]
+        return currentBet - player.currentBet
+    }
+
     // MARK: - Action Processing
     
     func processAction(_ action: PlayerAction) {
@@ -300,12 +354,9 @@ class PokerEngine: ObservableObject {
             }
         }
         
-        // 只有当操作有效（potAddition > 0 或 状态改变）时才标记为已完成行动
-        // 无效的check等操作不应该被认为完成了行动
-        let actionChangedState = result.potAddition > 0 || 
-                                 result.playerUpdate.status != player.status ||
-                                 result.playerUpdate.currentBet != player.currentBet
-        if actionChangedState {
+        // 所有有效的玩家操作（包括 check）都应该标记为 hasActed[playerID] = true
+        // 只有无效的操作才不应该标记为已完成行动
+        if result.isValid {
             hasActed[playerID] = true
             
             // 记录下注历史（用于AI决策如triple barrel检测）
@@ -362,8 +413,14 @@ class PokerEngine: ObservableObject {
     // MARK: - Turn Management
     
     private func advanceTurn() {
-        activePlayerIndex = nextActivePlayerIndex(after: activePlayerIndex)
-        checkBotTurn()
+        let nextIdx = nextActivePlayerIndex(after: activePlayerIndex)
+        if nextIdx >= 0 {
+            activePlayerIndex = nextIdx
+            checkBotTurn()
+        } else {
+            // 没有活跃玩家，结束手牌
+            endHand()
+        }
     }
     
     func checkBotTurn() {
@@ -371,10 +428,24 @@ class PokerEngine: ObservableObject {
         let player = players[activePlayerIndex]
         guard !player.isHuman && player.status == .active else { return }
         guard !isHandOver else { return }
+        guard !isTaskCancelled else { return }
+        
+        // 生成新的任务标识符
+        let taskId = currentTaskId + 1
+        currentTaskId = taskId
+        
+        // 捕获执行决策时的索引，防止竞态条件
+        let capturedIndex = activePlayerIndex
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
-            guard let self = self, !self.isHandOver else { return }
-            let currentPlayer = self.players[self.activePlayerIndex]
+            guard let self = self else { return }
+            // 检查任务是否已被取消
+            guard !self.isTaskCancelled else { return }
+            // 检查任务标识符是否匹配（防止竞态条件）
+            guard self.currentTaskId == taskId else { return }
+            guard !self.isHandOver else { return }
+            // 使用捕获的索引而不是当前的 activePlayerIndex
+            let currentPlayer = self.players[capturedIndex]
             guard currentPlayer.status == .active && !currentPlayer.isHuman else { return }
             let action = DecisionEngine.makeDecision(player: currentPlayer, engine: self)
             self.processAction(action)
@@ -410,19 +481,35 @@ class PokerEngine: ObservableObject {
     }
     
     func nextActivePlayerIndex(after index: Int) -> Int {
-        guard !players.isEmpty else { return 0 }
+        guard !players.isEmpty else { return -1 }
+        
+        // 首先检查是否有任何可行动的玩家（只有 active 玩家才能行动，allIn 不能）
+        let hasActivePlayer = players.contains { $0.status == .active }
+        if !hasActivePlayer {
+            #if DEBUG
+            print("⚠️ nextActivePlayerIndex: No active players found! Returning -1")
+            #endif
+            return -1
+        }
+
         let safeIndex = ((index % players.count) + players.count) % players.count
         var next = (safeIndex + 1) % players.count
         var attempts = 0
+        
+        // 循环查找下一个 active 玩家（只有 active 玩家才能行动）
         while players[next].status != .active && attempts < players.count {
             next = (next + 1) % players.count
             attempts += 1
         }
-        #if DEBUG
+        
+        // 如果遍历完所有玩家都没有找到 active 玩家，返回 -1
         if attempts >= players.count {
-            print("⚠️ nextActivePlayerIndex: No active players found! Returning \(next)")
+            #if DEBUG
+            print("⚠️ nextActivePlayerIndex: No active players found after full cycle! Returning -1")
+            #endif
+            return -1
         }
-        #endif
+        
         return next
     }
     

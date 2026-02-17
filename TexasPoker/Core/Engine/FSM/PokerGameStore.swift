@@ -48,6 +48,7 @@ class PokerGameStore: ObservableObject {
     
     // MARK: - 异步任务追踪（用于正确取消）
     private var pollTasks: [DispatchWorkItem] = []
+    private var pollTasksCancelled = false  // 标志位：标记是否需要取消正在执行的任务
     private var watchdogTask: DispatchWorkItem?
     private var runOutBoardTasks: [DispatchWorkItem] = []
     
@@ -79,6 +80,17 @@ class PokerGameStore: ObservableObject {
             }
             .store(in: &cancellables)
         
+        // BUG FIX 1: 检查 isHandOver 是否在订阅前就已经是 true
+        // 如果是，立即触发 handOver 事件
+        if engine.isHandOver && state != .showdown {
+            #if DEBUG
+            print("⚠️ Engine isHandOver is already true at subscription time!")
+            #endif
+            DispatchQueue.main.async { [weak self] in
+                self?.send(.handOver)
+            }
+        }
+        
         // Listen for hand-over
         engine.$isHandOver
             .removeDuplicates()
@@ -105,8 +117,53 @@ class PokerGameStore: ObservableObject {
             .sink { [weak self] _ in
                 self?.pollForHumanTurn()
                 self?.scheduleAIWatchdog()
+                self?.scheduleHandOverWatchdog()
             }
             .store(in: &cancellables)
+        
+        // BUG FIX 1: 添加对 waitingForAction 状态的监控
+        $state
+            .filter { $0 == .waitingForAction }
+            .sink { [weak self] _ in
+                self?.scheduleHandOverWatchdog()
+            }
+            .store(in: &cancellables)
+    }
+    
+    // MARK: - BUG FIX 1: Hand Over Watchdog
+    
+    /// 定时检查机制：如果 engine.isHandOver == true 但状态不是 .showdown，强制转换
+    private var handOverWatchdogTask: DispatchWorkItem?
+    
+    private func scheduleHandOverWatchdog() {
+        // 取消之前的 watchdog 任务
+        handOverWatchdogTask?.cancel()
+        
+        let task = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            
+            // 检查引擎是否已结束但状态机不知道
+            if self.engine.isHandOver && self.state != .showdown {
+                #if DEBUG
+                print("⚠️ HandOver Watchdog: engine.isHandOver is true but state is \(self.state). Forcing transition to showdown.")
+                #endif
+                self.send(.handOver)
+            }
+            
+            // 检查状态是否长时间停留在 betting/waitingForAction 且没有活跃玩家
+            if (self.state == .betting || self.state == .waitingForAction) {
+                let activePlayers = self.engine.players.filter { $0.status == .active }
+                if activePlayers.isEmpty && self.engine.isHandOver {
+                    #if DEBUG
+                    print("⚠️ HandOver Watchdog: No active players and engine.isHandOver is true. Forcing transition to showdown.")
+                    #endif
+                    self.send(.handOver)
+                }
+            }
+        }
+        handOverWatchdogTask = task
+        // 定期检查，每 2 秒一次
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: task)
     }
     
     /// 轮询检查是否轮到人类玩家（解决 AI 在 dealing 期间已完成行动的竞态问题）
@@ -114,11 +171,16 @@ class PokerGameStore: ObservableObject {
         // 取消之前的所有 poll 任务
         pollTasks.forEach { $0.cancel() }
         pollTasks.removeAll()
+        
+        // 设置取消标志位（用于取消正在执行的任务）
+        pollTasksCancelled = true
 
         // 检查多次，覆盖 AI 延迟执行的时间窗口
         for delay in [0.1, 0.5, 1.0, 2.0, 3.0] {
             let task = DispatchWorkItem { [weak self] in
                 guard let self = self else { return }
+                // 检查是否需要取消
+                guard !self.pollTasksCancelled else { return }
                 guard self.state == .betting else { return }
 
                 let isHuman = self.isHumanTurn
@@ -281,13 +343,50 @@ class PokerGameStore: ObservableObject {
         case (.idle, .leaveTable), (.showdown, .leaveTable):
             guard engine.gameMode == .cashGame else { break }
             leaveTable()
-            
+
+        // 玩家在游戏进行中离开（waitingForAction/betting 状态）
+        case (.waitingForAction, .leaveTable), (.betting, .leaveTable):
+            guard engine.gameMode == .cashGame else { break }
+            isLeavingAfterHand = true
+            // 自动帮玩家弃牌
+            if let heroIndex = engine.players.firstIndex(where: { $0.isHuman }) {
+                engine.processAction(.fold)
+            }
+            showLeaveConfirm = false
+
+        // 玩家在发牌阶段离开
+        case (.dealing, .leaveTable):
+            guard engine.gameMode == .cashGame else { break }
+            isLeavingAfterHand = true
+            showLeaveConfirm = false
+
         default:
             #if DEBUG
             print("FSM: Invalid transition \(state) + \(event) — recovering to safe state")
             #endif
-            // Error recovery: try to recover based on engine state
+            // BUG FIX 3: 增强错误恢复逻辑
+            // 1. 如果引擎已经结束手牌，强制转换到 showdown
             if engine.isHandOver && state != .showdown {
+                state = .showdown
+            }
+            // 2. 如果没有活跃玩家且不在 showdown/idle 状态，尝试恢复
+            let activePlayers = engine.players.filter { $0.status == .active }
+            if activePlayers.isEmpty && state != .showdown && state != .idle {
+                if engine.isHandOver {
+                    state = .showdown
+                } else {
+                    // 尝试重新开始
+                    state = .idle
+                }
+            }
+            // 3. 如果 activePlayerIndex 指向无效位置，尝试恢复
+            if engine.activePlayerIndex < 0 || engine.activePlayerIndex >= engine.players.count {
+                if engine.isHandOver {
+                    state = .showdown
+                }
+            }
+            // 4. 如果当前状态是 betting/waitingForAction 但引擎已结束，强制恢复
+            if (state == .betting || state == .waitingForAction) && engine.isHandOver {
                 state = .showdown
             }
         }
@@ -417,10 +516,16 @@ class PokerGameStore: ObservableObject {
             } else if player.isHuman && player.status == .active {
                 // 人类玩家跳过（不参与后台模拟）
                 // 直接推进到下一个活跃玩家
-                engine.activePlayerIndex = engine.nextActivePlayerIndex(after: engine.activePlayerIndex)
+                let nextIdx = engine.nextActivePlayerIndex(after: engine.activePlayerIndex)
+                if nextIdx >= 0 {
+                    engine.activePlayerIndex = nextIdx
+                }
             } else {
                 // 非活跃玩家，跳过
-                engine.activePlayerIndex = engine.nextActivePlayerIndex(after: engine.activePlayerIndex)
+                let nextIdx = engine.nextActivePlayerIndex(after: engine.activePlayerIndex)
+                if nextIdx >= 0 {
+                    engine.activePlayerIndex = nextIdx
+                }
             }
         }
     }
@@ -519,7 +624,10 @@ class PokerGameStore: ObservableObject {
                     engine.processAction(action)
                 }
             } else {
-                engine.activePlayerIndex = engine.nextActivePlayerIndex(after: idx)
+                let nextIdx = engine.nextActivePlayerIndex(after: idx)
+                if nextIdx >= 0 {
+                    engine.activePlayerIndex = nextIdx
+                }
             }
         }
         
@@ -607,6 +715,10 @@ class PokerGameStore: ObservableObject {
         // 取消 watchdog 任务
         watchdogTask?.cancel()
         watchdogTask = nil
+        
+        // 取消 handOverWatchdog 任务
+        handOverWatchdogTask?.cancel()
+        handOverWatchdogTask = nil
         
         // 取消 runOutBoard 任务
         runOutBoardTasks.forEach { $0.cancel() }

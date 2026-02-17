@@ -49,6 +49,20 @@ private struct DeterministicRandom {
 /// 包括 AI 买入、补码、入场和离场管理
 struct CashGameManager {
 
+    // MARK: - 全局状态
+
+    /// 全局系统池，存储离场 AI 的筹码，用于新 AI 入场时循环使用
+    /// 这样可以保持游戏中总筹码量的平衡
+    private static var systemChipsPool: Int = 0
+    
+    /// 芯片池最大容量（防止无限积累）
+    private static let maxSystemPoolSize = 100000
+    
+    /// 追踪每个 AIProfile 的入场次数，用于生成唯一的 entryIndex
+    /// Key: AIProfile.id (如 "rock", "fox")
+    /// Value: 入场次数（下次入场时应该使用的 index）
+    private static var profileEntryCounts: [String: Int] = [:]
+
     // MARK: - 测试辅助（仅 DEBUG）
 
     #if DEBUG
@@ -146,10 +160,24 @@ struct CashGameManager {
     /// 解决跨游戏会话状态污染问题
     static func resetSystemPool() {
         systemChipsPool = 0
+        profileEntryCounts = [:]  // 重置入场计数器
 
         #if DEBUG
-        print("🔄 CashGameManager 系统池已重置")
+        print("🔄 CashGameManager 系统池和入场计数器已重置")
         #endif
+    }
+
+    // MARK: - entryIndex 生成
+
+    /// 为指定 AIProfile 生成唯一的入场序号
+    /// - Parameter profile: AIProfile 实例
+    /// - Returns: 该 profile 的入场序号（从 1 开始递增）
+    static func generateEntryIndex(for profile: AIProfile) -> Int {
+        let profileId = profile.id
+        let currentCount = profileEntryCounts[profileId] ?? 0
+        let newIndex = currentCount + 1
+        profileEntryCounts[profileId] = newIndex
+        return newIndex
     }
 
     // MARK: - 测试辅助
@@ -163,6 +191,16 @@ struct CashGameManager {
     /// 测试辅助：设置系统池金额（用于确定性测试）
     static func debugSetSystemChipsPool(_ amount: Int) {
         systemChipsPool = min(amount, maxSystemPoolSize)
+    }
+
+    /// 测试辅助：获取当前 entryIndex 计数
+    static var debugProfileEntryCounts: [String: Int] {
+        return profileEntryCounts
+    }
+
+    /// 测试辅助：重置 entryIndex 计数（用于确定性测试）
+    static func debugResetProfileEntryCounts() {
+        profileEntryCounts = [:]
     }
     #endif
 
@@ -195,7 +233,6 @@ struct CashGameManager {
         let shouldForceFill = activePlayerCount < 3
 
         var enteredPlayers: [Player] = []
-        let existingNames = Set(players.compactMap { $0.aiProfile?.name })
 
         for seatIndex in emptySeatIndices {
             // 强制补入或 50% 概率补入
@@ -227,8 +264,7 @@ struct CashGameManager {
                 // 生成随机 AI 玩家
                 if let newPlayer = generateRandomAIPlayer(
                     difficulty: difficulty,
-                    buyInAmount: buyInAmount,
-                    existingNames: existingNames
+                    buyInAmount: buyInAmount
                 ) {
                     // 执行座位替换
                     TournamentManager.replaceEliminatedPlayer(
@@ -239,7 +275,7 @@ struct CashGameManager {
                     enteredPlayers.append(newPlayer)
                     
                     #if DEBUG
-                    print("🎰 新玩家 \(newPlayer.name) 入场，买入 $\(buyInAmount)，系统池剩余 $\(systemChipsPool)")
+                    print("🎰 新玩家 \(newPlayer.playerUniqueId) 入场，买入 $\(buyInAmount)，系统池剩余 $\(systemChipsPool)")
                     #endif
                 }
             }
@@ -248,20 +284,12 @@ struct CashGameManager {
         return enteredPlayers
     }
 
-    // MARK: - AI 离场
-
-    /// 全局系统池，存储离场 AI 的筹码，用于新 AI 入场时循环使用
-    /// 这样可以保持游戏中总筹码量的平衡
-    private static var systemChipsPool: Int = 0
-    
-    /// 芯片池最大容量（防止无限积累）
-    private static let maxSystemPoolSize = 100000
-    
     /// 检查并执行 AI 离场
     /// - 筹码 > maxBuyIn * 1.5 时 10% 概率离场
     /// - 筹码 < maxBuyIn * 0.3 时 20% 概率离场
     /// - 人类玩家不离场
     /// - 离场时筹码放入系统池，供新玩家使用
+    /// - 同时清理该玩家的 entryIndex 追踪（可选：保留用于统计）
     static func checkAIDepartures(
         players: inout [Player],
         config: CashGameConfig
@@ -288,8 +316,15 @@ struct CashGameManager {
                 if shouldDepart {
                     // 将筹码放入系统池（而不是直接丢弃）
                     let departingChips = player.chips
-                    if systemChipsPool < maxSystemPoolSize {
-                        systemChipsPool += departingChips
+                    // 修复：检查是否超过最大值，如果是则只添加最大可容纳的金额
+                    let chipsToAdd = min(departingChips, maxSystemPoolSize - systemChipsPool)
+                    systemChipsPool += chipsToAdd
+                    let overflowChips = departingChips - chipsToAdd
+                    
+                    if overflowChips > 0 {
+                        #if DEBUG
+                        print("⚠️ 系统池溢出！溢出金额: $\(overflowChips)")
+                        #endif
                     }
                     
                     player.chips = 0
@@ -313,8 +348,15 @@ struct CashGameManager {
                 if shouldDepart {
                     // 将筹码放入系统池
                     let departingChips = player.chips
-                    if systemChipsPool < maxSystemPoolSize {
-                        systemChipsPool += departingChips
+                    // 修复：检查是否超过最大值，如果是则只添加最大可容纳的金额
+                    let chipsToAdd = min(departingChips, maxSystemPoolSize - systemChipsPool)
+                    systemChipsPool += chipsToAdd
+                    let overflowChips = departingChips - chipsToAdd
+                    
+                    if overflowChips > 0 {
+                        #if DEBUG
+                        print("⚠️ 系统池溢出！溢出金额: $\(overflowChips)")
+                        #endif
                     }
                     
                     player.chips = 0
@@ -352,8 +394,7 @@ struct CashGameManager {
     /// 生成随机 AI 玩家（现金游戏版本）
     private static func generateRandomAIPlayer(
         difficulty: AIProfile.Difficulty,
-        buyInAmount: Int,
-        existingNames: Set<String>
+        buyInAmount: Int
     ) -> Player? {
         #if DEBUG
         let profile = randomGenerator.randomElement(from: difficulty.availableProfiles) ?? .fox
@@ -361,25 +402,23 @@ struct CashGameManager {
         let profile = difficulty.availableProfiles.randomElement() ?? .fox
         #endif
 
-        // 处理名称去重：使用existingNames进行去重（已包含所有现有玩家名称）
-        var finalName = profile.name
-        var counter = 2
-        while existingNames.contains(finalName) {
-            finalName = "\(profile.name)\(counter)"
-            counter += 1
-        }
+        // 生成唯一的 entryIndex（不再需要名称后缀去重）
+        let entryIndex = generateEntryIndex(for: profile)
 
         return Player(
-            name: finalName,
+            name: profile.name,
             chips: buyInAmount,
             isHuman: false,
-            aiProfile: profile
+            aiProfile: profile,
+            entryIndex: entryIndex
         )
     }
 
     /// 检查现有玩家列表中是否包含指定名称
     /// 注意：由于是静态方法无法直接访问外部players变量，
     /// 名称去重主要通过existingNames参数在调用处处理
+    /// 现在已不再需要此方法（使用 entryIndex 区分）
+    @available(*, deprecated, message: "不再需要名称去重，使用 entryIndex 区分玩家")
     private static func playersContainName(_ name: String, in players: [Player]) -> Bool {
         return players.contains { $0.name == name }
     }

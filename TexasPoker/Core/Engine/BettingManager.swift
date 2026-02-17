@@ -74,7 +74,8 @@ enum BettingManager {
 
             if p.currentBet > currentBet {
                 let raiseSize = p.currentBet - currentBet
-                newMinRaise = max(minRaise, raiseSize)
+                // 确保 minRaise 永远不为负数
+                newMinRaise = max(0, max(minRaise, raiseSize))
                 newCurrentBet = p.currentBet
                 newLastRaiser = p.id
                 isNewAggressor = true
@@ -89,13 +90,11 @@ enum BettingManager {
             p.totalBetThisHand += amount
             potAdd = amount
             if p.currentBet > currentBet {
-                // allIn 时的 minRaise 计算：
-                // 如果 allIn 金额 <= 当前下注额，不需要加注
-                // 如果 allIn 金额 > 当前下注额，最小加注到 allIn 金额
+                // All-in 后的 minRaise 计算：
+                // 当有玩家 all-in 后，其他玩家仍然可以加注到更高金额
+                // minRaise 应该保持不变，允许其他玩家选择是否加注
                 let raiseSize = p.currentBet - currentBet
-                // 当 allIn 时，最小加注额应该是 allIn 金额（而不是差值）
-                // 这样其他玩家如果要继续，必须支付至少这个金额
-                newMinRaise = max(minRaise, p.currentBet - currentBet)
+                newMinRaise = max(minRaise, raiseSize)  // 修正：使用 raiseSize 更新 minRaise
                 newCurrentBet = p.currentBet
                 newLastRaiser = p.id
                 isNewAggressor = true
@@ -133,7 +132,7 @@ enum BettingManager {
 
         for player in activePlayers {
             #if DEBUG
-            debugInfo += " | \(player.name): hasActed=\(hasActed[player.id] == true), currentBet=\(player.currentBet)"
+            debugInfo += " | \(player.name): hasActed=\(hasActed[player.id] == true), currentBet=\(player.currentBet), status=\(player.status)"
             #endif
             if hasActed[player.id] != true {
                 #if DEBUG
@@ -141,7 +140,10 @@ enum BettingManager {
                 #endif
                 return false
             }
-            if player.currentBet != currentBet {
+            // allIn 玩家的 currentBet 可能小于 currentBet（比如短码 all-in）
+            // 但他们已经用完所有筹码，不能再继续下注，所以应该被视为完成
+            // 只有 active 玩家需要检查 currentBet 是否相等
+            if player.status == .active && player.currentBet != currentBet {
                 #if DEBUG
                 print(debugInfo)
                 #endif

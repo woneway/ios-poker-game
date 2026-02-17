@@ -143,6 +143,7 @@ struct PlayerView_Previews: PreviewProvider {
                 chips: 1000,
                 isHuman: true,
                 aiProfile: AIProfile(
+                    id: "test_ai",
                     name: "Test",
                     avatar: "🤖",
                     description: "Test AI",

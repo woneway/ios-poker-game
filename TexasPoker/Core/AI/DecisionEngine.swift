@@ -387,7 +387,8 @@ class DecisionEngine {
         potSize: Int,
         spr: Double,
         street: Street,
-        profile: AIProfile
+        profile: AIProfile,
+        stackSize: Int  // 玩家当前筹码量，用于计算 all-in 金额
     ) -> PlayerAction {
         let potOdds = calculatePotOdds(callAmount: callAmount, potSize: potSize)
         let impliedOdds = calculateImpliedOdds(spr: spr, street: street)
@@ -420,7 +421,9 @@ class DecisionEngine {
             case .fold:
                 ev = 0 // Folding has 0 EV (we give up, but lose nothing extra)
             case .allIn:
-                let allInAmount = callAmount // All-in effectively caps at call amount
+                // 修复: all-in 应该使用玩家的全部筹码来计算 EV
+                // 当玩家 all-in 时，他们押上全部筹码，而不是只跟注 callAmount
+                let allInAmount = stackSize + callAmount  // 全部筹码 = 剩余筹码 + 跟注金额
                 ev = calculateCallEV(
                     equity: equity,
                     callAmount: allInAmount,

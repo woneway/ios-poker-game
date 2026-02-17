@@ -41,29 +41,149 @@ class StatisticsCalculator {
     /// - Important: This will **delete** any existing `PlayerStatsEntity` for a player+mode
     ///   when there is no backing hand/action data (i.e. `calculateStats(...) == nil`).
     ///   This ensures a "fresh download" shows empty stats until real gameplay occurs.
-    func recomputeAndPersistStats(playerNames: [String], gameMode: GameMode, profileId: String? = nil) {
-        let uniqueNames = Array(Set(playerNames))
+    /// - Parameters:
+    ///   - players: Array of tuples containing (playerName, playerUniqueId)
+    ///   - gameMode: The game mode to calculate stats for
+    ///   - profileId: Optional profile ID override
+    func recomputeAndPersistStats(players: [(name: String, uniqueId: String?)], gameMode: GameMode, profileId: String? = nil) {
         let pid = normalizeProfileId(profileId ?? profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData)
-        for name in uniqueNames {
-            if let stats = calculateStats(playerName: name, gameMode: gameMode, profileId: pid) {
-                updatePlayerStatsEntity(stats: stats, profileId: pid)
+        for player in players {
+            if let stats = calculateStats(playerName: player.name, playerUniqueId: player.uniqueId, gameMode: gameMode, profileId: pid) {
+                updatePlayerStatsEntity(stats: stats, playerUniqueId: player.uniqueId, profileId: pid)
             } else {
-                deletePlayerStatsEntity(playerName: name, gameMode: gameMode, profileId: pid)
+                deletePlayerStatsEntity(playerName: player.name, playerUniqueId: player.uniqueId, gameMode: gameMode, profileId: pid)
             }
         }
     }
     
+    /// Recompute and persist stats for the given player names (legacy method for backward compatibility).
+    func recomputeAndPersistStats(playerNames: [String], gameMode: GameMode, profileId: String? = nil) {
+        let players = playerNames.map { (name: $0, uniqueId: nil as String?) }
+        recomputeAndPersistStats(players: players, gameMode: gameMode, profileId: profileId)
+    }
+    
+    // MARK: - Batch Stats Calculation (Performance Optimization)
+
+    /// Calculate stats for multiple players in a single query pass
+    /// This is much more efficient than calling calculateStats for each player separately
+    /// - Parameters:
+    ///   - playerNames: Array of player names to calculate stats for
+    ///   - gameMode: The game mode
+    ///   - profileId: Optional profile ID override
+    /// - Returns: Dictionary mapping player name to PlayerStats (nil if player has no data)
+    func calculateBatchStats(
+        playerNames: [String],
+        gameMode: GameMode,
+        profileId: String? = nil
+    ) -> [String: PlayerStats?] {
+        let pid = normalizeProfileId(profileId ?? profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData)
+
+        // Fetch all hands and actions for this game mode in ONE query
+        let hands = fetchHands(gameMode: gameMode, profileId: pid)
+
+        guard !hands.isEmpty else {
+            // No hands at all - return nil for all players
+            var result: [String: PlayerStats?] = [:]
+            for name in playerNames {
+                result[name] = nil
+            }
+            return result
+        }
+
+        // Fetch all actions for all players in this game mode
+        let allActions = fetchAllActionsForGameMode(gameMode: gameMode, profileId: pid)
+
+        // Build result dictionary
+        var result: [String: PlayerStats?] = [:]
+
+        for playerName in playerNames {
+            // Filter actions for this player
+            let playerActions = allActions.filter { action in
+                let uniqueId = action.value(forKey: "playerUniqueId") as? String
+                let name = action.value(forKey: "playerName") as? String ?? ""
+                // 前缀匹配：playerName + "#" 能匹配到 "playerName#1", "playerName#2" 等
+                let uniqueIdMatches = uniqueId != nil && uniqueId!.hasPrefix(playerName + "#")
+                return uniqueIdMatches || name == playerName
+            }
+
+            // Find hands where this player participated
+            let handIDs = Set(playerActions.compactMap { ($0.value(forKey: "handHistory") as? NSManagedObject)?.value(forKey: "id") as? UUID })
+            let playerHands = hands.filter { hand in
+                guard let handID = hand.value(forKey: "id") as? UUID else { return false }
+                return handIDs.contains(handID)
+            }
+
+            let totalHands = playerHands.count
+            guard totalHands > 0 else {
+                result[playerName] = nil
+                continue
+            }
+
+            let vpip = calculateVPIP(actions: playerActions, totalHands: totalHands)
+            let pfr = calculatePFR(actions: playerActions, totalHands: totalHands)
+            let af = calculateAF(actions: playerActions)
+            let wtsd = calculateWTSD(actions: playerActions, playerName: playerName, playerHands: playerHands)
+            let wsd = calculateWSD(actions: playerActions, playerName: playerName, playerHands: playerHands)
+            let threeBet = calculate3Bet(actions: playerActions, playerHands: playerHands)
+            let handsWon = countHandsWon(playerName: playerName, playerHands: playerHands)
+            let totalWinnings = calculateWinnings(playerName: playerName, playerHands: playerHands)
+
+            // Determine if player is human
+            let isHuman = playerActions.contains { ($0.value(forKey: "isHuman") as? Bool) == true }
+
+            result[playerName] = PlayerStats(
+                playerName: playerName,
+                gameMode: gameMode,
+                isHuman: isHuman,
+                totalHands: totalHands,
+                vpip: vpip,
+                pfr: pfr,
+                af: af,
+                wtsd: wtsd,
+                wsd: wsd,
+                threeBet: threeBet,
+                handsWon: handsWon,
+                totalWinnings: totalWinnings
+            )
+        }
+
+        return result
+    }
+
+    /// Fetch all actions for a game mode (optimized batch query)
+    private func fetchAllActionsForGameMode(gameMode: GameMode, profileId: String) -> [NSManagedObject] {
+        let request = NSFetchRequest<NSManagedObject>(entityName: "ActionEntity")
+
+        var predicates: [NSPredicate] = [
+            NSPredicate(format: "handHistory.gameMode == %@", gameMode.rawValue)
+        ]
+
+        if profileId == ProfileManager.defaultProfileId {
+            predicates.append(NSPredicate(format: "(handHistory.profileId == %@ OR handHistory.profileId == nil)", profileId))
+        } else {
+            predicates.append(NSPredicate(format: "handHistory.profileId == %@", profileId))
+        }
+
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        return (try? context.fetch(request)) ?? []
+    }
+
     /// Calculate statistics for a specific player and game mode
     /// Returns nil if player has no data
-    /// - Parameter isHumanOverride: Optional override to determine if player is human. Defaults to checking action records.
-    func calculateStats(playerName: String, gameMode: GameMode, profileId: String? = nil, isHumanOverride: Bool? = nil) -> PlayerStats? {
+    /// - Parameters:
+    ///   - playerName: The player's display name (used as fallback if playerUniqueId is not available)
+    ///   - playerUniqueId: The unique identifier for the player (preferred, will fallback to playerName if nil)
+    ///   - gameMode: The game mode to calculate stats for
+    ///   - profileId: Optional profile ID override
+    ///   - isHumanOverride: Optional override to determine if player is human. Defaults to checking action records.
+    func calculateStats(playerName: String, playerUniqueId: String? = nil, gameMode: GameMode, profileId: String? = nil, isHumanOverride: Bool? = nil) -> PlayerStats? {
         let pid = normalizeProfileId(profileId ?? profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData)
         // Fetch all hands for this game mode
         let hands = fetchHands(gameMode: gameMode, profileId: pid)
         guard !hands.isEmpty else { return nil }
         
-        // Fetch all actions for this player across those hands
-        let actions = fetchActions(playerName: playerName, gameMode: gameMode, profileId: pid)
+        // Fetch all actions for this player across those hands (using playerUniqueId with fallback to playerName)
+        let actions = fetchActions(playerName: playerName, playerUniqueId: playerUniqueId, gameMode: gameMode, profileId: pid)
         
         // Find hands where this player participated (has at least one action)
         let handIDs = Set(actions.compactMap { ($0.value(forKey: "handHistory") as? NSManagedObject)?.value(forKey: "id") as? UUID })
@@ -117,9 +237,9 @@ class StatisticsCalculator {
         return (try? context.fetch(request)) ?? []
     }
     
-    private func fetchActions(playerName: String, gameMode: GameMode, profileId: String) -> [NSManagedObject] {
+    private func fetchActions(playerName: String, playerUniqueId: String? = nil, gameMode: GameMode, profileId: String) -> [NSManagedObject] {
         let request = NSFetchRequest<NSManagedObject>(entityName: "ActionEntity")
-        request.predicate = predicateForActions(playerName: playerName, gameMode: gameMode, profileId: profileId)
+        request.predicate = predicateForActions(playerName: playerName, playerUniqueId: playerUniqueId, gameMode: gameMode, profileId: profileId)
         return (try? context.fetch(request)) ?? []
     }
     
@@ -357,10 +477,14 @@ class StatisticsCalculator {
     // MARK: - Core Data Persistence
     
     /// Update or create PlayerStatsEntity in Core Data
-    func updatePlayerStatsEntity(stats: PlayerStats, profileId: String? = nil) {
+    /// - Parameters:
+    ///   - stats: The player stats to save
+    ///   - playerUniqueId: Optional unique identifier for the player
+    ///   - profileId: Optional profile ID override
+    func updatePlayerStatsEntity(stats: PlayerStats, playerUniqueId: String? = nil, profileId: String? = nil) {
         let pid = normalizeProfileId(profileId ?? profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData)
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
-        fetchRequest.predicate = predicateForStats(playerName: stats.playerName, gameMode: stats.gameMode, profileId: pid)
+        fetchRequest.predicate = predicateForStats(playerName: stats.playerName, playerUniqueId: playerUniqueId, gameMode: stats.gameMode, profileId: pid)
         
         let entity: NSManagedObject
         if let existing = try? context.fetch(fetchRequest).first {
@@ -371,6 +495,11 @@ class StatisticsCalculator {
             entity.setValue(stats.playerName, forKey: "playerName")
             entity.setValue(stats.gameMode.rawValue, forKey: "gameMode")
             entity.setValue(pid, forKey: "profileId")
+        }
+
+        // Save playerUniqueId if provided
+        if let uniqueId = playerUniqueId {
+            entity.setValue(uniqueId, forKey: "playerUniqueId")
         }
 
         // Ensure we don't accidentally mix profiles on updates
@@ -400,9 +529,9 @@ class StatisticsCalculator {
     }
 
     /// Delete PlayerStatsEntity for player+mode (if it exists).
-    private func deletePlayerStatsEntity(playerName: String, gameMode: GameMode, profileId: String) {
+    private func deletePlayerStatsEntity(playerName: String, playerUniqueId: String? = nil, gameMode: GameMode, profileId: String) {
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
-        fetchRequest.predicate = predicateForStats(playerName: playerName, gameMode: gameMode, profileId: profileId)
+        fetchRequest.predicate = predicateForStats(playerName: playerName, playerUniqueId: playerUniqueId, gameMode: gameMode, profileId: profileId)
 
         guard let existing = try? context.fetch(fetchRequest) else { return }
         guard !existing.isEmpty else { return }
@@ -434,38 +563,52 @@ class StatisticsCalculator {
         return NSPredicate(format: "gameMode == %@ AND profileId == %@", gameMode.rawValue, profileId)
     }
 
-    private func predicateForActions(playerName: String, gameMode: GameMode, profileId: String) -> NSPredicate {
-        if profileId == ProfileManager.defaultProfileId {
-            return NSPredicate(
-                format: "playerName == %@ AND handHistory.gameMode == %@ AND (handHistory.profileId == %@ OR handHistory.profileId == nil)",
-                playerName,
-                gameMode.rawValue,
-                profileId
-            )
+    private func predicateForActions(playerName: String, playerUniqueId: String? = nil, gameMode: GameMode, profileId: String) -> NSPredicate {
+        // Use playerUniqueId if available, otherwise fallback to playerName
+        let playerPredicate: NSPredicate
+        if let uniqueId = playerUniqueId, !uniqueId.isEmpty {
+            // Priority: match playerUniqueId first, fallback to playerName if null
+            playerPredicate = NSPredicate(format: "playerUniqueId == %@ OR (playerUniqueId == nil AND playerName == %@)", uniqueId, playerName)
+        } else {
+            playerPredicate = NSPredicate(format: "playerName == %@", playerName)
         }
-        return NSPredicate(
-            format: "playerName == %@ AND handHistory.gameMode == %@ AND handHistory.profileId == %@",
-            playerName,
-            gameMode.rawValue,
-            profileId
-        )
+        
+        if profileId == ProfileManager.defaultProfileId {
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                playerPredicate,
+                NSPredicate(format: "handHistory.gameMode == %@", gameMode.rawValue),
+                NSPredicate(format: "(handHistory.profileId == %@ OR handHistory.profileId == nil)", profileId)
+            ])
+        }
+        return NSCompoundPredicate(andPredicateWithSubpredicates: [
+            playerPredicate,
+            NSPredicate(format: "handHistory.gameMode == %@", gameMode.rawValue),
+            NSPredicate(format: "handHistory.profileId == %@", profileId)
+        ])
     }
 
-    private func predicateForStats(playerName: String, gameMode: GameMode, profileId: String) -> NSPredicate {
-        if profileId == ProfileManager.defaultProfileId {
-            return NSPredicate(
-                format: "playerName == %@ AND gameMode == %@ AND (profileId == %@ OR profileId == nil)",
-                playerName,
-                gameMode.rawValue,
-                profileId
-            )
+    private func predicateForStats(playerName: String, playerUniqueId: String? = nil, gameMode: GameMode, profileId: String) -> NSPredicate {
+        // Use playerUniqueId if available, otherwise fallback to playerName
+        let playerPredicate: NSPredicate
+        if let uniqueId = playerUniqueId, !uniqueId.isEmpty {
+            // Priority: match playerUniqueId first, fallback to playerName if null
+            playerPredicate = NSPredicate(format: "playerUniqueId == %@ OR (playerUniqueId == nil AND playerName == %@)", uniqueId, playerName)
+        } else {
+            playerPredicate = NSPredicate(format: "playerName == %@", playerName)
         }
-        return NSPredicate(
-            format: "playerName == %@ AND gameMode == %@ AND profileId == %@",
-            playerName,
-            gameMode.rawValue,
-            profileId
-        )
+        
+        if profileId == ProfileManager.defaultProfileId {
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                playerPredicate,
+                NSPredicate(format: "gameMode == %@", gameMode.rawValue),
+                NSPredicate(format: "(profileId == %@ OR profileId == nil)", profileId)
+            ])
+        }
+        return NSCompoundPredicate(andPredicateWithSubpredicates: [
+            playerPredicate,
+            NSPredicate(format: "gameMode == %@", gameMode.rawValue),
+            NSPredicate(format: "profileId == %@", profileId)
+        ])
     }
 
     // MARK: - Time Range Support
@@ -566,8 +709,20 @@ class StatisticsCalculator {
             let winnerNames = winnerNamesStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
 
             let isWin = winnerNames.contains(heroName)
-            // Simplified profit calculation - in reality would need to calculate from action history
-            let profit = isWin ? Int(finalPot) : 0
+            // More accurate profit calculation: calculate based on winner count
+            // If won: profit = finalPot / winnerCount (simplified, assumes equal split)
+            // Note: For accurate profit, we would need to track player investments from action history
+            let winnerCount = winnerNames.count
+            let profit: Int
+            if isWin && winnerCount > 0 {
+                // Approximate: divide pot among winners (simplified)
+                // In reality, should calculate from action history (total invested vs returned)
+                profit = Int(finalPot) / winnerCount
+            } else {
+                // Loss: we don't track exact loss amount, so use 0 for now
+                // TODO: Calculate actual loss from action history
+                profit = 0
+            }
 
             return HandHistorySummary(
                 id: id,
@@ -602,16 +757,21 @@ class StatisticsCalculator {
     }
 
     /// Calculate position-based statistics
+    /// - Parameters:
+    ///   - gameMode: The game mode to filter by
+    ///   - timeRange: Time range to filter by
+    ///   - profileId: Optional profile ID override
+    ///   - playerName: The player name to calculate stats for (defaults to "Hero")
     func calculatePositionStats(
         gameMode: GameMode,
         timeRange: TimeRange = .all,
-        profileId: String? = nil
+        profileId: String? = nil,
+        playerName: String = "Hero"
     ) -> [PositionStat] {
         let pid = normalizeProfileId(profileId ?? ProfileManager.shared.currentProfileIdForData)
-        let heroName = "Hero"
 
         var predicates: [NSPredicate] = [
-            NSPredicate(format: "playerName == %@", heroName),
+            NSPredicate(format: "playerName == %@", playerName),
             NSPredicate(format: "handHistory.gameMode == %@", gameMode.rawValue),
             predicateForProfileId(pid)
         ]
@@ -626,28 +786,34 @@ class StatisticsCalculator {
         guard let actions = try? context.fetch(request) else { return [] }
 
         // Group actions by position and calculate win rate
-        var positionHands: [String: (wins: Int, total: Int)] = [:]
+        // FIX: Track unique hands per position to avoid counting same hand multiple times
+        var positionHandIds: [String: Set<UUID>] = [:]
+        var positionWins: [String: Set<UUID>] = [:]
 
         for action in actions {
             guard let position = action.value(forKey: "position") as? String,
-                  let handHistory = action.value(forKey: "handHistory") as? NSManagedObject else {
+                  let handHistory = action.value(forKey: "handHistory") as? NSManagedObject,
+                  let handId = handHistory.value(forKey: "id") as? UUID else {
                 continue
             }
 
-            // Track unique hands per position
-            var handsForPosition = positionHands[position] ?? (wins: 0, total: 0)
-
-            // Check if this hand was won
-            if let winnerNames = handHistory.value(forKey: "winnerNames") as? String,
-               winnerNames.components(separatedBy: ",").map({ $0.trimmingCharacters(in: .whitespaces) }).contains(heroName) {
-                handsForPosition.wins += 1
+            // Track unique hand IDs per position
+            if positionHandIds[position] == nil {
+                positionHandIds[position] = []
+                positionWins[position] = []
             }
-            handsForPosition.total += 1
 
-            positionHands[position] = handsForPosition
+            // Only count each hand once per position
+            if positionHandIds[position]!.insert(handId).inserted {
+                // Check if this hand was won
+                if let winnerNames = handHistory.value(forKey: "winnerNames") as? String,
+                   winnerNames.components(separatedBy: ",").map({ $0.trimmingCharacters(in: .whitespaces) }).contains(playerName) {
+                    positionWins[position]!.insert(handId)
+                }
+            }
         }
 
-        // Map to PositionStat with standardized position names
+        // Convert to PositionStat
         let positionMapping: [String: String] = [
             "BTN": "BTN",
             "CO": "CO",
@@ -657,10 +823,12 @@ class StatisticsCalculator {
             "SB": "SB"
         ]
 
-        return positionHands.compactMap { position, stats -> PositionStat? in
+        return positionHandIds.compactMap { position, handIds -> PositionStat? in
             guard let mappedPosition = positionMapping[position] else { return nil }
-            let winRate = stats.total > 0 ? Double(stats.wins) / Double(stats.total) * 100.0 : 0.0
-            return PositionStat(position: mappedPosition, winRate: winRate, handsPlayed: stats.total)
+            let total = handIds.count
+            let wins = positionWins[position]?.count ?? 0
+            let winRate = total > 0 ? Double(wins) / Double(total) * 100.0 : 0.0
+            return PositionStat(position: mappedPosition, winRate: winRate, handsPlayed: total)
         }
     }
 

@@ -47,6 +47,10 @@ struct AIProfile: Equatable {
         static let maxPreflopThreshold: Double = 0.9
     }
 
+    /// 唯一标识符，用于 playerUniqueId 计算
+    /// 例如："石头", "老狐狸", "安娜"
+    let id: String
+    
     let name: String
     let avatar: String           // Emoji avatar
     let description: String
@@ -148,6 +152,7 @@ struct AIProfile: Equatable {
     /// Only plays top 10% of hands, but when they play they RAISE.
     /// Very predictable: if they bet, they have it.
     static let rock = AIProfile(
+        id: "rock",
         name: "石头",
         avatar: "🪨",
         description: "只玩顶级牌，一旦入池就加注",
@@ -166,6 +171,7 @@ struct AIProfile: Equatable {
     /// Real stats: VPIP 55-70%, PFR 35-50%, AF 4-6
     /// Plays most hands, raises constantly, hard to read because range is so wide
     static let maniac = AIProfile(
+        id: "maniac",
         name: "疯子麦克",
         avatar: "🤪",
         description: "疯狂加注，什么牌都玩",
@@ -185,6 +191,7 @@ struct AIProfile: Equatable {
     /// Calls with anything, rarely raises, never folds a pair.
     /// The most exploitable type: just value-bet relentlessly.
     static let callingStation = AIProfile(
+        id: "calling_station",
         name: "安娜",
         avatar: "👩",
         description: "喜欢跟注，舍不得弃牌",
@@ -203,6 +210,7 @@ struct AIProfile: Equatable {
     /// Real stats: VPIP 22-28%, PFR 18-24%, AF 2.5-3.5
     /// Plays a solid TAG style, mixes in some bluffs, hard to read.
     static let fox = AIProfile(
+        id: "fox",
         name: "老狐狸",
         avatar: "🦊",
         description: "平衡型高手，难以读牌",
@@ -221,6 +229,7 @@ struct AIProfile: Equatable {
     /// Real stats: VPIP 28-35%, PFR 22-30%, AF 3-4.5
     /// Exploits position mercilessly, widens range in late position, tightens early.
     static let shark = AIProfile(
+        id: "shark",
         name: "鲨鱼汤姆",
         avatar: "🦈",
         description: "位置意识极强，后位杀手",
@@ -240,6 +249,7 @@ struct AIProfile: Equatable {
     /// Uses mathematically balanced value/bluff ratios, optimal bet sizing.
     /// Very hard to exploit, never tilts, position-aware.
     static let academic = AIProfile(
+        id: "academic",
         name: "艾米",
         avatar: "🎓",
         description: "严格GTO，数学驱动，不可利用",
@@ -258,6 +268,7 @@ struct AIProfile: Equatable {
     /// Normally plays a decent TAG game, but after losing a big pot,
     /// becomes progressively more loose, aggressive, and bluff-heavy.
     static let tiltDavid = AIProfile(
+        id: "tilt_david",
         name: "大卫",
         avatar: "😤",
         description: "输钱后情绪化，容易上头",

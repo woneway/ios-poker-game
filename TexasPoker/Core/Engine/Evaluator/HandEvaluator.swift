@@ -6,7 +6,31 @@ class HandEvaluator {
     //           3=Trips, 2=TwoPair, 1=Pair, 0=HighCard
     // Returns (category, kickers) where kickers are sorted descending for comparison
     
+    /// 评估结果缓存
+    private static var evaluationCache: [String: (Int, [Int])] = [:]
+    private static let maxCacheSize = 2000
+    
+    /// 缓存键生成
+    private static func cacheKey(holeCards: [Card], communityCards: [Card]) -> String {
+        let holeRanks = holeCards.map { $0.rank.rawValue }.sorted()
+        let holeSuits = holeCards.map { $0.suit.rawValue }.sorted()
+        let communityRanks = communityCards.map { $0.rank.rawValue }.sorted()
+        let communitySuits = communityCards.map { $0.suit.rawValue }.sorted()
+        return "\(holeRanks)-\(holeSuits)-\(communityRanks)-\(communitySuits)"
+    }
+    
+    /// 清理缓存
+    static func clearCache() {
+        evaluationCache.removeAll()
+    }
+    
     static func evaluate(holeCards: [Card], communityCards: [Card]) -> (Int, [Int]) {
+        // 检查缓存
+        let key = cacheKey(holeCards: holeCards, communityCards: communityCards)
+        if let cached = evaluationCache[key] {
+            return cached
+        }
+        
         let allCards = holeCards + communityCards
         let combinations = combinationsOf5(from: allCards)
         
@@ -22,6 +46,17 @@ class HandEvaluator {
                 }
             }
         }
+        
+        // 存储到缓存
+        if evaluationCache.count >= maxCacheSize {
+            // 清除50%缓存
+            let keysToRemove = Array(evaluationCache.keys.prefix(maxCacheSize / 2))
+            for key in keysToRemove {
+                evaluationCache.removeValue(forKey: key)
+            }
+        }
+        evaluationCache[key] = bestScore
+        
         return bestScore
     }
     

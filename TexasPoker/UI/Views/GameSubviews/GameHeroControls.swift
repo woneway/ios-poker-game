@@ -16,6 +16,10 @@ struct GameHeroControls: View {
     
     // MARK: - TopUp State
     @State private var showTopUp = false
+
+    // MARK: - Error Alert State
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
     
     var body: some View {
         let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
@@ -281,12 +285,21 @@ struct GameHeroControls: View {
                                     .frame(width: 80, height: 44)
                                     .background(Capsule().fill(Color.red.opacity(0.8)))
                             }
+                            .accessibilityLabel("弃牌")
+                            .accessibilityAddTraits(.isButton)
                             
-                            Button(action: { 
+                            Button(action: {
                                 HapticFeedback.buttonPress()
-                                store.engine.processAction(callAmount == 0 ? .check : .call)
-                                store.send(.playerActed)
-                                if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
+                                // callAmount > 0 时执行跟注，callAmount == 0 时执行让牌
+                                if callAmount > 0 {
+                                    store.engine.processAction(.call)
+                                    store.send(.playerActed)
+                                    if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
+                                } else {
+                                    store.engine.processAction(.check)
+                                    store.send(.playerActed)
+                                    if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
+                                }
                             }) {
                                 Text(callAmount == 0 ? "让牌" : "跟注 $\(callAmount)")
                                     .font(.system(size: 14, weight: .bold))
@@ -294,6 +307,8 @@ struct GameHeroControls: View {
                                     .frame(width: 100, height: 44)
                                     .background(Capsule().fill(Color.blue.opacity(0.8)))
                             }
+                            .accessibilityLabel(callAmount == 0 ? "让牌" : "跟注 \(callAmount) 筹码")
+                            .accessibilityAddTraits(.isButton)
                             
                             // Open raise panel
                             Button(action: { 
@@ -307,6 +322,8 @@ struct GameHeroControls: View {
                                     .frame(width: 80, height: 44)
                                     .background(Capsule().fill(Color.orange))
                             }
+                            .accessibilityLabel("加注")
+                            .accessibilityAddTraits(.isButton)
                         }
                         
                         // 观战按钮（允许玩家在游戏进行中进入观战）
@@ -385,6 +402,13 @@ struct GameHeroControls: View {
                     }
                 )
             }
+        }
+        .alert(isPresented: $showErrorAlert) {
+            Alert(
+                title: Text("无法让牌"),
+                message: Text(errorMessage),
+                dismissButton: .default(Text("确定"))
+            )
         }
     }
     

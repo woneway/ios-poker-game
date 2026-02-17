@@ -37,7 +37,15 @@ extension PokerEngine {
         }
         
         // Move dealer button
-        dealerIndex = nextActivePlayerIndex(after: dealerIndex)
+        let newDealerIdx = nextActivePlayerIndex(after: dealerIndex)
+        if newDealerIdx >= 0 {
+            dealerIndex = newDealerIdx
+        } else {
+            // 没有活跃玩家，无法继续
+            isHandOver = true
+            winMessage = "Not enough players!"
+            return
+        }
         
         // Determine blind positions
         let activePlayers = players.filter { $0.status == .active || $0.status == .allIn }
@@ -47,13 +55,35 @@ extension PokerEngine {
             return
         }
         
-        smallBlindIndex = nextActivePlayerIndex(after: dealerIndex)
-        bigBlindIndex = nextActivePlayerIndex(after: smallBlindIndex)
+        let newSmallBlindIdx = nextActivePlayerIndex(after: dealerIndex)
+        if newSmallBlindIdx >= 0 {
+            smallBlindIndex = newSmallBlindIdx
+        } else {
+            isHandOver = true
+            winMessage = "Not enough players!"
+            return
+        }
+        
+        let newBigBlindIdx = nextActivePlayerIndex(after: smallBlindIndex)
+        if newBigBlindIdx >= 0 {
+            bigBlindIndex = newBigBlindIdx
+        } else {
+            isHandOver = true
+            winMessage = "Not enough players!"
+            return
+        }
         
         // In heads-up (2 players), dealer posts SB
         if activePlayers.count == 2 {
             smallBlindIndex = dealerIndex
-            bigBlindIndex = nextActivePlayerIndex(after: dealerIndex)
+            let newHeadUpBigBlindIdx = nextActivePlayerIndex(after: dealerIndex)
+            if newHeadUpBigBlindIdx >= 0 {
+                bigBlindIndex = newHeadUpBigBlindIdx
+            } else {
+                isHandOver = true
+                winMessage = "Not enough players!"
+                return
+            }
         }
         
         // Post antes (if any)
@@ -72,7 +102,15 @@ extension PokerEngine {
         
         currentBet = bigBlindAmount
         minRaise = bigBlindAmount
-        activePlayerIndex = nextActivePlayerIndex(after: bigBlindIndex)
+        let newActiveIdx = nextActivePlayerIndex(after: bigBlindIndex)
+        if newActiveIdx >= 0 {
+            activePlayerIndex = newActiveIdx
+        } else {
+            // 没有活跃玩家，无法继续
+            isHandOver = true
+            winMessage = "Not enough players!"
+            return
+        }
         
         for player in players where player.status == .active {
             hasActed[player.id] = false

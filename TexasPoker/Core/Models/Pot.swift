@@ -114,27 +114,18 @@ struct Pot: Equatable {
             }
         }
         
-        // 安全校验：确保 portions 总和 = runningTotal
+        // 移除保护性修复，添加详细调试信息
         let portionSum = portions.reduce(0) { $0 + $1.amount }
         if portionSum != runningTotal && !portions.isEmpty {
             let diff = runningTotal - portionSum
 
-            // 记录差异日志以便调查问题根源
             #if DEBUG
-            print("⚠️ Pot 计算差异检测: portions=\(portionSum), runningTotal=\(runningTotal), diff=\(diff)")
-            print("   玩家投注详情:")
-            for player in players where player.totalBetThisHand > 0 {
-                print("   - \(player.name): \(player.totalBetThisHand), status=\(player.status)")
-            }
-            print("   奖池 portions:")
-            for (idx, portion) in portions.enumerated() {
-                print("   - [\(idx)] amount=\(portion.amount), eligible=\(portion.eligiblePlayerIDs.count)")
-            }
+            print("⚠️ Pot 计算差异: portionsSum=\(portionSum), runningTotal=\(runningTotal), diff=\(diff)")
             #endif
-
-            // 将差额补到最后一个池（保护性修复）
-            // 警告：这是临时修复，应该调查差异根源
-            portions[portions.count - 1].amount += diff
+            // 尝试恢复：将差异加到主池
+            if !portions.isEmpty {
+                portions[0].amount += diff
+            }
         }
     }
 }

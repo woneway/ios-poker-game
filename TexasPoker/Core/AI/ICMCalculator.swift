@@ -99,7 +99,8 @@ class ICMCalculator {
     ) -> ICMSituation {
         
         let totalChips = allChips.reduce(0, +)
-        let avgChips = totalChips / max(1, allChips.count)
+        // 防止除零风险：当所有筹码为 0 时，使用默认值 1
+        let avgChips = totalChips > 0 ? totalChips / max(1, allChips.count) : 1
         let stackRatio = Double(myChips) / Double(avgChips)
         
         let playersRemaining = allChips.count

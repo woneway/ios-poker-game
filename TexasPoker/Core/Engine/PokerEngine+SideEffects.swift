@@ -45,6 +45,7 @@ extension PokerEngine {
         let position = getPosition(playerIndex: activePlayerIndex)
         ActionRecorder.shared.recordAction(
             playerName: updatedPlayer.name,
+            playerUniqueId: updatedPlayer.playerUniqueId,
             action: action,
             amount: potAddition,
             street: currentStreet,
