@@ -64,7 +64,7 @@ class StatisticsTests: XCTestCase {
         return handId
     }
     
-    private func recordAction(handId: UUID, playerName: String, action: String, amount: Int = 0, street: String = "preFlop", isVoluntary: Bool = false, isHuman: Bool = false) {
+    private func recordAction(handId: UUID, playerName: String, playerUniqueId: String? = nil, action: String, amount: Int = 0, street: String = "preFlop", isVoluntary: Bool = false, isHuman: Bool = false) {
         // Convert string action to PlayerAction enum
         let playerAction: PlayerAction
         switch action.lowercased() {
@@ -87,6 +87,7 @@ class StatisticsTests: XCTestCase {
         
         recorder.recordAction(
             playerName: playerName,
+            playerUniqueId: playerUniqueId,
             action: playerAction,
             amount: amount,
             street: streetEnum,
@@ -434,5 +435,122 @@ class StatisticsTests: XCTestCase {
         )
         let results = try? context.fetch(fetchRequest)
         XCTAssertEqual(results?.count ?? 0, 0)
+    }
+
+    // MARK: - calculateBatchStats Prefix Matching Tests
+
+    func testCalculateBatchStats_PrefixMatchingForPlayerUniqueId() {
+        // Test that calculateBatchStats uses prefix matching for playerUniqueId
+        // This is critical for AI opponents like "石头" to match "石头#1", "石头#2"
+        let gameMode = GameMode.cashGame
+
+        // Create hands with AI players using uniqueId format (name#number)
+        // NOTE: In real scenario, playerName might be stored as just the base name
+        // or may be stored differently. We test the case where playerName matches query.
+        let hand1 = createTestHand(handNumber: 1, gameMode: gameMode)
+        recordAction(handId: hand1, playerName: "石头", playerUniqueId: "石头#1", action: "raise", amount: 20, street: "preFlop", isVoluntary: true)
+        finishHand(handId: hand1, winnerNames: "石头", finalPot: 100)
+
+        let hand2 = createTestHand(handNumber: 2, gameMode: gameMode)
+        recordAction(handId: hand2, playerName: "石头", playerUniqueId: "石头#2", action: "call", amount: 10, street: "preFlop", isVoluntary: true)
+        finishHand(handId: hand2, winnerNames: "Hero", finalPot: 80)
+
+        let hand3 = createTestHand(handNumber: 3, gameMode: gameMode)
+        recordAction(handId: hand3, playerName: "石头", playerUniqueId: "石头#1", action: "raise", amount: 30, street: "preFlop", isVoluntary: true)
+        finishHand(handId: hand3, winnerNames: "石头", finalPot: 120)
+
+        // Query with base name "石头" - should match both "石头#1" and "石头#2"
+        let result = calculator.calculateBatchStats(playerNames: ["石头"], gameMode: gameMode)
+
+        // The bug: currently returns nil because exact match fails when uniqueId doesn't match exactly
+        // After fix: should return stats with 3 total hands
+        guard let stats = result["石头"], let stats = stats else {
+            XCTFail("Expected stats for '石头' to be non-nil (prefix matching should match 石头#1 and 石头#2)")
+            return
+        }
+
+        XCTAssertEqual(stats.totalHands, 3, "Should match all 3 hands from 石头#1 and 石头#2")
+        XCTAssertEqual(stats.vpip, 100.0, accuracy: 0.1, "All 3 hands were voluntary (raise/call preflop)")
+        XCTAssertEqual(stats.handsWon, 2, "Won 2 out of 3 hands")
+    }
+
+    func testCalculateBatchStats_PrefixMatchingOnly() {
+        // Test the specific case where only playerUniqueId prefix matches
+        // playerName is different or doesn't match - this is the actual bug scenario
+        let gameMode = GameMode.cashGame
+
+        // Create hands where playerUniqueId contains prefix but playerName doesn't match query
+        // This simulates: stored playerName could be "AI_石头_1" but uniqueId is "石头#1"
+        let hand1 = createTestHand(handNumber: 1, gameMode: gameMode)
+        // Using a different playerName to simulate the actual scenario
+        recordAction(handId: hand1, playerName: "AI_石头_1", playerUniqueId: "石头#1", action: "raise", amount: 20, street: "preFlop", isVoluntary: true)
+        finishHand(handId: hand1, winnerNames: "AI_石头_1", finalPot: 100)
+
+        let hand2 = createTestHand(handNumber: 2, gameMode: gameMode)
+        recordAction(handId: hand2, playerName: "AI_石头_2", playerUniqueId: "石头#2", action: "call", amount: 10, street: "preFlop", isVoluntary: true)
+        finishHand(handId: hand2, winnerNames: "Hero", finalPot: 80)
+
+        // Query with base name "石头" - should match via prefix on playerUniqueId
+        let result = calculator.calculateBatchStats(playerNames: ["石头"], gameMode: gameMode)
+
+        // Current bug: returns nil because "石头#1" != "石头" and "AI_石头_1" != "石头"
+        // After fix: should return stats with 2 total hands via prefix matching
+        guard let stats = result["石头"], let stats = stats else {
+            XCTFail("Expected stats for '石头' to be non-nil via prefix matching on playerUniqueId")
+            return
+        }
+
+        XCTAssertEqual(stats.totalHands, 2, "Should match 2 hands via prefix matching 石头#1 and 石头#2")
+        XCTAssertEqual(stats.vpip, 100.0, accuracy: 0.1, "All 2 hands were voluntary")
+    }
+
+    func testCalculateBatchStats_ExactMatchStillWorks() {
+        // Ensure exact matching still works for players without # suffix
+        let gameMode = GameMode.cashGame
+
+        let hand1 = createTestHand(handNumber: 1, gameMode: gameMode)
+        recordAction(handId: hand1, playerName: "Hero", playerUniqueId: nil, action: "raise", amount: 20, street: "preFlop", isVoluntary: true)
+        finishHand(handId: hand1, winnerNames: "Hero", finalPot: 100)
+
+        let hand2 = createTestHand(handNumber: 2, gameMode: gameMode)
+        recordAction(handId: hand2, playerName: "Hero", playerUniqueId: nil, action: "call", amount: 10, street: "preFlop", isVoluntary: true)
+        finishHand(handId: hand2, winnerNames: "Hero", finalPot: 80)
+
+        // Query with exact name - should still work
+        let result = calculator.calculateBatchStats(playerNames: ["Hero"], gameMode: gameMode)
+
+        guard let stats = result["Hero"], let stats = stats else {
+            XCTFail("Expected stats for 'Hero' to be non-nil")
+            return
+        }
+
+        XCTAssertEqual(stats.totalHands, 2)
+        XCTAssertEqual(stats.vpip, 100.0, accuracy: 0.1)
+    }
+
+    func testCalculateBatchStats_PrefixMatchVsExactMatchPriority() {
+        // Test that exact match on playerName takes priority over prefix match
+        // If there's an action with playerName="石头" (exact), it should be included
+        let gameMode = GameMode.cashGame
+
+        // Hand with exact name match
+        let hand1 = createTestHand(handNumber: 1, gameMode: gameMode)
+        recordAction(handId: hand1, playerName: "石头", playerUniqueId: nil, action: "raise", amount: 20, street: "preFlop", isVoluntary: true)
+        finishHand(handId: hand1, winnerNames: "石头", finalPot: 100)
+
+        // Hand with prefix match
+        let hand2 = createTestHand(handNumber: 2, gameMode: gameMode)
+        recordAction(handId: hand2, playerName: "石头", playerUniqueId: "石头#1", action: "call", amount: 10, street: "preFlop", isVoluntary: true)
+        finishHand(handId: hand2, winnerNames: "Hero", finalPot: 80)
+
+        // Query with base name - should match both
+        let result = calculator.calculateBatchStats(playerNames: ["石头"], gameMode: gameMode)
+
+        guard let stats = result["石头"], let stats = stats else {
+            XCTFail("Expected stats for '石头' to be non-nil")
+            return
+        }
+
+        XCTAssertEqual(stats.totalHands, 2, "Should match both exact name and prefix uniqueId")
     }
 }

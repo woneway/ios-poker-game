@@ -163,6 +163,7 @@ class GameViewLayoutTests: XCTestCase {
                 chips: Int.random(in: 500...2000),
                 isHuman: false,
                 aiProfile: AIProfile(
+                    id: name.lowercased().replacingOccurrences(of: " ", with: "_"),
                     name: name,
                     avatar: "🤖",
                     description: "AI Player",
