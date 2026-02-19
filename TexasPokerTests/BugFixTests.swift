@@ -432,6 +432,9 @@ class BugFixTests: XCTestCase {
         // all-in 后 newMinRaise 应该是 0
         XCTAssertEqual(result.newMinRaise, 0,
                        "All-in 后 minRaise 应该是 0")
+        
+        // 显式销毁引擎以防止异步任务在引擎释放后继续运行导致崩溃
+        engine.destroy()
     }
     
     // MARK: - Bug Fix L-07: Pot 计算差异根本原因
@@ -1010,5 +1013,483 @@ class BugFixTests: XCTestCase {
         store.engine.activePlayerIndex = 1
         let canCheckWhenCallRequired = store.engine.canCheck()
         XCTAssertFalse(canCheckWhenCallRequired, "需要跟注时不应该可以 check")
+    }
+
+    // MARK: - 死锁场景修复测试
+
+    /// 场景A：所有玩家 all-in（无 active 玩家）时 isRoundComplete 应返回 true
+    func testIsRoundCompleteWhenAllPlayersAllIn() {
+        var players: [Player] = []
+
+        // 玩家1: all-in 2070
+        var p1 = Player(name: "麦克", chips: 0)
+        p1.status = .allIn
+        p1.currentBet = 2070
+        players.append(p1)
+
+        // 玩家2: all-in 1000
+        var p2 = Player(name: "安娜", chips: 0)
+        p2.status = .allIn
+        p2.currentBet = 1000
+        players.append(p2)
+
+        // 玩家3: all-in 1000
+        var p3 = Player(name: "大卫", chips: 0)
+        p3.status = .allIn
+        p3.currentBet = 1000
+        players.append(p3)
+
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = true
+        hasActed[p2.id] = true
+        hasActed[p3.id] = true
+
+        // currentBet 应该是最高注额 2070
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 2070
+        )
+
+        XCTAssertTrue(isComplete,
+            "当所有玩家都是 all-in 时，isRoundComplete 应该返回 true")
+    }
+
+    /// 场景A-2：所有玩家 all-in 但有人未 action（边界情况）
+    func testIsRoundCompleteWhenAllPlayersAllInWithUnacted() {
+        var players: [Player] = []
+
+        var p1 = Player(name: "麦克", chips: 0)
+        p1.status = .allIn
+        p1.currentBet = 2070
+        players.append(p1)
+
+        var p2 = Player(name: "安娜", chips: 0)
+        p2.status = .allIn
+        p2.currentBet = 1000
+        players.append(p2)
+
+        var p3 = Player(name: "大卫", chips: 0)
+        p3.status = .allIn
+        p3.currentBet = 1000
+        players.append(p3)
+
+        // 模拟边缘情况：有人还没标记 hasActed（但实际上 all-in 玩家不应该需要 action）
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = true
+        hasActed[p2.id] = false  // 边缘情况：未标记
+        hasActed[p3.id] = true
+
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 2070
+        )
+
+        // 即使有边缘情况，所有玩家都是 all-in 时也应该返回 true
+        XCTAssertTrue(isComplete,
+            "当所有玩家都是 all-in 时，即使 hasActed 未完全设置，也应该返回 true")
+    }
+
+    /// 场景B：多人 all-in + 不同注额 + 有 active 玩家
+    func testIsRoundCompleteWithMixedAllInAndActive() {
+        var players: [Player] = []
+
+        // 玩家1: all-in 2070
+        var p1 = Player(name: "麦克", chips: 0)
+        p1.status = .allIn
+        p1.currentBet = 2070
+        players.append(p1)
+
+        // 玩家2: all-in 1000
+        var p2 = Player(name: "安娜", chips: 0)
+        p2.status = .allIn
+        p2.currentBet = 1000
+        players.append(p2)
+
+        // 玩家3: active，已跟注 2070
+        var p3 = Player(name: "大卫", chips: 100)
+        p3.status = .active
+        p3.currentBet = 2070
+        players.append(p3)
+
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = true
+        hasActed[p2.id] = true
+        hasActed[p3.id] = true
+
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 2070
+        )
+
+        XCTAssertTrue(isComplete,
+            "当所有 active 玩家都已行动且下注相等时，即使有 all-in 玩家，轮次也应该完成")
+    }
+
+    /// 场景B-2：多人 all-in + 不同注额 + 有 active 玩家未 action
+    func testIsRoundCompleteWithMixedAllInAndActiveUnacted() {
+        var players: [Player] = []
+
+        var p1 = Player(name: "麦克", chips: 0)
+        p1.status = .allIn
+        p1.currentBet = 2070
+        players.append(p1)
+
+        var p2 = Player(name: "安娜", chips: 0)
+        p2.status = .allIn
+        p2.currentBet = 1000
+        players.append(p2)
+
+        var p3 = Player(name: "大卫", chips: 100)
+        p3.status = .active
+        p3.currentBet = 2070
+        players.append(p3)
+
+        // 大卫未行动
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = true
+        hasActed[p2.id] = true
+        hasActed[p3.id] = false  // 大卫未行动
+
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 2070
+        )
+
+        XCTAssertFalse(isComplete,
+            "当有 active 玩家未行动时，isRoundComplete 应该返回 false")
+    }
+
+    /// 场景C：reopenAction 后 all-in 玩家正确标记 hasActed
+    func testAllInPlayerHasActedAfterReopenAction() {
+        let store = PokerGameStore()
+        store.send(.start)
+        store.send(.dealComplete)
+
+        // 翻牌圈
+        XCTAssertEqual(store.engine.currentStreet, .flop)
+
+        store.engine.currentBet = 100
+        store.engine.minRaise = 20
+
+        let p1ID = store.engine.players[0].id
+        let p2ID = store.engine.players[1].id
+        let p3ID = store.engine.players[2].id
+
+        // P1 raise to 200 (触发 reopenAction)
+        store.engine.activePlayerIndex = 0
+        store.engine.processAction(.raise(200))
+
+        // 验证 P1 hasActed = true
+        XCTAssertEqual(store.engine.hasActed[p1ID], true, "P1 应该已行动")
+
+        // 验证 P2 和 P3 的 hasActed 被重置为 false（因为 P1 加注）
+        XCTAssertEqual(store.engine.hasActed[p2ID], false, "P2 应该被重置为未行动")
+        XCTAssertEqual(store.engine.hasActed[p3ID], false, "P3 应该被重置为未行动")
+
+        // P2 跟注 200
+        store.engine.activePlayerIndex = 1
+        store.engine.processAction(.call)
+
+        // P3 all-in（触发 reopenAction）
+        store.engine.activePlayerIndex = 2
+        store.engine.processAction(.allIn)
+
+        // P3 应该是 all-in 且 hasActed = true
+        XCTAssertEqual(store.engine.players[2].status, .allIn, "P3 应该是 all-in")
+        XCTAssertEqual(store.engine.hasActed[p3ID], true, "P3 all-in 后应该已行动")
+
+        // P1 和 P2 的 hasActed 应该被重置（因为 P3 加注）
+        XCTAssertEqual(store.engine.hasActed[p1ID], false, "P1 应该被重置")
+        XCTAssertEqual(store.engine.hasActed[p2ID], false, "P2 应该被重置")
+
+        // P1 跟注
+        store.engine.activePlayerIndex = 0
+        store.engine.processAction(.call)
+
+        // P2 跟注
+        store.engine.activePlayerIndex = 1
+        store.engine.processAction(.call)
+
+        // 现在所有玩家都 all-in 或已行动，轮次应该完成
+        let isComplete = BettingManager.isRoundComplete(
+            players: store.engine.players,
+            hasActed: store.engine.hasActed,
+            currentBet: store.engine.currentBet
+        )
+
+        XCTAssertTrue(isComplete, "轮次应该完成")
+    }
+
+    /// 场景D：测试 all-in 后 minRaise 为 0 的正确性
+    func testAllInSetsMinRaiseToZero() {
+        let engine = PokerEngine()
+
+        var p1 = Player(name: "P1", chips: 100)
+        p1.currentBet = 50
+        engine.players = [p1]
+
+        let result = BettingManager.processAction(
+            .allIn,
+            player: p1,
+            currentBet: 50,
+            minRaise: 20
+        )
+
+        XCTAssertEqual(result.newMinRaise, 0,
+            "All-in 后 minRaise 应该为 0")
+        XCTAssertTrue(result.reopenAction,
+            "All-in 应该触发 reopenAction")
+    }
+
+    /// 验证：当存在 side pot 场景时，all-in 玩家数量不影响轮次判断
+    func testIsRoundCompleteWithPartialAllInCoverage() {
+        var players: [Player] = []
+
+        // 3 个玩家
+        var p1 = Player(name: "P1", chips: 0)
+        p1.status = .allIn
+        p1.currentBet = 100
+        players.append(p1)
+
+        var p2 = Player(name: "P2", chips: 0)
+        p2.status = .allIn
+        p2.currentBet = 100
+        players.append(p2)
+
+        var p3 = Player(name: "P3", chips: 50)
+        p3.status = .active
+        p3.currentBet = 100
+        players.append(p3)
+
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = true
+        hasActed[p2.id] = true
+        hasActed[p3.id] = true
+
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 100
+        )
+
+        XCTAssertTrue(isComplete,
+            "所有 active 玩家都已行动时，轮次应该完成")
+    }
+
+    /// 验证：空玩家列表应该返回 true
+    func testIsRoundCompleteWithEmptyPlayers() {
+        let isComplete = BettingManager.isRoundComplete(
+            players: [],
+            hasActed: [:],
+            currentBet: 0
+        )
+
+        XCTAssertTrue(isComplete, "空玩家列表应该返回 true")
+    }
+
+    /// 验证：只有 folded 玩家时应该返回 true
+    func testIsRoundCompleteWithOnlyFoldedPlayers() {
+        var players: [Player] = []
+
+        var p1 = Player(name: "P1", chips: 100)
+        p1.status = .folded
+        players.append(p1)
+
+        var p2 = Player(name: "P2", chips: 100)
+        p2.status = .folded
+        players.append(p2)
+
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = false
+        hasActed[p2.id] = false
+
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 0
+        )
+
+        XCTAssertTrue(isComplete, "只有 folded 玩家时应该返回 true")
+    }
+
+    /// 验证：sittingOut 玩家不应该参与下注轮次判断
+    func testIsRoundCompleteWithSittingOutPlayers() {
+        var players: [Player] = []
+
+        var p1 = Player(name: "P1", chips: 100)
+        p1.status = .active
+        p1.currentBet = 50
+        players.append(p1)
+
+        var p2 = Player(name: "P2", chips: 100)
+        p2.status = .sittingOut  // 不参与
+        players.append(p2)
+
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = true
+
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 50
+        )
+
+        XCTAssertTrue(isComplete,
+            "sittingOut 玩家不应该影响轮次判断")
+    }
+
+    /// 验证：eliminated 玩家不应该参与下注轮次判断
+    func testIsRoundCompleteWithEliminatedPlayers() {
+        var players: [Player] = []
+
+        var p1 = Player(name: "P1", chips: 100)
+        p1.status = .active
+        p1.currentBet = 50
+        players.append(p1)
+
+        var p2 = Player(name: "P2", chips: 0)
+        p2.status = .eliminated
+        players.append(p2)
+
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = true
+
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 50
+        )
+
+        XCTAssertTrue(isComplete,
+            "eliminated 玩家不应该影响轮次判断")
+    }
+
+    /// 集成测试：完整的死锁场景 - 所有玩家 all-in 后 isRoundComplete 应返回 true
+    func testAllInDeadlockScenarioAdvancesToShowdown() {
+        var players: [Player] = []
+
+        // 模拟用户提供的场景：疯子麦克 all-in 2070，安娜 all-in 1000，大卫 all-in 1000
+        var p1 = Player(name: "麦克", chips: 0)
+        p1.status = .allIn
+        p1.currentBet = 2070
+        players.append(p1)
+
+        var p2 = Player(name: "安娜", chips: 0)
+        p2.status = .allIn
+        p2.currentBet = 1000
+        players.append(p2)
+
+        var p3 = Player(name: "大卫", chips: 0)
+        p3.status = .allIn
+        p3.currentBet = 1000
+        players.append(p3)
+
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = true
+        hasActed[p2.id] = true
+        hasActed[p3.id] = true
+
+        // 验证 isRoundComplete 对全 all-in 场景返回 true
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 2070
+        )
+
+        XCTAssertTrue(isComplete,
+            "所有玩家 all-in 时，isRoundComplete 应该返回 true")
+    }
+
+    /// 测试 reopenAction 正确重置 active 玩家的 hasActed
+    func testReopenActionResetsActivePlayers() {
+        var players: [Player] = []
+
+        var p1 = Player(name: "P1", chips: 100)
+        p1.status = .active
+        p1.currentBet = 50
+        players.append(p1)
+
+        var p2 = Player(name: "P2", chips: 100)
+        p2.status = .active
+        p2.currentBet = 50
+        players.append(p2)
+
+        var p3 = Player(name: "P3", chips: 0)
+        p3.status = .allIn
+        p3.currentBet = 50
+        players.append(p3)
+
+        // P1 加注到 100
+        let result = BettingManager.processAction(
+            .raise(100),
+            player: p1,
+            currentBet: 50,
+            minRaise: 20
+        )
+
+        XCTAssertTrue(result.reopenAction, "加注应该触发 reopenAction")
+        XCTAssertEqual(result.newCurrentBet, 100, "currentBet 应该更新")
+    }
+
+    /// 测试 all-in 玩家的 currentBet 可能小于 currentBet
+    func testAllInPlayerBetLessThanCurrentBet() {
+        var players: [Player] = []
+
+        // 玩家1：all-in 50（小盲注 all-in）
+        var p1 = Player(name: "P1", chips: 0)
+        p1.status = .allIn
+        p1.currentBet = 50
+        players.append(p1)
+
+        // 玩家2：跟注 50
+        var p2 = Player(name: "P2", chips: 100)
+        p2.status = .active
+        p2.currentBet = 50
+        players.append(p2)
+
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = true
+        hasActed[p2.id] = true
+
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 50
+        )
+
+        XCTAssertTrue(isComplete,
+            "all-in 玩家 currentBet 小于 currentBet 时，轮次也应该完成")
+    }
+
+    /// 测试 all-in 后再 all-in 的情况（边界）
+    func testAllInAfterAllIn() {
+        var players: [Player] = []
+
+        var p1 = Player(name: "P1", chips: 0)
+        p1.status = .allIn
+        p1.currentBet = 100
+        players.append(p1)
+
+        var p2 = Player(name: "P2", chips: 0)
+        p2.status = .allIn
+        p2.currentBet = 150
+        players.append(p2)
+
+        var hasActed: [UUID: Bool] = [:]
+        hasActed[p1.id] = true
+        hasActed[p2.id] = true
+
+        let isComplete = BettingManager.isRoundComplete(
+            players: players,
+            hasActed: hasActed,
+            currentBet: 150
+        )
+
+        XCTAssertTrue(isComplete,
+            "所有玩家 all-in 时，轮次应该完成")
     }
 }

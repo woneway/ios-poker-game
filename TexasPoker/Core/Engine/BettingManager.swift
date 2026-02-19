@@ -90,11 +90,10 @@ enum BettingManager {
             p.totalBetThisHand += amount
             potAdd = amount
             if p.currentBet > currentBet {
-                // All-in 后的 minRaise 计算：
-                // 当有玩家 all-in 后，其他玩家仍然可以加注到更高金额
-                // minRaise 应该保持不变，允许其他玩家选择是否加注
-                let raiseSize = p.currentBet - currentBet
-                newMinRaise = max(minRaise, raiseSize)  // 修正：使用 raiseSize 更新 minRaise
+                // All-in 后 minRaise 应该是 0
+                // 因为 all-in 玩家已经下注所有筹码，其他玩家不能再次加注
+                // 只能选择 fold 或 call
+                newMinRaise = 0
                 newCurrentBet = p.currentBet
                 newLastRaiser = p.id
                 isNewAggressor = true
@@ -125,6 +124,16 @@ enum BettingManager {
         // 活跃玩家包括 active 和 allIn（allIn 玩家不能再行动）
         let activePlayers = players.filter { $0.status == .active || $0.status == .allIn }
         if activePlayers.isEmpty { return true }
+
+        // 终态检查：如果所有活跃玩家都是 all-in，轮次必然结束
+        // 这是死锁场景的核心修复：当所有人都 all-in 时，不应该等待任何人行动
+        let allPlayersAllIn = activePlayers.allSatisfy { $0.status == .allIn }
+        if allPlayersAllIn {
+            #if DEBUG
+            print("🔍 isRoundComplete: 所有玩家都是 all-in，轮次结束")
+            #endif
+            return true
+        }
 
         #if DEBUG
         var debugInfo = "🔍 isRoundComplete: activePlayers=\(activePlayers.count), currentBet=\(currentBet)"

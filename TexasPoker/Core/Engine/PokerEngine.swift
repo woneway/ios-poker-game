@@ -239,19 +239,38 @@ class PokerEngine: ObservableObject {
             endHand()
             return
         }
-        
+
         // Fix: If we are already at River and dealNextStreet is called,
         // it means the River betting round is complete. End the hand.
         if currentStreet == .river {
             endHand()
             return
         }
-        
+
+        // 关键修复：当所有玩家都是 all-in 时（没有 active 玩家），
+        // 应该直接进入 showdown，不需要再发牌
+        let activePlayersCount = players.filter { $0.status == .active }.count
+        if activePlayersCount == 0 {
+            // 没有 active 玩家（所有人都是 all-in），直接进入 showdown
+            #if DEBUG
+            print("🔍 dealNextStreet: 所有玩家都是 all-in，直接进入 showdown")
+            #endif
+            endHand()
+            return
+        }
+
         // canBet 应该同时考虑 active 和 allIn 玩家
         // allIn 玩家不能再下注，但仍然参与后续发牌和底池争夺
         let canBet = players.filter { $0.status == .active || $0.status == .allIn }
-        
-        DealingManager.dealStreetCards(deck: &deck, communityCards: &communityCards, currentStreet: &currentStreet)
+
+        // 预先保存 currentStreet，用于后续判断
+        let previousStreet = currentStreet
+
+        // 只有在需要继续下注时才提前发牌（只有 active 玩家可以继续下注）
+        if activePlayersCount >= 2 {
+            // 有足够的 active 玩家，可以继续正常发牌流程
+            DealingManager.dealStreetCards(deck: &deck, communityCards: &communityCards, currentStreet: &currentStreet)
+        }
 
         if currentStreet == .river {
             // Fix: river 街的判断也应该同时考虑 active 和 allIn 玩家
