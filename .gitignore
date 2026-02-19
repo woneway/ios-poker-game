@@ -43,3 +43,4 @@ archive/
 .DS_Store
 .AppleDouble
 .LSOverride
+TestResults/
