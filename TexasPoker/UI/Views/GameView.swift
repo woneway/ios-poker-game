@@ -229,7 +229,15 @@ struct GameView: View {
                    let hero = store.engine.players.first(where: { $0.isHuman }),
                    hero.chips <= 0 {
                     // Hero被淘汰，检查是否还可以买入
-                    if let session = store.currentSession, !session.isBuyInLimitReached {
+                    let canBuyIn: Bool
+                    if let session = store.currentSession {
+                        canBuyIn = !session.isBuyInLimitReached
+                    } else {
+                        // 没有session（第一手牌），允许买入
+                        canBuyIn = true
+                    }
+                    
+                    if canBuyIn {
                         // 可以买入，显示买入界面
                         store.showBuyIn = true
                         #if DEBUG
