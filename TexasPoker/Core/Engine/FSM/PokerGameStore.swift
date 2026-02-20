@@ -734,6 +734,7 @@ class PokerGameStore: ObservableObject {
         guard let hero = engine.players.first(where: { $0.isHuman }) else { 
             #if DEBUG
             print("📊 recordHandProfit: guard failed - no hero")
+            print("📊 recordHandProfit: 所有玩家 = \(engine.players.map { "\($0.name)(\($0.isHuman))" })")
             #endif
             return 
         }
