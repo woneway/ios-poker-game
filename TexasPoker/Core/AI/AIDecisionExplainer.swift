@@ -1,5 +1,48 @@
 import Foundation
 
+enum TiltLevel: CaseIterable {
+    case calm
+    case minor
+    case moderate
+    case severe
+    case onTilt
+
+    var description: String {
+        switch self {
+        case .calm: return "冷静"
+        case .minor: return "轻微波动"
+        case .moderate: return "中度波动"
+        case .severe: return "严重上头"
+        case .onTilt: return "失控"
+        }
+    }
+
+    static func from(tiltValue: Double) -> TiltLevel {
+        switch tiltValue {
+        case 0..<0.2: return .calm
+        case 0.2..<0.4: return .minor
+        case 0.4..<0.6: return .moderate
+        case 0.6..<0.8: return .severe
+        default: return .onTilt
+        }
+    }
+}
+
+struct TablePosition {
+    let name: String
+    let positionalAdvantage: Double
+    let stealability: Double
+
+    static let utg = TablePosition(name: "UTG", positionalAdvantage: 0.3, stealability: 0.2)
+    static let utg1 = TablePosition(name: "UTG+1", positionalAdvantage: 0.35, stealability: 0.25)
+    static let lojack = TablePosition(name: "Lojack", positionalAdvantage: 0.4, stealability: 0.3)
+    static let hijack = TablePosition(name: "Hijack", positionalAdvantage: 0.5, stealability: 0.4)
+    static let cutoff = TablePosition(name: "Cutoff", positionalAdvantage: 0.65, stealability: 0.6)
+    static let button = TablePosition(name: "Button", positionalAdvantage: 0.8, stealability: 0.7)
+    static let smallBlind = TablePosition(name: "小盲", positionalAdvantage: 0.2, stealability: 0.1)
+    static let bigBlind = TablePosition(name: "大盲", positionalAdvantage: 0.25, stealability: 0.05)
+}
+
 struct DecisionFactor {
     let name: String
     let value: Double

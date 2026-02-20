@@ -295,8 +295,10 @@ struct GameView: View {
                             }
                         } else {
                             // 首次买入：创建新session
-                            // 默认50手后结束，可根据需要调整
-                            store.startCashSession(buyIn: buyInAmount, maxHands: 50)
+                            // 计算总买入限制: 玩家数 × 5 (每人可买入5次)
+                            let playerCount = store.engine.players.count
+                            let maxBuyIns = playerCount * 5
+                            store.startCashSession(buyIn: buyInAmount, maxBuyIns: maxBuyIns)
                         }
                         
                         // 设置 Hero 筹码并设为active

@@ -12,13 +12,30 @@ struct CashGameSession: Codable, Identifiable {
     var handProfits: [Int] = []
     var handsWon: Int = 0
     
-    /// Maximum hands to play before session ends (0 = unlimited)
-    var maxHands: Int = 0
+    /// Maximum total buy-in count before session ends (0 = unlimited)
+    /// Calculated as: playerCount × maxBuyIn × multiplier
+    var maxBuyIns: Int = 0
     
-    /// Whether session has reached the hand limit
-    var isHandLimitReached: Bool {
-        return maxHands > 0 && handsPlayed >= maxHands
+    /// The max single buy-in amount (used for calculating top-up counts)
+    var maxBuyIn: Int = 2000
+    
+    /// Total number of buy-ins (initial + top-ups)
+    var totalBuyInCount: Int {
+        guard initialBuyIn > 0 else { return 0 }
+        var count = 1  // initial buy-in
+        if maxBuyIn > 0 && topUpTotal > 0 {
+            count += topUpTotal / maxBuyIn
+        }
+        return count
     }
+    
+    /// Whether session has reached the buy-in limit
+    var isBuyInLimitReached: Bool {
+        return maxBuyIns > 0 && totalBuyInCount >= maxBuyIns
+    }
+    
+    /// Legacy property for compatibility
+    var maxHands: Int = 0
 
     /// Net profit: final chips minus initial buy-in and total top-ups
     var netProfit: Int {
@@ -67,12 +84,14 @@ struct CashGameSession: Codable, Identifiable {
     /// Creates a new cash game session with the given buy-in amount.
     /// - Parameters:
     ///   - buyIn: The initial buy-in amount in chips.
-    ///   - maxHands: Maximum hands to play before session ends (default: 0 = unlimited)
-    init(buyIn: Int, maxHands: Int = 0) {
+    ///   - maxBuyIns: Maximum total buy-in count before session ends (default: 0 = unlimited)
+    ///   - maxBuyIn: The max single buy-in amount for calculating top-up counts
+    init(buyIn: Int, maxBuyIns: Int = 0, maxBuyIn: Int = 2000) {
         self.id = UUID()
         self.startTime = Date()
         self.initialBuyIn = buyIn
-        self.maxHands = maxHands
+        self.maxBuyIns = maxBuyIns
+        self.maxBuyIn = maxBuyIn
     }
     
     /// Records a hand result

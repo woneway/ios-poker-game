@@ -692,8 +692,8 @@ class PokerGameStore: ObservableObject {
         state = .idle
     }
     
-    func startCashSession(buyIn: Int, maxHands: Int = 0) {
-        currentSession = CashGameSession(buyIn: buyIn, maxHands: maxHands)
+    func startCashSession(buyIn: Int, maxBuyIns: Int = 0) {
+        currentSession = CashGameSession(buyIn: buyIn, maxBuyIns: maxBuyIns)
         showBuyIn = false
     }
     
@@ -783,10 +783,10 @@ class PokerGameStore: ObservableObject {
             return
         }
         
-        // 检查是否达到手数限制
-        if session.isHandLimitReached {
+        // 检查是否达到总买入限制
+        if session.isBuyInLimitReached {
             #if DEBUG
-            print("🎯 达到手数限制 \(session.maxHands)，结束游戏")
+            print("🎯 达到总买入限制 \(session.maxBuyIns)，结束游戏")
             #endif
             // 强制结束session
             leaveTable()

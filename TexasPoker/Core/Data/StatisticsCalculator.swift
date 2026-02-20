@@ -1,6 +1,50 @@
 import Foundation
 import CoreData
 
+// MARK: - Statistics Cache
+
+final class StatisticsCache {
+    static let shared = StatisticsCache()
+    
+    private var cache: [String: CachedStats] = [:]
+    private let queue = DispatchQueue(label: "com.poker.statistics.cache", attributes: .concurrent)
+    private let maxAge: TimeInterval = 60
+    
+    struct CachedStats {
+        let stats: PlayerStats
+        let timestamp: Date
+    }
+    
+    func getStats(for key: String) -> PlayerStats? {
+        queue.sync {
+            guard let cached = cache[key] else { return nil }
+            if Date().timeIntervalSince(cached.timestamp) > maxAge {
+                cache.removeValue(forKey: key)
+                return nil
+            }
+            return cached.stats
+        }
+    }
+    
+    func setStats(_ stats: PlayerStats, for key: String) {
+        queue.async(flags: .barrier) {
+            self.cache[key] = CachedStats(stats: stats, timestamp: Date())
+        }
+    }
+    
+    func invalidate(key: String) {
+        queue.async(flags: .barrier) {
+            self.cache.removeValue(forKey: key)
+        }
+    }
+    
+    func clear() {
+        queue.async(flags: .barrier) {
+            self.cache.removeAll()
+        }
+    }
+}
+
 // MARK: - PlayerStats Struct
 
 struct PlayerStats {
