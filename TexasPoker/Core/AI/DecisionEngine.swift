@@ -562,7 +562,37 @@ class DecisionEngine {
             }
         }
         
-        // 3. ICM adjustment (tournament mode only)
+        // 3. 使用AI系统增强决策
+        // 获取对手下注模式
+        var patternAdjust = 0.0
+        if let lastBettor = findLastBettor(engine: engine), lastBettor.id != player.id {
+            let opponentId = lastBettor.id.uuidString
+            let pattern = BettingPatternRecognizer.shared.recognizePattern(for: opponentId)
+            
+            // 根据对手模式调整策略
+            switch pattern {
+            case .aggressive:
+                // 对手凶，跟注更紧，偷盲更激进
+                patternAdjust = -0.1
+            case .passive:
+                // 对手弱，可以多偷盲
+                patternAdjust = 0.15
+            case .tight:
+                // 对手紧，可能有强牌
+                patternAdjust = -0.05
+            case .loose:
+                // 对手松，可以多价值下注
+                patternAdjust = 0.1
+            case .balanced:
+                patternAdjust = 0.0
+            }
+            
+#if DEBUG
+            print("🎯 \(player.name) 识别对手下注模式: \(pattern.description)，调整: \(String(format: "%.0f%%", patternAdjust * 100))")
+#endif
+        }
+        
+        // 4. ICM adjustment (tournament mode only)
         var icmAdjust: ICMStrategyAdjustment? = nil
         if engine.gameMode == .tournament {
             let situation = ICMCalculator.analyze(
@@ -582,6 +612,9 @@ class DecisionEngine {
         
         // 4. Apply strategy adjustment to profile
         var adjustedProfile = applyStrategyAdjustment(profile: profile, adjustment: strategyAdjust)
+        
+        // Apply pattern adjustment (from BettingPatternRecognizer)
+        adjustedProfile.aggression += patternAdjust
         
         // Apply ICM adjustment to profile
         if let icmAdj = icmAdjust {
@@ -975,6 +1008,38 @@ class DecisionEngine {
         
         // Board texture analysis
         let board = analyzeBoardTexture(community)
+        
+        // 使用HandReadingSystem获取对手牌力解读
+        var handReadingAdjust = 0.0
+        if let lastBettor = findLastBettor(engine: engine), lastBettor.id != player.id {
+            let opponentId = lastBettor.id.uuidString
+            if let reading = HandReadingSystem.shared.getReading(for: opponentId, at: street) {
+                // 根据对手牌力解读调整
+                switch reading.handCategory {
+                case .premium:
+                    // 对手可能有强牌，更谨慎
+                    handReadingAdjust = -0.15
+                case .strong:
+                    handReadingAdjust = -0.1
+                case .medium:
+                    handReadingAdjust = 0.0
+                case .speculative:
+                    handReadingAdjust = 0.1
+                case .weak:
+                    handReadingAdjust = 0.15
+                }
+                
+#if DEBUG
+                if reading.confidence > 0.5 {
+                    print("🔍 \(player.name) 读取对手牌力: \(reading.handCategory.description), 信心度: \(String(format: "%.0f%%", reading.confidence * 100))")
+                    print("   调整: \(String(format: "%.0f%%", handReadingAdjust * 100))")
+                }
+#endif
+            }
+        }
+        
+        // 应用手牌解读调整到equity
+        let adjustedEquity = max(0, min(1, equity + handReadingAdjust))
         
         // MARK: - Opponent Range Tracking (Task 4)
         
