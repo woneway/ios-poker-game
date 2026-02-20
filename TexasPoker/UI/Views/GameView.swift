@@ -71,9 +71,10 @@ struct GameView: View {
                 print("   Equity: \(String(format:"%.1f%%", event.equity * 100)) | PotOdds: \(String(format:"%.1f%%", event.potOdds * 100))")
                 #endif
                 // Show AI decision toast
+                let playerID = event.playerID
                 self.aiDecisionToast = event
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    if self.aiDecisionToast?.playerID == event.playerID {
+                    if self.aiDecisionToast?.playerID == playerID {
                         self.aiDecisionToast = nil
                     }
                 }

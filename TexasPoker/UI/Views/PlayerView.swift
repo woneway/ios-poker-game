@@ -94,7 +94,7 @@ struct PlayerView: View {
     @State private var showProfile = false
     @State private var playerStats: PlayerStats? = nil
     @State private var isWinner = false
-    @StateObject private var animationManager = PlayerAnimationManager.shared
+    @ObservedObject private var animationManager = PlayerAnimationManager.shared
     
     private var playerId: String { player.id.uuidString }
     

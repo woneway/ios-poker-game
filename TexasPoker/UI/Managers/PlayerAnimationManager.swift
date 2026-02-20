@@ -73,8 +73,20 @@ class PlayerAnimationManager: ObservableObject {
     private var animationTimers: [String: Timer] = [:]
     private var emotionTimers: [String: Timer] = [:]
     private var continuousAnimations: [String: Timer] = [:]
+    private var cardRevealTimers: [String: Timer] = [:]
     
     private init() {}
+    
+    func cleanupAllTimers() {
+        animationTimers.values.forEach { $0.invalidate() }
+        animationTimers.removeAll()
+        emotionTimers.values.forEach { $0.invalidate() }
+        emotionTimers.removeAll()
+        continuousAnimations.values.forEach { $0.invalidate() }
+        continuousAnimations.removeAll()
+        cardRevealTimers.values.forEach { $0.invalidate() }
+        cardRevealTimers.removeAll()
+    }
     
     func startAnimation(for playerId: String, type: PlayerAnimationType) {
         DispatchQueue.main.async { [weak self] in
@@ -125,10 +137,13 @@ class PlayerAnimationManager: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
+            self.cardRevealTimers[playerId]?.invalidate()
             self.cardRevealAnimations[playerId] = true
             
-            Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in
+            self.cardRevealTimers[playerId] = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in
                 self?.cardRevealAnimations[playerId] = false
+                self?.cardRevealTimers[playerId]?.invalidate()
+                self?.cardRevealTimers.removeValue(forKey: playerId)
                 completion?()
             }
         }
