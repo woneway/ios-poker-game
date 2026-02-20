@@ -74,6 +74,7 @@ struct PlayerDetailView: View {
                 gameMode: playerStats.gameMode
             )
         }
+        .preferredColorScheme(.dark)
     }
     
     // MARK: - Header Section

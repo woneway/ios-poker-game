@@ -321,6 +321,7 @@ struct GameView: View {
                 )
             }
         }
+        .preferredColorScheme(.dark)
     }
     
     // MARK: - Session Summary
@@ -759,3 +760,4 @@ struct GameView: View {
         }
     }
 }
+

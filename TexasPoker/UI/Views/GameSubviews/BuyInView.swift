@@ -92,6 +92,7 @@ struct BuyInView: View {
                         .fill(buyInAmount == value ? Color.yellow : Color.white.opacity(0.2))
                 )
         }
+        .preferredColorScheme(.dark)
     }
 }
 

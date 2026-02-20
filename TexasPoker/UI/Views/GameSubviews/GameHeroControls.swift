@@ -570,6 +570,7 @@ struct GameHeroControls: View {
         .padding(.horizontal, 12)
         .background(Color.black.opacity(0.75))
         .cornerRadius(14)
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -598,5 +599,6 @@ struct ActionButton: View {
                         .stroke(Color.white.opacity(0.2), lineWidth: 1)
                 )
         }
+        .preferredColorScheme(.dark)
     }
 }

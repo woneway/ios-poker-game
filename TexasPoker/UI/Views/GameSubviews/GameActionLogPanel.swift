@@ -60,6 +60,7 @@ struct GameActionLogPanel: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
         )
+        .preferredColorScheme(.dark)
     }
     
     private func actionLogRow(_ entry: ActionLogEntry) -> some View {

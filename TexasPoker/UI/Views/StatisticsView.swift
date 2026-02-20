@@ -75,6 +75,7 @@ struct StatisticsView: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     private func matchesProfile(_ stats: PlayerStatsEntity, profileId: String) -> Bool {
