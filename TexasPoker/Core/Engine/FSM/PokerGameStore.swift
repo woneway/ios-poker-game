@@ -9,6 +9,10 @@ class PokerGameStore: ObservableObject {
     @Published var showRankings: Bool = false
     @Published var isBackgroundSimulating: Bool = false
     
+    // MARK: - Game Configuration
+    private var gameDifficulty: AIProfile.Difficulty?
+    private var gamePlayerCount: Int = 8
+    
     // MARK: - Spectating State
     @Published var isSpectating: Bool = false
     @Published var spectateSpeed: SpectateSpeed = .normal
@@ -66,8 +70,10 @@ class PokerGameStore: ObservableObject {
         return engine.players[idx].isHuman && engine.players[idx].status == .active
     }
     
-    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil, cashGameConfig: CashGameConfig? = nil) {
-        self.engine = PokerEngine(mode: mode, config: config, cashGameConfig: cashGameConfig)
+    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil, cashGameConfig: CashGameConfig? = nil, difficulty: AIProfile.Difficulty? = nil, playerCount: Int = 8) {
+        self.gameDifficulty = difficulty
+        self.gamePlayerCount = playerCount
+        self.engine = PokerEngine(mode: mode, config: config, cashGameConfig: cashGameConfig, difficulty: difficulty, playerCount: playerCount)
         // 注册引擎以追踪对手模型
         DecisionEngine.registerEngine(self.engine)
         subscribeToEngine()
@@ -512,7 +518,7 @@ class PokerGameStore: ObservableObject {
     /// 执行一批后台模拟
     private func runBatchSimulation(batch: Int, totalBatches: Int) {
         // 为每批模拟创建独立的引擎实例，避免状态冲突
-        let simEngine = PokerEngine(mode: engine.gameMode, config: engine.tournamentConfig)
+        let simEngine = PokerEngine(mode: engine.gameMode, config: engine.tournamentConfig, difficulty: gameDifficulty, playerCount: gamePlayerCount)
         
         // 使用同步方式快速完成多手牌
         for _ in 0..<backgroundHandsPerBatch {
@@ -881,9 +887,9 @@ class PokerGameStore: ObservableObject {
         showCashSessionSummary = false
         currentSession = nil
         
-        // 注销旧引擎并创建新引擎
+        // 注销旧引擎并创建新引擎（使用之前保存的难度和玩家数量）
         DecisionEngine.unregisterEngine(engine)
-        engine = PokerEngine(mode: mode, config: config)
+        engine = PokerEngine(mode: mode, config: config, difficulty: gameDifficulty, playerCount: gamePlayerCount)
         // 注册新引擎
         DecisionEngine.registerEngine(engine)
         

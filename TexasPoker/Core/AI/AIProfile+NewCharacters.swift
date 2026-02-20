@@ -241,12 +241,15 @@ extension AIProfile {
             guard !pool.isEmpty else { return [] }
             
             var selected: [AIProfile] = []
+            var available = pool
+            
             for _ in 0..<count {
-                if let profile = pool.randomElement(), !selected.contains(profile) {
+                guard !available.isEmpty else { break }
+                
+                if let index = available.indices.randomElement() {
+                    let profile = available[index]
                     selected.append(profile)
-                } else {
-                    // If duplicate or empty, pick any from pool
-                    selected.append(pool.randomElement() ?? pool[0])
+                    available.remove(at: index)
                 }
             }
             return selected

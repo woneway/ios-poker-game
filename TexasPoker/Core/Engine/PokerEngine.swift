@@ -78,7 +78,7 @@ class PokerEngine: ObservableObject {
     /// 当前异步任务的唯一标识符，用于防止竞态条件
     private var currentTaskId: Int = 0
     
-    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil, cashGameConfig: CashGameConfig? = nil) {
+    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil, cashGameConfig: CashGameConfig? = nil, difficulty: AIProfile.Difficulty? = nil, playerCount: Int = 8) {
         self.deck = Deck()
         self.players = []
         self.communityCards = []
@@ -87,7 +87,11 @@ class PokerEngine: ObservableObject {
         self.activePlayerIndex = 0
         self.currentStreet = .preFlop
         
-        setup8PlayerTable()
+        if let difficulty = difficulty {
+            setupTable(difficulty: difficulty, playerCount: playerCount)
+        } else {
+            setup8PlayerTable()
+        }
         
         self.gameMode = mode
         self.tournamentConfig = config

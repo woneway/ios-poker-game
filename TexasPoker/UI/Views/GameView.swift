@@ -9,14 +9,16 @@ struct GameView: View {
     
     @State private var cancellables = Set<AnyCancellable>()
     
-    init(settings: GameSettings) {
+    init(settings: GameSettings, difficulty: AIProfile.Difficulty? = nil, playerCount: Int = 8) {
         self.settings = settings
         let config = settings.getTournamentConfig()
         let cashGameConfig = settings.getCashGameConfig()
         _store = StateObject(wrappedValue: PokerGameStore(
             mode: settings.gameMode,
             config: config,
-            cashGameConfig: cashGameConfig
+            cashGameConfig: cashGameConfig,
+            difficulty: difficulty ?? settings.aiDifficulty,
+            playerCount: playerCount
         ))
     }
     
@@ -532,22 +534,6 @@ struct GameView: View {
                         .padding(.top, 4)
                 }
                 
-                // Cash game buy-in info bar
-                if store.engine.gameMode == .cashGame, let session = store.currentSession {
-                    HStack {
-                        Spacer()
-                        Text("整桌剩余买入: \(session.remainingBuyIns)")
-                            .font(.caption.bold())
-                            .foregroundColor(session.remainingBuyIns <= 1 ? .red : .yellow)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.black.opacity(0.5))
-                            .cornerRadius(8)
-                        Spacer()
-                    }
-                    .padding(.top, 4)
-                }
-                
                 Spacer(minLength: 0)
                 
                 // Hero controls (bottom)
@@ -655,17 +641,6 @@ struct GameView: View {
                         if store.engine.gameMode == .tournament {
                             GameTournamentInfo(store: store)
                                 .padding(.horizontal, 20)
-                        }
-                        
-                        // Cash game buy-in info bar
-                        if store.engine.gameMode == .cashGame, let session = store.currentSession {
-                            Text("整桌剩余买入: \(session.remainingBuyIns)")
-                                .font(.caption.bold())
-                                .foregroundColor(session.remainingBuyIns <= 1 ? .red : .yellow)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.black.opacity(0.5))
-                                .cornerRadius(8)
                         }
                         
                         Spacer()
