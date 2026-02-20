@@ -279,10 +279,13 @@ struct GameView: View {
         }
         // Buy-in Overlay
         .overlay {
-            if store.showBuyIn && store.engine.gameMode == .cashGame &&
-               (store.currentSession == nil || !store.currentSession!.isBuyInLimitReached) {
+            if store.showBuyIn && store.engine.gameMode == .cashGame {
+                let config = store.engine.cashGameConfig ?? .default
+                let remainingBuyIns = store.currentSession?.remainingBuyIns ?? config.maxBuyIns
+                
                 BuyInView(
-                    config: store.engine.cashGameConfig ?? .default,
+                    config: config,
+                    remainingBuyIns: remainingBuyIns,
                     onConfirm: { buyInAmount in
                         // 关闭买入界面
                         store.showBuyIn = false
@@ -295,11 +298,8 @@ struct GameView: View {
                                 store.currentSession = session
                             }
                         } else {
-                            // 首次买入：创建新session
-                            // 计算总买入限制: 玩家数 × 5 (每人可买入5次)
-                            let playerCount = store.engine.players.count
-                            let maxBuyIns = playerCount * 5
-                            store.startCashSession(buyIn: buyInAmount, maxBuyIns: maxBuyIns)
+                            // 首次买入：创建新session，使用配置中的maxBuyIns
+                            store.startCashSession(buyIn: buyInAmount, maxBuyIns: config.maxBuyIns)
                         }
                         
                         // 设置 Hero 筹码并设为active

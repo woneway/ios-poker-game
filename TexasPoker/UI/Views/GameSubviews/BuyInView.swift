@@ -3,9 +3,14 @@ import SwiftUI
 /// 买入选择视图 - 现金桌买入金额选择界面
 struct BuyInView: View {
     let config: CashGameConfig
+    let remainingBuyIns: Int
     let onConfirm: (Int) -> Void
     
     @State private var buyInAmount: Double = 0.5  // 0~1 映射到 min~max
+    
+    private var isLimitReached: Bool {
+        remainingBuyIns <= 0
+    }
     
     var body: some View {
         ZStack {
@@ -14,49 +19,73 @@ struct BuyInView: View {
             
             VStack(spacing: 20) {
                 // 标题
-                Text("选择买入金额")
+                Text(isLimitReached ? "买入次数已用完" : "选择买入金额")
                     .font(.title2.bold())
                     .foregroundColor(.white)
+                
+                // 买入次数显示
+                if remainingBuyIns < Int.max {
+                    HStack(spacing: 4) {
+                        Text("剩余买入次数:")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.6))
+                        Text("\(remainingBuyIns)")
+                            .font(.subheadline.bold())
+                            .foregroundColor(remainingBuyIns <= 1 ? .red : .yellow)
+                    }
+                }
                 
                 // 盲注信息
                 Text("盲注 \(config.smallBlind)/\(config.bigBlind)")
                     .font(.subheadline)
                     .foregroundColor(.white.opacity(0.6))
                 
-                // 金额显示
-                let amount = computeAmount()
-                Text("$\(amount)")
-                    .font(.system(size: 36, weight: .black))
-                    .foregroundColor(.yellow)
-                
-                Text("\(amount / config.bigBlind) BB")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
-                
-                // 滑块
-                Slider(value: $buyInAmount, in: 0...1)
-                    .accentColor(.yellow)
+                if !isLimitReached {
+                    // 金额显示
+                    let amount = computeAmount()
+                    Text("$\(amount)")
+                        .font(.system(size: 36, weight: .black))
+                        .foregroundColor(.yellow)
+                    
+                    Text("\(amount / config.bigBlind) BB")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.5))
+                    
+                    // 滑块
+                    Slider(value: $buyInAmount, in: 0...1)
+                        .accentColor(.yellow)
+                        .padding(.horizontal, 40)
+                    
+                    // 快捷按钮
+                    HStack(spacing: 8) {
+                        presetButton("Min", value: 0)
+                        presetButton("40BB", value: normalizedValue(for: config.bigBlind * 40))
+                        presetButton("60BB", value: normalizedValue(for: config.bigBlind * 60))
+                        presetButton("80BB", value: normalizedValue(for: config.bigBlind * 80))
+                        presetButton("Max", value: 1.0)
+                    }
+                    
+                    // 确认按钮
+                    Button(action: { onConfirm(computeAmount()) }) {
+                        Text("确认买入 $\(computeAmount())")
+                            .font(.headline)
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Capsule().fill(Color.yellow))
+                    }
                     .padding(.horizontal, 40)
-                
-                // 快捷按钮
-                HStack(spacing: 8) {
-                    presetButton("Min", value: 0)
-                    presetButton("40BB", value: normalizedValue(for: config.bigBlind * 40))
-                    presetButton("60BB", value: normalizedValue(for: config.bigBlind * 60))
-                    presetButton("80BB", value: normalizedValue(for: config.bigBlind * 80))
-                    presetButton("Max", value: 1.0)
-                }
-                
-                // 确认按钮
-                Button(action: { onConfirm(computeAmount()) }) {
-                    Text("确认买入 $\(computeAmount())")
+                } else {
+                    // 限制已达提示
+                    Text("已达到最大买入次数限制")
                         .font(.headline)
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Capsule().fill(Color.yellow))
+                        .foregroundColor(.red)
+                        .padding(.top, 20)
+                    
+                    Text("游戏即将结束")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.6))
                 }
-                .padding(.horizontal, 40)
             }
             .padding(32)
         }
@@ -101,6 +130,7 @@ struct BuyInView: View {
 #Preview {
     BuyInView(
         config: .default,
+        remainingBuyIns: 3,
         onConfirm: { amount in
             print("买入金额: $\(amount)")
         }

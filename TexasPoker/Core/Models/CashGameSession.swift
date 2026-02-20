@@ -34,6 +34,12 @@ struct CashGameSession: Codable, Identifiable {
         return maxBuyIns > 0 && totalBuyInCount >= maxBuyIns
     }
     
+    /// Remaining buy-in attempts (0 if unlimited or limit reached)
+    var remainingBuyIns: Int {
+        guard maxBuyIns > 0 else { return Int.max }
+        return max(0, maxBuyIns - totalBuyInCount)
+    }
+    
     /// Legacy property for compatibility
     var maxHands: Int = 0
 
