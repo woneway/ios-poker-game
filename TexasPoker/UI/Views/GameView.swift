@@ -223,6 +223,21 @@ struct GameView: View {
                         engine: store.engine
                     )
                 }
+                
+                // 现金局：检查Hero是否被淘汰，如果可以买入则显示买入界面
+                if store.engine.gameMode == .cashGame,
+                   let hero = store.engine.players.first(where: { $0.isHuman }),
+                   hero.chips <= 0 {
+                    // Hero被淘汰，检查是否还可以买入
+                    if let session = store.currentSession, !session.isBuyInLimitReached {
+                        // 可以买入，显示买入界面
+                        store.showBuyIn = true
+                        #if DEBUG
+                        print("💰 Hero被淘汰，显示rebuy界面 (from GameView)")
+                        #endif
+                    }
+                }
+                
                 // Trigger session summary
                 prepareSessionSummary()
             }
