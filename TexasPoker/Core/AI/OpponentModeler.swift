@@ -1,18 +1,70 @@
 import Foundation
 
+/// 记录玩家行动用于模式识别
+func recordBettingPattern(playerId: String, handNumber: Int, street: Street, action: PlayerAction, potSize: Int) {
+    BettingPatternRecognizer.shared.recordAction(
+        playerId: playerId,
+        handNumber: handNumber,
+        street: street,
+        action: action,
+        potSize: potSize
+    )
+}
+
+/// 获取对手下注模式
+func getBettingPattern(for playerId: String) -> BettingPattern {
+    return BettingPatternRecognizer.shared.recognizePattern(for: playerId)
+}
+
+/// 记录手牌用于读牌
+func recordHandForReading(playerId: String, communityCards: [Card], street: Street, recentActions: [PlayerAction]) {
+    _ = HandReadingSystem.shared.readHand(
+        playerId: playerId,
+        communityCards: communityCards,
+        street: street,
+        recentActions: recentActions
+    )
+}
+
+/// 获取对手手牌解读
+func getHandReading(for playerId: String, at street: Street) -> HandReading? {
+    return HandReadingSystem.shared.getReading(for: playerId, at: street)
+}
+
 /// 策略调整建议
 struct StrategyAdjustment {
-    let stealFreqBonus: Double      // 偷盲频率调整
-    let bluffFreqAdjust: Double     // 诈唬频率调整
-    let valueSizeAdjust: Double     // 价值下注尺寸调整
-    let callDownAdjust: Double      // 跟注范围调整
+    var stealFreqBonus: Double      // 偷盲频率调整
+    var bluffFreqAdjust: Double     // 诈唬频率调整
+    var valueSizeAdjust: Double     // 价值下注尺寸调整
+    var callDownAdjust: Double      // 跟注范围调整
     
-    static let balanced = StrategyAdjustment(
-        stealFreqBonus: 0.0,
-        bluffFreqAdjust: 0.0,
-        valueSizeAdjust: 0.0,
-        callDownAdjust: 0.0
-    )
+    static var balanced: StrategyAdjustment {
+        StrategyAdjustment(
+            stealFreqBonus: 0.0,
+            bluffFreqAdjust: 0.0,
+            valueSizeAdjust: 0.0,
+            callDownAdjust: 0.0
+        )
+    }
+    
+    func combine(with trend: TrendData?) -> StrategyAdjustment {
+        guard let trend = trend else { return self }
+        
+        var adjusted = self
+        
+        switch trend.trend {
+        case .improving:
+            adjusted.bluffFreqAdjust -= 0.1
+            adjusted.callDownAdjust += 0.1
+        case .declining:
+            adjusted.bluffFreqAdjust += 0.1
+            adjusted.callDownAdjust -= 0.1
+        case .stable:
+            break
+        }
+        
+        return adjusted
+    }
 }
 
 class OpponentModeler {
@@ -46,6 +98,57 @@ class OpponentModeler {
         if vpip < 25 { return .tag }
         if vpip > 40 { return .fish }
         return .tag
+    }
+    
+    /// 从统计推断对手策略剧本
+    static func inferPlaybook(from stats: PlayerStats, confidence: StatisticsConfidence?) -> StrategyPlaybook {
+        let vpip = stats.vpip
+        let pfr = stats.pfr
+        let af = stats.af
+        
+        guard confidence?.isReliable == true else { return .standard }
+        
+        if af > 3.0 && vpip > 35 {
+            return .aggressive
+        } else if af < 1.5 && vpip > 40 {
+            return .callingStation
+        } else if vpip < 20 && af > 2.5 {
+            return .tight
+        } else if vpip > 45 {
+            return .loose
+        } else if stats.threeBet > 10 && af > 2.5 {
+            return .bluffy
+        }
+        
+        return .standard
+    }
+    
+    /// 获取综合策略调整（结合风格 + 趋势）
+    static func getComprehensiveAdjustment(
+        style: PlayerStyle,
+        stats: PlayerStats,
+        confidence: StatisticsConfidence?
+    ) -> StrategyAdjustment {
+        var adjustment = getStrategyAdjustment(style: style)
+        
+        let inferredPlaybook = inferPlaybook(from: stats, confidence: confidence)
+        
+        switch inferredPlaybook {
+        case .bluffy:
+            adjustment.bluffFreqAdjust += 0.3
+        case .callingStation:
+            adjustment.callDownAdjust += 0.2
+        case .tight:
+            adjustment.bluffFreqAdjust -= 0.2
+        case .aggressive:
+            adjustment.valueSizeAdjust += 0.2
+        case .passive:
+            adjustment.callDownAdjust -= 0.2
+        case .loose, .standard:
+            break
+        }
+        
+        return adjustment
     }
     
     /// 获取策略调整建议

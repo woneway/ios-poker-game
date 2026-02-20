@@ -35,7 +35,7 @@ struct DifficultySelectorView: View {
             }
         }
         .padding()
-        .background(Color.adaptiveSurface(colorScheme))
+        .background(Color(hex: "1a1a2e"))
         .cornerRadius(12)
     }
     
@@ -44,7 +44,7 @@ struct DifficultySelectorView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("游戏难度")
                 .font(.headline)
-                .foregroundColor(.primary)
+                .foregroundColor(.white)
             
             ForEach(AIProfile.Difficulty.allCases) { difficulty in
                 DifficultyRow(
@@ -62,13 +62,13 @@ struct DifficultySelectorView: View {
             HStack {
                 Text("玩家人数")
                     .font(.headline)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.white)
                 
                 Spacer()
                 
                 Text("\(playerCount) 人")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
             }
             
             Slider(value: .init(
@@ -80,11 +80,11 @@ struct DifficultySelectorView: View {
             HStack {
                 Text("2人")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
                 Spacer()
                 Text("8人")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
             }
         }
     }
@@ -94,7 +94,7 @@ struct DifficultySelectorView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("对手配置")
                 .font(.headline)
-                .foregroundColor(.primary)
+                .foregroundColor(.white)
             
             Picker("对手模式", selection: $isRandomOpponents) {
                 Text("随机对手").tag(true)
@@ -110,7 +110,7 @@ struct DifficultySelectorView: View {
             HStack {
                 Text("对手预览")
                     .font(.headline)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.white)
                 
                 Spacer()
                 
@@ -173,11 +173,11 @@ struct DifficultyRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(difficulty.rawValue)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.white)
                     
                     Text(difficulty.description)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.gray)
                 }
                 
                 Spacer()
@@ -219,7 +219,7 @@ struct OpponentBadge: View {
                 .font(.system(size: 16))
             Text(profile.name)
                 .font(.caption)
-                .foregroundColor(.primary)
+                .foregroundColor(.white)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)

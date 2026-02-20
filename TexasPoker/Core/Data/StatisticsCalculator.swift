@@ -15,7 +15,22 @@ struct PlayerStats {
     let wsd: Double
     let threeBet: Double
     let handsWon: Int
-    let totalWinnings: Int
+    let totalWinnings: Int  // 净盈利 = 赢得 - 投入
+    let totalInvested: Int  // 总投入 = 下注花费的筹码
+}
+
+// MARK: - Player Tendency Enum (For Player Analysis)
+
+enum PlayerTendency: String, CaseIterable {
+    case lag = "松凶"           // Loose-Aggressive
+    case tag = "紧凶"           // Tight-Aggressive
+    case lpp = "紧弱"           // Loose-Passive
+    case callingStation = "跟注站"
+    case nit = "岩石"           // Nit/Rock
+    case abc = "标准型"         // ABC Poker
+    case unknown = "数据不足"
+
+    var description: String { rawValue }
 }
 
 // MARK: - StatisticsCalculator
@@ -34,6 +49,61 @@ class StatisticsCalculator {
     }
     
     private init() {}
+    
+    // MARK: - Incremental Statistics Update
+    
+    /// 增量更新统计（不重新计算全部数据）
+    func incrementalUpdate(
+        playerName: String,
+        playerUniqueId: String?,
+        gameMode: GameMode,
+        action: PlayerAction,
+        won: Bool,
+        amount: Int,
+        profileId: String? = nil
+    ) {
+        let pid = normalizeProfileId(profileId ?? ProfileManager.shared.currentProfileIdForData)
+        let key = "\(playerName)_\(gameMode.rawValue)_\(pid)"
+        
+        if let cached = StatisticsCache.shared.getStats(for: key) {
+            let updated = applyActionToStats(
+                cached,
+                action: action,
+                won: won,
+                amount: amount
+            )
+            StatisticsCache.shared.setStats(updated, for: key)
+        }
+        
+        StatisticsCache.shared.invalidate(key: key)
+    }
+    
+    private func applyActionToStats(
+        _ stats: PlayerStats,
+        action: PlayerAction,
+        won: Bool,
+        amount: Int
+    ) -> PlayerStats {
+        let newTotalHands = stats.totalHands + 1
+        let newHandsWon = stats.handsWon + (won ? 1 : 0)
+        let newTotalWinnings = stats.totalWinnings + (won ? amount : -amount)
+        
+        return PlayerStats(
+            playerName: stats.playerName,
+            gameMode: stats.gameMode,
+            isHuman: stats.isHuman,
+            totalHands: newTotalHands,
+            vpip: stats.vpip,
+            pfr: stats.pfr,
+            af: stats.af,
+            wtsd: stats.wtsd,
+            wsd: stats.wsd,
+            threeBet: stats.threeBet,
+            handsWon: newHandsWon,
+            totalWinnings: newTotalWinnings,
+            totalInvested: stats.totalInvested
+        )
+    }
 
     // MARK: - Public: Persisted Stats Lifecycle
 
@@ -102,7 +172,7 @@ class StatisticsCalculator {
                 let uniqueId = action.value(forKey: "playerUniqueId") as? String
                 let name = action.value(forKey: "playerName") as? String ?? ""
                 // 前缀匹配：playerName + "#" 能匹配到 "playerName#1", "playerName#2" 等
-                let uniqueIdMatches = uniqueId != nil && uniqueId!.hasPrefix(playerName + "#")
+                let uniqueIdMatches = uniqueId != nil && (uniqueId?.hasPrefix(playerName + "#") ?? false)
                 return uniqueIdMatches || name == playerName
             }
 
@@ -126,7 +196,10 @@ class StatisticsCalculator {
             let wsd = calculateWSD(actions: playerActions, playerName: playerName, playerHands: playerHands)
             let threeBet = calculate3Bet(actions: playerActions, playerHands: playerHands)
             let handsWon = countHandsWon(playerName: playerName, playerHands: playerHands)
-            let totalWinnings = calculateWinnings(playerName: playerName, playerHands: playerHands)
+            // 总投入：下注花费的筹码
+            let totalInvested = calculateTotalInvested(playerName: playerName, playerHands: playerHands)
+            // 总盈利（净盈利）：赢得的筹码 - 投入的筹码
+            let totalWinnings = calculateWinnings(playerName: playerName, playerHands: playerHands) - totalInvested
 
             // Determine if player is human
             let isHuman = playerActions.contains { ($0.value(forKey: "isHuman") as? Bool) == true }
@@ -143,7 +216,8 @@ class StatisticsCalculator {
                 wsd: wsd,
                 threeBet: threeBet,
                 handsWon: handsWon,
-                totalWinnings: totalWinnings
+                totalWinnings: totalWinnings,
+                totalInvested: totalInvested
             )
         }
 
@@ -202,7 +276,10 @@ class StatisticsCalculator {
         let wsd = calculateWSD(actions: actions, playerName: playerName, playerHands: playerHands)
         let threeBet = calculate3Bet(actions: actions, playerHands: playerHands)
         let handsWon = countHandsWon(playerName: playerName, playerHands: playerHands)
-        let totalWinnings = calculateWinnings(playerName: playerName, playerHands: playerHands)
+        // 总投入：下注花费的筹码
+        let totalInvested = calculateTotalInvested(playerName: playerName, playerHands: playerHands)
+        // 总盈利（净盈利）：赢得的筹码 - 投入的筹码
+        let totalWinnings = calculateWinnings(playerName: playerName, playerHands: playerHands) - totalInvested
         
         // Determine if player is human (from override or check actions)
         let isHuman: Bool
@@ -225,7 +302,8 @@ class StatisticsCalculator {
             wsd: wsd,
             threeBet: threeBet,
             handsWon: handsWon,
-            totalWinnings: totalWinnings
+            totalWinnings: totalWinnings,
+            totalInvested: totalInvested
         )
     }
     
@@ -382,10 +460,112 @@ class StatisticsCalculator {
             guard let winners = hand.value(forKey: "winnerNames") as? String else { return total }
             let winnerList = winners.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
             if winnerList.contains(playerName) {
+                // 修复：只计算玩家实际赢得的份额，而不是整个底池
                 let pot = hand.value(forKey: "finalPot") as? Int32 ?? 0
-                return total + Int(pot)
+                let winnerCount = winnerList.count
+                // 如果有多个赢家，平均分配底池
+                let playerShare = winnerCount > 0 ? Int(pot) / winnerCount : 0
+                return total + playerShare
             }
             return total
+        }
+    }
+    
+    /// Calculate total amount invested (total bets placed) across all hands
+    /// - Parameters:
+    ///   - playerName: The player name to calculate for
+    ///   - playerHands: All hands the player participated in
+    /// - Returns: Total amount invested (sum of all call/raise/all-in amounts)
+    private func calculateTotalInvested(playerName: String, playerHands: [NSManagedObject]) -> Int {
+        var totalInvested = 0
+        
+        for hand in playerHands {
+            guard let handId = hand.value(forKey: "id") as? UUID else { continue }
+            
+            // Fetch all actions for this specific hand
+            let request = NSFetchRequest<NSManagedObject>(entityName: "ActionEntity")
+            request.predicate = NSPredicate(format: "handHistory.id == %@", handId as CVarArg)
+            
+            guard let actions = try? context.fetch(request),
+                  !actions.isEmpty else { continue }
+            
+            // Get player's actions
+            let playerActions = actions.filter { action in
+                let name = action.value(forKey: "playerName") as? String ?? ""
+                let uniqueId = action.value(forKey: "playerUniqueId") as? String ?? ""
+                return name == playerName || uniqueId == playerName ||
+                       (uniqueId.hasPrefix(playerName + "#"))
+            }
+            
+            // Sum up all call/raise/all-in amounts
+            let invested = playerActions.reduce(0) { total, action in
+                let act = action.value(forKey: "action") as? String ?? ""
+                let amount = action.value(forKey: "amount") as? Int32 ?? 0
+                // Count call, raise, all-in as investment (not fold, check)
+                if act.contains("call") || act.contains("raise") || act.contains("allIn") {
+                    return total + Int(amount)
+                }
+                return total
+            }
+            
+            totalInvested += invested
+        }
+        
+        return totalInvested
+    }
+
+    /// Calculate actual profit/loss from action history
+    /// - Parameters:
+    ///   - hand: The hand to calculate for
+    ///   - playerName: The player name to calculate for (e.g., "Hero")
+    /// - Returns: Actual profit (positive) or loss (negative)
+    private func calculateActualProfit(hand: NSManagedObject, playerName: String) -> Int {
+        guard let handId = hand.value(forKey: "id") as? UUID else { return 0 }
+
+        // Fetch all actions for this specific hand
+        let request = NSFetchRequest<NSManagedObject>(entityName: "ActionEntity")
+        request.predicate = NSPredicate(format: "handHistory.id == %@", handId as CVarArg)
+
+        guard let actions = try? context.fetch(request),
+              !actions.isEmpty else {
+            return 0
+        }
+
+        // Get player's actions (using both playerName and playerUniqueId for matching)
+        let playerActions = actions.filter { action in
+            let name = action.value(forKey: "playerName") as? String ?? ""
+            let uniqueId = action.value(forKey: "playerUniqueId") as? String ?? ""
+            return name == playerName || uniqueId == playerName ||
+                   (uniqueId.hasPrefix(playerName + "#"))
+        }
+
+        // Calculate total invested (sum of all call/raise/all-in amounts)
+        let totalInvested = playerActions.reduce(0) { total, action in
+            let act = action.value(forKey: "action") as? String ?? ""
+            let amount = action.value(forKey: "amount") as? Int32 ?? 0
+            // Count call, raise, all-in as investment (not fold, check)
+            if act.contains("call") || act.contains("raise") || act.contains("allIn") {
+                return total + Int(amount)
+            }
+            return total
+        }
+
+        // Get winner info
+        let winnerNamesStr = hand.value(forKey: "winnerNames") as? String ?? ""
+        let winnerNames = winnerNamesStr.components(separatedBy: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        let isWinner = winnerNames.contains(playerName)
+        let finalPot = hand.value(forKey: "finalPot") as? Int32 ?? 0
+        let winnerCount = winnerNames.count
+
+        if isWinner && winnerCount > 0 {
+            // Won: calculate return based on proportional share of pot
+            // Simplified: assume equal split among winners
+            let winnings = Int(finalPot) / winnerCount
+            return winnings - totalInvested
+        } else {
+            // Lost: return is 0, so profit = -invested
+            return -totalInvested
         }
     }
 
@@ -709,20 +889,8 @@ class StatisticsCalculator {
             let winnerNames = winnerNamesStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
 
             let isWin = winnerNames.contains(heroName)
-            // More accurate profit calculation: calculate based on winner count
-            // If won: profit = finalPot / winnerCount (simplified, assumes equal split)
-            // Note: For accurate profit, we would need to track player investments from action history
-            let winnerCount = winnerNames.count
-            let profit: Int
-            if isWin && winnerCount > 0 {
-                // Approximate: divide pot among winners (simplified)
-                // In reality, should calculate from action history (total invested vs returned)
-                profit = Int(finalPot) / winnerCount
-            } else {
-                // Loss: we don't track exact loss amount, so use 0 for now
-                // TODO: Calculate actual loss from action history
-                profit = 0
-            }
+            // Calculate actual profit/loss from action history
+            let profit = calculateActualProfit(hand: hand, playerName: heroName)
 
             return HandHistorySummary(
                 id: id,
@@ -879,5 +1047,201 @@ class StatisticsCalculator {
             return []
         }
         return cards
+    }
+
+    // MARK: - Player Style Determination
+
+    /// Determine player style based on statistics
+    /// - Parameter stats: PlayerStats containing the player's statistics
+    /// - Returns: PlayerTendency enum value
+    /// - Note: Requires at least 20 hands of data to determine style
+    static func determinePlayerStyle(stats: PlayerStats) -> PlayerTendency {
+        // Need at least 20 hands to determine style
+        guard stats.totalHands >= 20 else {
+            return .unknown
+        }
+
+        let vpip = stats.vpip
+        let af = stats.af
+        let wtsd = stats.wtsd
+
+        // Calling Station: WTSD > 30%
+        if wtsd > 30 {
+            return .callingStation
+        }
+
+        // Nit/Rock: VPIP < 15%
+        if vpip < 15 {
+            return .nit
+        }
+
+        // LAG (Loose-Aggressive): VPIP > 30% AND AF > 2
+        if vpip > 30 && af > 2 {
+            return .lag
+        }
+
+        // TAG (Tight-Aggressive): VPIP >= 22% AND VPIP <= 30% AND AF > 2
+        if vpip >= 22 && vpip <= 30 && af > 2 {
+            return .tag
+        }
+
+        // LPP (Loose-Passive): VPIP < 22% AND AF < 1.5
+        if vpip < 22 && af < 1.5 {
+            return .lpp
+        }
+
+        // ABC: All other cases
+        return .abc
+    }
+
+    // MARK: - Player Analysis Data Queries
+
+    /// Fetch all unique player names that have appeared in the specified game mode
+    /// - Parameters:
+    ///   - gameMode: The game mode to filter by
+    ///   - profileId: Optional profile ID override
+    /// - Returns: Array of unique player names
+    func fetchAllPlayerNames(gameMode: GameMode, profileId: String? = nil) -> [String] {
+        let pid = normalizeProfileId(profileId ?? ProfileManager.shared.currentProfileIdForData)
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "ActionEntity")
+
+        var predicates: [NSPredicate] = [
+            NSPredicate(format: "handHistory.gameMode == %@", gameMode.rawValue)
+        ]
+
+        if pid == ProfileManager.defaultProfileId {
+            predicates.append(NSPredicate(format: "(handHistory.profileId == %@ OR handHistory.profileId == nil)", pid))
+        } else {
+            predicates.append(NSPredicate(format: "handHistory.profileId == %@", pid))
+        }
+
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+
+        guard let actions = try? context.fetch(request) else { return [] }
+
+        // Collect unique player names and uniqueIds
+        var uniqueNames = Set<String>()
+
+        for action in actions {
+            if let playerName = action.value(forKey: "playerName") as? String, !playerName.isEmpty {
+                uniqueNames.insert(playerName)
+            }
+            if let playerUniqueId = action.value(forKey: "playerUniqueId") as? String, !playerUniqueId.isEmpty {
+                // Extract base name from uniqueId (e.g., "Player#1" -> "Player")
+                let baseName = playerUniqueId.components(separatedBy: "#").first ?? playerUniqueId
+                uniqueNames.insert(baseName)
+            }
+        }
+
+        return Array(uniqueNames).sorted()
+    }
+
+    /// Fetch statistics for all players in the specified game mode
+    /// - Parameters:
+    ///   - gameMode: The game mode to filter by
+    ///   - profileId: Optional profile ID override
+    /// - Returns: Dictionary mapping player name to PlayerStats
+    func fetchAllPlayersStats(gameMode: GameMode, profileId: String? = nil) -> [String: PlayerStats] {
+        let playerNames = fetchAllPlayerNames(gameMode: gameMode, profileId: profileId)
+
+        guard !playerNames.isEmpty else { return [:] }
+
+        let batchResults = calculateBatchStats(playerNames: playerNames, gameMode: gameMode, profileId: profileId)
+
+        // Filter out nil values and return
+        var result: [String: PlayerStats] = [:]
+        for (name, stats) in batchResults {
+            if let stats = stats {
+                result[name] = stats
+            }
+        }
+
+        return result
+    }
+
+    /// Fetch hand history summaries for a specific player
+    /// - Parameters:
+    ///   - playerName: The player name to filter by
+    ///   - gameMode: The game mode to filter by
+    ///   - profileId: Optional profile ID override
+    /// - Returns: Array of HandHistorySummary for the specified player
+    func fetchHandHistoriesForPlayer(playerName: String, gameMode: GameMode, profileId: String? = nil) -> [HandHistorySummary] {
+        let pid = normalizeProfileId(profileId ?? ProfileManager.shared.currentProfileIdForData)
+
+        // First, find all hands where this player participated
+        let actionRequest = NSFetchRequest<NSManagedObject>(entityName: "ActionEntity")
+
+        var predicates: [NSPredicate] = [
+            NSPredicate(format: "handHistory.gameMode == %@", gameMode.rawValue),
+            NSPredicate(format: "playerName == %@", playerName)
+        ]
+
+        if pid == ProfileManager.defaultProfileId {
+            predicates.append(NSPredicate(format: "(handHistory.profileId == %@ OR handHistory.profileId == nil)", pid))
+        } else {
+            predicates.append(NSPredicate(format: "handHistory.profileId == %@", pid))
+        }
+
+        actionRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+
+        guard let actions = try? context.fetch(actionRequest), !actions.isEmpty else {
+            return []
+        }
+
+        // Get unique hand IDs
+        let handIDs = Set(actions.compactMap { action -> UUID? in
+            (action.value(forKey: "handHistory") as? NSManagedObject)?.value(forKey: "id") as? UUID
+        })
+
+        guard !handIDs.isEmpty else { return [] }
+
+        // Fetch hand history summaries for these hands
+        let handsRequest = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
+
+        var handsPredicates: [NSPredicate] = [
+            NSPredicate(format: "gameMode == %@", gameMode.rawValue),
+            NSPredicate(format: "id IN %@", handIDs)
+        ]
+
+        if pid == ProfileManager.defaultProfileId {
+            handsPredicates.append(NSPredicate(format: "(profileId == %@ OR profileId == nil)", pid))
+        } else {
+            handsPredicates.append(NSPredicate(format: "profileId == %@", pid))
+        }
+
+        handsRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: handsPredicates)
+        handsRequest.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+
+        guard let hands = try? context.fetch(handsRequest) else { return [] }
+
+        return hands.compactMap { hand -> HandHistorySummary? in
+            guard let id = hand.value(forKey: "id") as? UUID,
+                  let handNumber = hand.value(forKey: "handNumber") as? Int32,
+                  let date = hand.value(forKey: "date") as? Date,
+                  let finalPot = hand.value(forKey: "finalPot") as? Int32,
+                  let winnerNamesStr = hand.value(forKey: "winnerNames") as? String else {
+                return nil
+            }
+
+            let communityCards = decodeCards(hand.value(forKey: "communityCards") as? String ?? "[]")
+            let heroCards = decodeCards(hand.value(forKey: "heroCards") as? String ?? "[]")
+            let winnerNames = winnerNamesStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+
+            let isWin = winnerNames.contains(playerName)
+            let profit = calculateActualProfit(hand: hand, playerName: playerName)
+
+            return HandHistorySummary(
+                id: id,
+                handNumber: Int(handNumber),
+                date: date,
+                finalPot: Int(finalPot),
+                communityCards: communityCards,
+                heroCards: heroCards,
+                winnerNames: winnerNames,
+                isWin: isWin,
+                profit: profit
+            )
+        }
     }
 }

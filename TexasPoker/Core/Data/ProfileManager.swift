@@ -74,6 +74,9 @@ final class ProfileManager: ObservableObject {
         // Clear all Core Data stats for the new profile (including AI stats)
         StatisticsCalculator.shared.deleteAllDataForProfile(profileId: profile.id)
 
+        // Initialize AI player bankrolls for the new profile
+        AIPlayerBankrollManager.shared.initializeBankrollsForProfile(profileId: profile.id)
+
         currentProfileId = profile.id
         return profile
     }
@@ -90,6 +93,9 @@ final class ProfileManager: ObservableObject {
 
         // Delete all Core Data records for this profile first
         StatisticsCalculator.shared.deleteAllDataForProfile(profileId: id)
+
+        // Delete AI player bankrolls for this profile
+        AIPlayerBankrollManager.shared.deleteBankrollsForProfile(profileId: id)
 
         profiles.removeAll { $0.id == id }
         persistProfiles()

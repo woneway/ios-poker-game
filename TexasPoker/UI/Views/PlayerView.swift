@@ -1,5 +1,85 @@
 import SwiftUI
 
+// MARK: - Animation Modifier
+
+struct AnimationModifier: ViewModifier {
+    let animation: PlayerAnimationType?
+    let emotion: PlayerEmotion
+    
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .top) {
+                if let anim = animation {
+                    emotionBadge(for: anim)
+                        .offset(y: -20)
+                }
+            }
+            .scaleEffect(scaleForAnimation)
+            .shakeEffect(shouldShake)
+            .glowEffect(shouldGlow)
+    }
+    
+    private var scaleForAnimation: CGFloat {
+        guard let anim = animation else { return 1.0 }
+        switch anim {
+        case .winning, .bigWin, .celebration: return 1.1
+        case .losing: return 0.95
+        case .allIn: return 1.05
+        default: return 1.0
+        }
+    }
+    
+    private var shouldShake: Bool {
+        guard let anim = animation else { return false }
+        return anim == .losing || anim == .tilt
+    }
+    
+    private var shouldGlow: Bool {
+        guard let anim = animation else { return false }
+        return anim == .winning || anim == .bigWin || anim == .celebration
+    }
+    
+    @ViewBuilder
+    private func emotionBadge(for anim: PlayerAnimationType) -> some View {
+        if anim != .idle && anim != .acting && anim != .cardReveal {
+            Text(emotion.emoji)
+                .font(.title2)
+                .transition(.scale.combined(with: .opacity))
+        }
+    }
+}
+
+extension View {
+    func shakeEffect(_ enabled: Bool) -> some View {
+        self.modifier(ShakeModifier(enabled: enabled))
+    }
+    
+    func glowEffect(_ enabled: Bool) -> some View {
+        self.shadow(color: .yellow.opacity(enabled ? 0.8 : 0), radius: enabled ? 15 : 0)
+    }
+}
+
+struct ShakeModifier: ViewModifier {
+    let enabled: Bool
+    @State private var shakeOffset: CGFloat = 0
+    
+    func body(content: Content) -> some View {
+        content
+            .offset(x: shakeOffset)
+            .onChangeCompat(of: enabled) { newValue in
+                if newValue {
+                    withAnimation(.default.repeatForever(autoreverses: true).speed(4)) {
+                        shakeOffset = 3
+                    }
+                } else {
+                    withAnimation(.default) {
+                        shakeOffset = 0
+                    }
+                }
+            }
+    }
+}
+
 // MARK: - Player View (Simplified)
 
 struct PlayerView: View {
@@ -14,6 +94,17 @@ struct PlayerView: View {
     @State private var showProfile = false
     @State private var playerStats: PlayerStats? = nil
     @State private var isWinner = false
+    @StateObject private var animationManager = PlayerAnimationManager.shared
+    
+    private var playerId: String { player.id.uuidString }
+    
+    private var currentAnimation: PlayerAnimationType? {
+        animationManager.currentAnimations[playerId]
+    }
+    
+    private var currentEmotion: PlayerEmotion {
+        animationManager.playerEmotions[playerId] ?? .neutral
+    }
     
     // MARK: - Computed Properties
     
@@ -94,6 +185,10 @@ struct PlayerView: View {
             // Current Bet
             PlayerBetView(bet: player.currentBet)
         }
+        .modifier(AnimationModifier(
+            animation: currentAnimation,
+            emotion: currentEmotion
+        ))
         .opacity(player.status == .folded || player.status == .eliminated ? 0.55 : 1.0)
         .scaleEffect(isActive ? 1.05 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isActive)
@@ -155,7 +250,10 @@ struct PlayerView_Previews: PreviewProvider {
                     cbetTurnFreq: 0.45,
                     positionAwareness: 0.5,
                     tiltSensitivity: 0.2,
-                    callDownTendency: 0.3
+                    callDownTendency: 0.3,
+                    riskTolerance: 0.5,
+                    bluffDetection: 0.5,
+                    deepStackThreshold: 200
                 )
             ),
             isActive: true,

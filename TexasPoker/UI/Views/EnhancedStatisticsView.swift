@@ -1,6 +1,5 @@
 import SwiftUI
 import CoreData
-import TexasPoker
 
 // MARK: - Enhanced Statistics View
 /// Enhanced statistics view with charts and detailed analytics
@@ -22,28 +21,46 @@ struct EnhancedStatisticsView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Mode and time range selectors
-                    selectorHeader
-                    
-                    // Hero overview card
-                    heroOverviewCard
-                    
-                    // Win rate chart
-                    chartSection
-                    
-                    // Position stats
-                    positionSection
-                    
-                    // Detailed stats
-                    detailedStatsSection
-                    
-                    // AI opponents
-                    opponentsSection
+            ZStack {
+                // Premium background
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color(hex: "0f0f23"),
+                        Color(hex: "1a1a2e"),
+                        Color(hex: "16213e")
+                    ]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Mode and time range selectors
+                        selectorHeader
+                        
+                        // Hero overview card
+                        heroOverviewCard
+                        
+                        // Win rate chart
+                        chartSection
+                        
+                        // Position stats
+                        positionSection
+                        
+                        // Detailed stats
+                        detailedStatsSection
+                        
+                        // AI opponents
+                        opponentsSection
+                        
+                        // AI Analysis Insights
+                        aiAnalysisSection
+                    }
+                    .padding()
                 }
-                .padding()
             }
+            .preferredColorScheme(.dark)
             .navigationTitle("数据统计")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -71,12 +88,13 @@ struct EnhancedStatisticsView: View {
     
     // MARK: - Selector Header
     private var selectorHeader: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Picker("模式", selection: $selectedMode) {
                 Text("现金局").tag(GameMode.cashGame)
                 Text("锦标赛").tag(GameMode.tournament)
             }
             .pickerStyle(SegmentedPickerStyle())
+            .colorMultiply(Color.white.opacity(0.9))
             
             Picker("时间范围", selection: $selectedTimeRange) {
                 ForEach(StatisticsCalculator.TimeRange.allCases, id: \.self) { range in
@@ -84,12 +102,21 @@ struct EnhancedStatisticsView: View {
                 }
             }
             .pickerStyle(SegmentedPickerStyle())
+            .colorMultiply(Color.white.opacity(0.9))
         }
+        .padding(.horizontal, 4)
     }
     
     // MARK: - Hero Overview Card
     private var heroOverviewCard: some View {
         let heroStats = getHeroStats()
+        
+        // Calculate confidence based on sample size
+        let confidence = StatisticsConfidence(
+            value: heroStats.winRate / 100,
+            sampleSize: heroStats.hands,
+            confidenceLevel: 0.95
+        )
         
         return VStack(spacing: 12) {
             HStack {
@@ -122,10 +149,64 @@ struct EnhancedStatisticsView: View {
                 OverviewStatItem(title: "胜率", value: String(format: "%.1f%%", heroStats.winRate), icon: "chart.pie")
                 OverviewStatItem(title: "Showdown", value: String(format: "%.1f%%", heroStats.showdownRate), icon: "eye")
             }
+            
+            // Confidence indicator
+            HStack {
+                Image(systemName: confidenceIcon(for: confidence.reliabilityLevel))
+                    .foregroundColor(confidenceColor(for: confidence.reliabilityLevel))
+                Text(confidenceText(for: confidence.reliabilityLevel))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("±\(String(format: "%.1f", confidence.marginOfError * 100))%")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
         }
         .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.white.opacity(0.3), Color.white.opacity(0.1)]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+        )
+        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
+    }
+    
+    private func confidenceIcon(for level: ReliabilityLevel) -> String {
+        switch level {
+        case .high: return "checkmark.circle.fill"
+        case .medium: return "exclamationmark.circle.fill"
+        case .low: return "questionmark.circle.fill"
+        case .insufficient: return "exclamationmark.triangle.fill"
+        }
+    }
+    
+    private func confidenceColor(for level: ReliabilityLevel) -> Color {
+        switch level {
+        case .high: return .green
+        case .medium: return .yellow
+        case .low: return .orange
+        case .insufficient: return .red
+        }
+    }
+    
+    private func confidenceText(for level: ReliabilityLevel) -> String {
+        switch level {
+        case .high: return "数据可信"
+        case .medium: return "数据较可信"
+        case .low: return "数据样本较少"
+        case .insufficient: return "需要更多数据"
+        }
     }
     
     // MARK: - Chart Section
@@ -137,7 +218,7 @@ struct EnhancedStatisticsView: View {
             let chartData = calculateProfitTrend()
             WinRateChartView(
                 dataPoints: chartData,
-                labels: (1...chartData.count).map { "\($0)" }
+                labels: chartData.isEmpty ? [] : (1...chartData.count).map { "\($0)" }
             )
             .frame(height: 150)
         }
@@ -223,6 +304,52 @@ struct EnhancedStatisticsView: View {
         }
     }
     
+    // MARK: - AI Analysis Section
+    private var aiAnalysisSection: some View {
+        let analysis = getAIAnalysis()
+        
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("AI 分析洞察")
+                .font(.headline)
+            
+            if analysis.isEmpty {
+                Text("暂无足够数据进行分析")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(analysis, id: \.self) { insight in
+                    InsightRow(insight: insight)
+                }
+            }
+        }
+    }
+    
+    private func getAIAnalysis() -> [String] {
+        let analysisEngine = DataAnalysisEngine.shared
+        
+        var insights: [String] = []
+        
+        // Position analysis
+        let positionAnalysis = analysisEngine.analyzeProfitByPosition()
+        if let heroPosition = positionAnalysis[0] {
+            if heroPosition.totalProfit < 0 {
+                insights.append("📍 早期位置盈利较差，建议收紧入池范围")
+            }
+        }
+        
+        // Time analysis
+        let timeAnalysis = analysisEngine.analyzeProfitByTime()
+        let totalHands = timeAnalysis.daily.values.reduce(0, +)
+        if totalHands > 10 {
+            let recentProfit = timeAnalysis.daily.values.suffix(7).reduce(0, +)
+            if recentProfit < 0 {
+                insights.append("📈 最近盈利下滑，建议调整状态")
+            }
+        }
+        
+        return insights
+    }
+    
     // MARK: - Data Loading
     private func loadHandHistory() {
         // This would fetch from Core Data based on selected filters
@@ -282,7 +409,7 @@ struct EnhancedStatisticsView: View {
         // Use batch stats for better performance
         let batchStats = getBatchStats()
 
-        if let stats = batchStats["Hero"] ?? nil {
+        if let outer = batchStats["Hero"], let stats = outer {
             let bb = 20 // Default big blind
             let bbPer100 = stats.totalHands > 0 ? Double(stats.totalWinnings) / Double(bb) / Double(stats.totalHands) * 100 : 0
 
@@ -309,7 +436,7 @@ struct EnhancedStatisticsView: View {
         let batchStats = getBatchStats()
 
         return aiNames.compactMap { name in
-            if let stats = batchStats[name] ?? nil {
+            if let outer = batchStats[name], let stats = outer {
                 return AIOpponentStats(
                     name: name,
                     hands: stats.totalHands,
@@ -428,6 +555,28 @@ struct StatsOpponentRow: View {
             }
         }
         .padding(.vertical, 8)
+    }
+}
+
+// MARK: - Insight Row
+struct InsightRow: View {
+    let insight: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "lightbulb.fill")
+                .foregroundColor(.yellow)
+                .font(.system(size: 14))
+            
+            Text(insight)
+                .font(.system(size: 13))
+                .foregroundColor(.primary)
+            
+            Spacer()
+        }
+        .padding(10)
+        .background(Color.blue.opacity(0.1))
+        .cornerRadius(8)
     }
 }
 

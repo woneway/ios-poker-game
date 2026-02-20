@@ -12,6 +12,7 @@ struct Player: Identifiable, Equatable {
     let id: UUID
     let name: String
     var chips: Int
+    var startingChips: Int = 0  // 本手牌开始时的筹码
     var holeCards: [Card] = []
     var status: PlayerStatus = .active
     var currentBet: Int = 0
@@ -27,13 +28,12 @@ struct Player: Identifiable, Equatable {
     /// 玩家唯一标识：使用 profileName + entryIndex 格式
     /// 例如："石头#1", "老狐狸#2", "安娜#3"
     /// 对于没有 AIProfile 的玩家，使用 name + entryIndex
-    /// 注意：entryIndex 从 1 开始，0 会自动转为 1
+    /// entryIndex 为 0 时显示为 #0（表示尚未分配序号）
     var playerUniqueId: String {
-        let index = entryIndex > 0 ? entryIndex : 1
         if let profile = aiProfile {
-            return "\(profile.name)#\(index)"
+            return "\(profile.name)#\(entryIndex)"
         } else {
-            return "\(name)#\(index)"
+            return "\(name)#\(entryIndex)"
         }
     }
     

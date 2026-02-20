@@ -186,7 +186,8 @@ struct TournamentManager {
         gameMode: GameMode,
         difficulty: AIProfile.Difficulty,
         config: TournamentConfig?,
-        currentBlindLevel: Int
+        currentBlindLevel: Int,
+        profileId: String
     ) -> [Player] {
         // 现金局逻辑已迁移到 CashGameManager
         guard gameMode == .tournament else { return [] }
@@ -211,6 +212,24 @@ struct TournamentManager {
             currentBlindLevel: currentBlindLevel
         )
         
+        // 优先尝试重新加入已有 AI 玩家
+        if let rejoinedPlayer = findRejoinableTournamentAIPlayer(
+            players: players,
+            config: config,
+            profileId: profileId,
+            rebuyChips: rebuyChips
+        ) {
+            replaceEliminatedPlayer(at: seatIndex, with: rejoinedPlayer, players: &players)
+            newEntries.append(rejoinedPlayer)
+            
+            #if DEBUG
+            print("🔄 锦标赛 AI 玩家 \(rejoinedPlayer.playerUniqueId) 重新加入，筹码: \(rebuyChips)")
+            #endif
+            
+            return newEntries
+        }
+        
+        // 如果没有可重新加入的玩家，生成新的随机 AI 玩家
         if let newPlayer = generateRandomEntry(
             difficulty: difficulty,
             config: config,
@@ -222,21 +241,93 @@ struct TournamentManager {
             // 使用通用方法处理名称去重
             let finalName = makeUniqueName(baseName: newPlayer.name, existingNames: existingNames)
 
-            let entryPlayer = Player(
-                name: finalName,
-                chips: rebuyChips,
-                isHuman: false,
-                aiProfile: newPlayer.aiProfile
-            )
+            // 获取下一个入场序号
+            if let aiProfile = newPlayer.aiProfile {
+                let entryIndex = AIPlayerBankrollManager.shared.getNextEntryIndex(
+                    profileId: profileId,
+                    aiProfileId: aiProfile.id
+                )
+                
+                // 从 bankroll 中扣除买入费用
+                if let _ = AIPlayerBankrollManager.shared.deductBuyIn(
+                    profileId: profileId,
+                    aiProfileId: aiProfile.id,
+                    buyInAmount: config.buyIn
+                ) {
+                    let entryPlayer = Player(
+                        name: finalName,
+                        chips: rebuyChips,
+                        isHuman: false,
+                        aiProfile: aiProfile,
+                        entryIndex: entryIndex
+                    )
 
-            replaceEliminatedPlayer(at: seatIndex, with: entryPlayer, players: &players)
-            newEntries.append(entryPlayer)
+                    replaceEliminatedPlayer(at: seatIndex, with: entryPlayer, players: &players)
+                    newEntries.append(entryPlayer)
 
-            #if DEBUG
-            print("🎉 锦标赛新 AI \(finalName) 入场座位 \(seatIndex)，筹码: \(rebuyChips)")
-            #endif
+                    #if DEBUG
+                    print("🎉 锦标赛新 AI \(finalName) 入场座位 \(seatIndex)，买入: \(config.buyIn)，筹码: \(rebuyChips)")
+                    #endif
+                }
+            }
         }
         
         return newEntries
+    }
+    
+    // MARK: - Tournament Rejoin Logic
+    
+    /// 查找可以重新加入的锦标赛 AI 玩家
+    static func findRejoinableTournamentAIPlayer(
+        players: [Player],
+        config: TournamentConfig,
+        profileId: String,
+        rebuyChips: Int
+    ) -> Player? {
+        let buyIn = config.buyIn
+        
+        for profile in AIProfile.allPresets {
+            let bankroll = AIPlayerBankrollManager.shared.getBankroll(
+                profileId: profileId,
+                aiProfileId: profile.id
+            )
+            
+            // 检查 bankroll 是否足够支付买入费用
+            guard bankroll >= buyIn else { continue }
+            
+            // 检查是否已在游戏中
+            let isInGame = players.contains { player in
+                player.aiProfile?.id == profile.id && player.status != .eliminated
+            }
+            guard !isInGame else { continue }
+            
+            // 获取下一个入场序号
+            let entryIndex = AIPlayerBankrollManager.shared.getNextEntryIndex(
+                profileId: profileId,
+                aiProfileId: profile.id
+            )
+            
+            // 扣除买入费用
+            if let _ = AIPlayerBankrollManager.shared.deductBuyIn(
+                profileId: profileId,
+                aiProfileId: profile.id,
+                buyInAmount: buyIn
+            ) {
+                return Player(
+                    name: profile.name,
+                    chips: rebuyChips,
+                    isHuman: false,
+                    aiProfile: profile,
+                    entryIndex: entryIndex
+                )
+            }
+        }
+        
+        return nil
+    }
+    
+    /// 检查玩家资金是否足够参加锦标赛
+    static func validateBankrollForTournament(bankroll: Int, buyIn: Int) -> Bool {
+        return bankroll >= buyIn
     }
 }

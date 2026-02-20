@@ -8,38 +8,51 @@ struct HistoryView: View {
     
     var body: some View {
         NavigationView {
-            Group {
-                if historyManager.records.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "clock.badge.questionmark")
-                            .font(.system(size: 50))
-                            .foregroundColor(.gray.opacity(0.4))
-                        Text("暂无游戏记录")
-                            .font(.headline)
-                            .foregroundColor(.gray)
-                        Text("完成游戏后即可在此查看历史记录")
-                            .font(.subheadline)
-                            .foregroundColor(.gray.opacity(0.6))
-                    }
-                } else {
-                    List {
-                        ForEach(historyManager.records) { record in
-                            Button(action: { selectedRecord = record }) {
-                                historyRow(record)
+            ZStack {
+                Color(hex: "0f0f23").ignoresSafeArea()
+                Group {
+                    if historyManager.records.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "clock.badge.questionmark")
+                                .font(.system(size: 50))
+                                .foregroundColor(.gray.opacity(0.4))
+                            Text("暂无游戏记录")
+                                .font(.headline)
+                                .foregroundColor(.gray)
+                            Text("完成游戏后即可在此查看历史记录")
+                                .font(.subheadline)
+                                .foregroundColor(.gray.opacity(0.6))
+                        }
+                    } else {
+                        List {
+                            ForEach(historyManager.records) { record in
+                                Button(action: { selectedRecord = record }) {
+                                    historyRow(record)
+                                }
                             }
                         }
+                        .scrollContentBackground(.hidden)
+                        .listStyle(.plain)
                     }
                 }
             }
             .navigationTitle("游戏历史")
-            .navigationBarItems(
-                leading: historyManager.records.isEmpty ? nil : Button("清除") {
-                    showClearConfirm = true
-                },
-                trailing: Button("完成") {
-                    isPresented = false
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if !historyManager.records.isEmpty {
+                        Button("清除") {
+                            showClearConfirm = true
+                        }
+                        .foregroundColor(.red)
+                    }
                 }
-            )
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("完成") {
+                        isPresented = false
+                    }
+                }
+            }
             .alert("确认清除", isPresented: $showClearConfirm) {
                 Button("清除", role: .destructive) {
                     historyManager.clearHistory()
@@ -52,13 +65,13 @@ struct HistoryView: View {
                 historyDetail(record)
             }
         }
+        .preferredColorScheme(.dark)
     }
     
     // MARK: - Row
     
     private func historyRow(_ record: GameRecord) -> some View {
         HStack(spacing: 12) {
-            // Rank badge
             ZStack {
                 Circle()
                     .fill(heroRankColor(record.heroRank))
@@ -77,12 +90,12 @@ struct HistoryView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(dateFormatted(record.date))
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.white)
                 
                 HStack(spacing: 8) {
                     Label("\(record.totalHands) 手", systemImage: "suit.spade.fill")
                         .font(.system(size: 11))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.gray)
                     
                     Text(heroResultText(record))
                         .font(.system(size: 11, weight: .medium))
@@ -94,84 +107,106 @@ struct HistoryView: View {
             
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundColor(.secondary.opacity(0.5))
+                .foregroundColor(.gray.opacity(0.5))
         }
         .padding(.vertical, 4)
+        .listRowBackground(Color(hex: "1a1a2e"))
     }
     
     // MARK: - Detail
     
     private func historyDetail(_ record: GameRecord) -> some View {
         NavigationView {
-            List {
-                Section(header: Text("游戏信息")) {
-                    HStack {
-                        Text("日期")
-                        Spacer()
-                        Text(dateFormatted(record.date))
-                            .foregroundColor(.secondary)
+            ZStack {
+                Color(hex: "0f0f23").ignoresSafeArea()
+                List {
+                    Section(header: Text("游戏信息")) {
+                        HStack {
+                            Text("日期")
+                                .foregroundColor(.white)
+                            Spacer()
+                            Text(dateFormatted(record.date))
+                                .foregroundColor(.gray)
+                        }
+                        .listRowBackground(Color(hex: "1a1a2e"))
+                        HStack {
+                            Text("总局数")
+                                .foregroundColor(.white)
+                            Spacer()
+                            Text("\(record.totalHands)")
+                                .foregroundColor(.gray)
+                        }
+                        .listRowBackground(Color(hex: "1a1a2e"))
+                        HStack {
+                            Text("玩家数")
+                                .foregroundColor(.white)
+                            Spacer()
+                            Text("\(record.totalPlayers)")
+                                .foregroundColor(.gray)
+                        }
+                        .listRowBackground(Color(hex: "1a1a2e"))
+                        HStack {
+                            Text("你的排名")
+                                .foregroundColor(.white)
+                            Spacer()
+                            Text("#\(record.heroRank) / \(record.totalPlayers)")
+                                .foregroundColor(record.heroRank == 1 ? .green : .orange)
+                                .fontWeight(.bold)
+                        }
+                        .listRowBackground(Color(hex: "1a1a2e"))
                     }
-                    HStack {
-                        Text("总局数")
-                        Spacer()
-                        Text("\(record.totalHands)")
-                            .foregroundColor(.secondary)
-                    }
-                    HStack {
-                        Text("玩家数")
-                        Spacer()
-                        Text("\(record.totalPlayers)")
-                            .foregroundColor(.secondary)
-                    }
-                    HStack {
-                        Text("你的排名")
-                        Spacer()
-                        Text("#\(record.heroRank) / \(record.totalPlayers)")
-                            .foregroundColor(record.heroRank == 1 ? .green : .orange)
-                            .fontWeight(.bold)
-                    }
-                }
-                
-                Section(header: Text("最终排名")) {
-                    ForEach(record.results) { result in
-                        HStack(spacing: 10) {
-                            Text(rankEmoji(result.rank))
-                                .font(.system(size: 20))
-                            
-                            Text(result.avatar)
-                                .font(.system(size: 18))
-                            
-                            VStack(alignment: .leading, spacing: 1) {
-                                HStack(spacing: 4) {
-                                    Text(result.name)
-                                        .font(.system(size: 14, weight: result.isHuman ? .bold : .regular))
-                                    if result.isHuman {
-                                        Text("(You)")
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.blue)
+                    
+                    Section(header: Text("最终排名")) {
+                        ForEach(record.results) { result in
+                            HStack(spacing: 10) {
+                                Text(rankEmoji(result.rank))
+                                    .font(.system(size: 20))
+                                
+                                Text(result.avatar)
+                                    .font(.system(size: 18))
+                                
+                                VStack(alignment: .leading, spacing: 1) {
+                                    HStack(spacing: 4) {
+                                        Text(result.name)
+                                            .font(.system(size: 14, weight: result.isHuman ? .bold : .regular))
+                                            .foregroundColor(.white)
+                                        if result.isHuman {
+                                            Text("(You)")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.blue)
+                                        }
                                     }
+                                    
+                                    Text(result.rank == 1 ? "获胜者" : "淘汰于第 \(result.handsPlayed) 手")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.gray)
                                 }
                                 
-                                Text(result.rank == 1 ? "获胜者" : "淘汰于第 \(result.handsPlayed) 手")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.secondary)
+                                Spacer()
+                                
+                                Text("#\(result.rank)")
+                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                    .foregroundColor(result.rank <= 3 ? .yellow : .gray)
                             }
-                            
-                            Spacer()
-                            
-                            Text("#\(result.rank)")
-                                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                                .foregroundColor(result.rank <= 3 ? .yellow : .secondary)
+                            .padding(.vertical, 2)
+                            .listRowBackground(Color(hex: "1a1a2e"))
                         }
-                        .padding(.vertical, 2)
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .listStyle(.plain)
+            }
+            .navigationTitle("游戏详情")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("关闭") {
+                        selectedRecord = nil
                     }
                 }
             }
-            .navigationTitle("游戏详情")
-            .navigationBarItems(trailing: Button("关闭") {
-                selectedRecord = nil
-            })
         }
+        .preferredColorScheme(.dark)
     }
     
     // MARK: - Helpers

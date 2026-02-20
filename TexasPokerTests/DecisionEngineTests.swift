@@ -85,18 +85,22 @@ class DecisionEngineTests: XCTestCase {
         
         // 0 hands = 0% confidence
         model.totalHands = 0
+        print("totalHands=0, confidence=\(model.confidence)")
         XCTAssertEqual(model.confidence, 0.0, accuracy: 0.01)
         
-        // 25 hands = 50% confidence
+        // 25 hands = 25% confidence (100 hands = 100%)
         model.totalHands = 25
-        XCTAssertEqual(model.confidence, 0.5, accuracy: 0.01)
+        print("totalHands=25, confidence=\(model.confidence)")
+        XCTAssertEqual(model.confidence, 0.25, accuracy: 0.01)
         
-        // 50 hands = 100% confidence
+        // 50 hands = 50% confidence
         model.totalHands = 50
-        XCTAssertEqual(model.confidence, 1.0, accuracy: 0.01)
+        print("totalHands=50, confidence=\(model.confidence)")
+        XCTAssertEqual(model.confidence, 0.5, accuracy: 0.01)
         
         // 100 hands = 100% confidence (capped)
         model.totalHands = 100
+        print("totalHands=100, confidence=\(model.confidence)")
         XCTAssertEqual(model.confidence, 1.0, accuracy: 0.01)
     }
     

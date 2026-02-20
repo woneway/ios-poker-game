@@ -177,6 +177,7 @@ struct StatItem: View {
     let value: String
     let icon: String
     var color: Color = .blue
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         HStack(spacing: 6) {
@@ -186,10 +187,10 @@ struct StatItem: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
                 Text(value)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(colorScheme == .dark ? .white : .primary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -236,7 +237,7 @@ struct SessionSummaryData {
 // MARK: - Color Extensions
 extension Color {
     static func adaptiveSurface(_ colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark ? Color(hex: "1C1C1E") : Color(hex: "F2F2F7")
+        colorScheme == .dark ? Color(hex: "1a1a2e") : Color(hex: "F2F2F7")
     }
 }
 

@@ -29,6 +29,10 @@ extension PokerEngine {
             players[i].holeCards.removeAll()
             players[i].currentBet = 0
             players[i].totalBetThisHand = 0
+            // 记录本手牌开始时的筹码
+            if players[i].status == .active || players[i].status == .allIn {
+                players[i].startingChips = players[i].chips
+            }
             // CashGame: sittingOut 玩家保持状态，本手不参与
             if players[i].status == .sittingOut && gameMode == .cashGame {
                 continue
@@ -195,6 +199,8 @@ extension PokerEngine {
         
         // 根据游戏模式处理 AI 入场/离场
         if gameMode == .cashGame, let config = cashGameConfig {
+            let profileId = ProfileManager.shared.currentProfileIdForData
+            
             // 1. sittingOut → eliminated（为新 AI 腾出座位）
             for i in 0..<players.count where players[i].status == .sittingOut {
                 players[i].status = .eliminated
@@ -203,7 +209,8 @@ extension PokerEngine {
             // 2. AI 离场检查
             let departures = CashGameManager.checkAIDepartures(
                 players: &players,
-                config: config
+                config: config,
+                profileId: profileId
             )
             for dep in departures {
                 actionLog.append(ActionLogEntry(systemMessage: "\(dep.name) 离开了牌桌"))
@@ -214,7 +221,8 @@ extension PokerEngine {
             let newEntries = CashGameManager.checkAIEntries(
                 players: &players,
                 config: config,
-                difficulty: difficulty
+                difficulty: difficulty,
+                profileId: profileId
             )
             for entry in newEntries {
                 actionLog.append(ActionLogEntry(systemMessage: "新玩家 \(entry.name) 入座"))
@@ -230,13 +238,15 @@ extension PokerEngine {
                 case .expert: return .expert
                 }
             }()
+            let profileId = ProfileManager.shared.currentProfileIdForData
             let newEntries = TournamentManager.checkAndAddAIEntries(
                 players: &players,
                 handNumber: handNumber,
                 gameMode: gameMode,
                 difficulty: difficulty,
                 config: tournamentConfig,
-                currentBlindLevel: currentBlindLevel
+                currentBlindLevel: currentBlindLevel,
+                profileId: profileId
             )
             for newPlayer in newEntries {
                 NotificationCenter.default.post(

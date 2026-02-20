@@ -7,6 +7,9 @@ struct TournamentConfig: Codable {
     let handsPerLevel: Int
     let payoutStructure: [Double]  // [0.5, 0.3, 0.2] = 50%, 30%, 20%
     
+    /// Buy-in amount for the tournament
+    var buyIn: Int = 5000
+    
     /// Whether rebuy is allowed in this tournament
     var rebuyEnabled: Bool = true
     /// Base chips for rebuy (defaults to startingChips)

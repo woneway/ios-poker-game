@@ -388,14 +388,26 @@ class DecisionEngine {
         spr: Double,
         street: Street,
         profile: AIProfile,
-        stackSize: Int  // 玩家当前筹码量，用于计算 all-in 金额
+        stackSize: Int,  // 玩家当前筹码量，用于计算 all-in 金额
+        learnedAction: PlayerAction? = nil  // 从AI学习系统获得的决策
     ) -> PlayerAction {
         let potOdds = calculatePotOdds(callAmount: callAmount, potSize: potSize)
         let impliedOdds = calculateImpliedOdds(spr: spr, street: street)
-        let totalOdds = potOdds + impliedOdds
         
-        var bestEV = Double.infinity
+        var bestEV = -Double.infinity
         var bestAction: PlayerAction = .fold
+        
+        // Quick check: if equity > potOdds + impliedOdds, we have +EV situation
+        let totalOdds = potOdds + impliedOdds
+        let isPositiveEV = equity > totalOdds
+        
+        // Apply small bias towards learned action if available
+        let learnedBias: Double
+        if learnedAction != nil {
+            learnedBias = 0.15  // 15% bias towards learned action
+        } else {
+            learnedBias = 0.0
+        }
         
         for action in availableActions {
             let ev: Double
@@ -444,8 +456,35 @@ class DecisionEngine {
             
             let adjustedEV = ev + tendencyAdjustment
             
-            if adjustedEV > bestEV {
-                bestEV = adjustedEV
+            // Bonus for +EV situations
+            var finalEV = adjustedEV
+            if isPositiveEV {
+                switch action {
+                case .call, .raise, .allIn:
+                    finalEV += 0.1  // Small bonus for +EV actions
+                default:
+                    break
+                }
+            }
+            
+            // Bonus for learned action from AI learning system
+            if let learned = learnedAction {
+                var isLearnedAction = false
+                switch (action, learned) {
+                case (.fold, .fold): isLearnedAction = true
+                case (.check, .check): isLearnedAction = true
+                case (.call, .call): isLearnedAction = true
+                case (.raise, .raise): isLearnedAction = true
+                case (.allIn, .allIn): isLearnedAction = true
+                default: isLearnedAction = false
+                }
+                if isLearnedAction {
+                    finalEV += learnedBias
+                }
+            }
+            
+            if finalEV > bestEV {
+                bestEV = finalEV
                 bestAction = action
             }
         }
@@ -473,6 +512,20 @@ class DecisionEngine {
         let stackSize = player.chips
         let activePlayers = engine.players.filter { $0.status == .active || $0.status == .allIn }.count
         let seatOffset = engine.seatOffsetFromDealer(playerIndex: engine.activePlayerIndex)
+        
+        // Get strategy recommendation from PlayerStrategyManager (AI learning system)
+        // This uses learned patterns to suggest optimal actions
+        let _ = getStrategyRecommendation(
+            player: player,
+            engine: engine,
+            holeCards: holeCards,
+            community: community,
+            street: street,
+            callAmount: callAmount,
+            potSize: potSize,
+            stackSize: stackSize,
+            seatOffset: seatOffset
+        )
         
         // Stack-to-pot ratio
         let spr = potSize > 0 ? Double(stackSize) / Double(potSize) : 20.0
@@ -558,6 +611,58 @@ class DecisionEngine {
             spr: spr, isPFR: isPFR, strategyAdjust: strategyAdjust,
             icmAdjust: icmAdjust
         )
+    }
+    
+    // MARK: - AI Decision Publishing
+    
+    static func publishDecision(
+        player: Player,
+        action: PlayerAction,
+        equity: Double,
+        potOdds: Double
+    ) {
+        let reasoning = generateDecisionReasoning(
+            player: player,
+            action: action,
+            equity: equity,
+            potOdds: potOdds
+        )
+        
+        GameEventPublisher.shared.publishAIDecision(
+            playerID: player.id,
+            playerName: player.name,
+            action: action.description,
+            reasoning: reasoning,
+            equity: equity,
+            potOdds: potOdds,
+            confidence: player.aiProfile?.aggression ?? 0.5
+        )
+    }
+    
+    private static func generateDecisionReasoning(
+        player: Player,
+        action: PlayerAction,
+        equity: Double,
+        potOdds: Double
+    ) -> String {
+        switch action {
+        case .fold:
+            return "手牌强度不足，选择弃牌"
+        case .check:
+            return "过牌保留机会"
+        case .call:
+            if equity > potOdds {
+                return "底池赔率合适，跟注"
+            }
+            return "跟注看转牌"
+        case .raise:
+            if equity > 0.6 {
+                return "强牌价值下注"
+            }
+            return "半诈偷盲"
+        case .allIn:
+            return "全下all-in"
+        }
     }
     
     // MARK: - Helper Methods for Opponent Modeling
@@ -1085,9 +1190,24 @@ class DecisionEngine {
             }
         }
         
+        // Check for raise-war: limit continuous raising to prevent infinite loops
+        // Use explicit type to avoid CoreData conflict
+        let betHistory: [BetAction] = engine.bettingHistory[street] ?? []
+        var raiseCount = 0
+        for action in betHistory {
+            if action.type == .raise {
+                raiseCount += 1
+            }
+        }
+        let isInRaiseWar = raiseCount >= 2  // If 2+ raises happened, stop continuing
+        
         // Monster hand: raise/re-raise
         if category >= 5 {
             if spr < 3 || player.chips <= callAmount * 2 {
+                return .allIn
+            }
+            // In raise-war, prefer all-in with monster rather than small raise
+            if isInRaiseWar && player.chips > callAmount * 3 {
                 return .allIn
             }
             let raiseAmount = engine.currentBet + max(engine.minRaise, potSize * 2 / 3)
@@ -1096,6 +1216,10 @@ class DecisionEngine {
         
         // Strong hand: usually raise based on aggression
         if hasStrongHand {
+            // In raise-war, prefer call to avoid infinite loop
+            if isInRaiseWar {
+                return .call
+            }
             if profile.effectiveAggression > 0.5 {
                 let raiseAmount = engine.currentBet + max(engine.minRaise, potSize / 2)
                 return .raise(raiseAmount)
@@ -1121,10 +1245,20 @@ class DecisionEngine {
         let impliedOdds = calculateImpliedOdds(spr: spr, street: street)
         let totalOdds = potOdds + impliedOdds
         
+        // Re-check raise-war status (need separate variable in this scope)
+        var raiseCount2 = 0
+        for action in betHistory {
+            if action.type == .raise {
+                raiseCount2 += 1
+            }
+        }
+        let isInRaiseWarEV = raiseCount2 >= 2
+        
         // Positive EV call (equity > total odds)
         if equity > totalOdds {
             // With high equity and aggression, consider raising
-            if equity > 0.65 && profile.effectiveAggression > 0.6 {
+            // But don't continue raising in a raise-war
+            if equity > 0.65 && profile.effectiveAggression > 0.6 && !isInRaiseWarEV {
                 let raiseAmount = engine.currentBet + engine.minRaise
                 return .raise(raiseAmount)
             }
@@ -1137,8 +1271,8 @@ class DecisionEngine {
             let drawEquity = Double(draws.totalOuts) * (street == .flop ? 0.04 : 0.02)
             
             if draws.hasComboDraws {
-                // Combo draws: raise with high aggression
-                if profile.effectiveAggression > 0.5 {
+                // Combo draws: raise with high aggression (but not in raise-war)
+                if profile.effectiveAggression > 0.5 && !isInRaiseWarEV {
                     let raiseAmount = engine.currentBet + engine.minRaise
                     return .raise(raiseAmount)
                 }
@@ -1365,7 +1499,7 @@ class DecisionEngine {
         }
         
         var flushOuts = 0
-        if hasFlushDraw, let suit = flushSuit {
+        if hasFlushDraw, let _ = flushSuit {
             // Count remaining cards of this suit in deck
             // 13 total - already have maxSuitCount
             flushOuts = 13 - maxSuitCount
@@ -1415,17 +1549,15 @@ class DecisionEngine {
         // Calculate overlap between flush and straight draws
         // When both draws exist, some cards may complete both
         var overlap = 0
-        if hasCombo, let suit = flushSuit {
+        if hasCombo, let _ = flushSuit {
             // Count cards of the flush suit that also complete straight
             for rank in rankSet.sorted() {
                 if rank == -1 { continue } // Skip Ace-low placeholder
-                // Check if this rank would complete straight
-                let neededRank = missingStraightRank(communityCards: communityCards, holeCards: holeCards)
-                // Simplified: if we have OESD or gutshot, some flush cards complete straight too
-                if hasOESD || hasGutshot {
-                    // Estimate 1-2 cards overlap on average
-                    overlap = 1
-                }
+            }
+            // Simplified: if we have OESD or gutshot, some flush cards complete straight too
+            if hasOESD || hasGutshot {
+                // Estimate 1-2 cards overlap on average
+                overlap = 1
             }
         }
         
@@ -1502,5 +1634,64 @@ class DecisionEngine {
             hasHighCards: hasHighCards,
             connectivity: connectivity
         )
+    }
+    
+    // MARK: - PlayerStrategyManager Integration
+    
+    private static func getStrategyRecommendation(
+        player: Player,
+        engine: PokerEngine,
+        holeCards: [Card],
+        community: [Card],
+        street: Street,
+        callAmount: Int,
+        potSize: Int,
+        stackSize: Int,
+        seatOffset: Int
+    ) -> RecommendedAction? {
+        let actionType: ActionSituation.ActionSituationType
+        if callAmount > 0 {
+            if street == .preFlop && engine.currentBet > engine.bigBlindAmount {
+                actionType = .facing3Bet
+            } else {
+                actionType = .facingBet
+            }
+        } else {
+            actionType = .decisionToBet
+        }
+        
+        let handStrength = calculateHandStrength(holeCards: holeCards, community: community)
+        
+        let situation = ActionSituation(
+            actionType: actionType,
+            handStrength: handStrength,
+            position: seatOffset,
+            potSize: potSize,
+            toCall: callAmount,
+            stackSize: stackSize,
+            boardCards: community,
+            street: ActionSituation.Street(rawValue: street.rawValue)
+        )
+        
+        return PlayerStrategyManager.shared.getRecommendedAction(for: player.id.uuidString, situation: situation)
+    }
+    
+    private static func calculateHandStrength(holeCards: [Card], community: [Card]) -> Double {
+        guard holeCards.count == 2 else { return 0.5 }
+        
+        if community.isEmpty {
+            let ranks = holeCards.map { Int($0.rank.rawValue) }
+            let r0 = ranks[0]
+            let r1 = ranks[1]
+            if r0 == r1 {
+                return 0.7
+            } else if abs(r0 - r1) <= 2 {
+                return 0.55
+            } else {
+                return 0.4
+            }
+        } else {
+            return 0.5
+        }
     }
 }

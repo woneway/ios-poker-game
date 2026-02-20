@@ -11,6 +11,10 @@ struct ActionLogEntry: Identifiable {
     let timestamp: Date = Date()
     var systemMessage: String?  // 系统消息（可选）
     
+    // 人设相关扩展
+    var signatureAction: String?  // 签名动作 (如 "耸肩", "快速加注")
+    var commentary: String?       // 人设评语 (如 "哈哈，这把我要拿下！")
+    
     /// 便利初始化器 - 用于创建系统消息类型的日志
     init(systemMessage: String) {
         self.playerName = ""
@@ -19,6 +23,8 @@ struct ActionLogEntry: Identifiable {
         self.amount = nil
         self.street = .preFlop
         self.systemMessage = systemMessage
+        self.signatureAction = nil
+        self.commentary = nil
     }
 
     /// 标准初始化器 - 用于创建玩家动作日志
@@ -29,6 +35,21 @@ struct ActionLogEntry: Identifiable {
         self.amount = amount
         self.street = street
         self.systemMessage = nil
+        self.signatureAction = nil
+        self.commentary = nil
+    }
+    
+    /// 完整初始化器 - 包含人设扩展
+    init(playerName: String, avatar: String, action: PlayerAction, amount: Int?, street: Street, 
+         signatureAction: String?, commentary: String?) {
+        self.playerName = playerName
+        self.avatar = avatar
+        self.action = action
+        self.amount = amount
+        self.street = street
+        self.systemMessage = nil
+        self.signatureAction = signatureAction
+        self.commentary = commentary
     }
     
     /// 动作描述（中文）

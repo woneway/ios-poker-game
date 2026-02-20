@@ -99,15 +99,23 @@ class HandEvaluator {
         
         // 7. Four of a Kind
         if countsValues == [4, 1] {
-            let quadRank = counts.first { $0.value == 4 }!.key
-            let kicker = counts.first { $0.value == 1 }!.key
+            guard let quadRankEntry = counts.first(where: { $0.value == 4 }),
+                  let kickerEntry = counts.first(where: { $0.value == 1 }) else {
+                return (0, ranks) // Fallback to high card if something unexpected happens
+            }
+            let quadRank = quadRankEntry.key
+            let kicker = kickerEntry.key
             return (7, [quadRank, kicker])
         }
         
         // 6. Full House
         if countsValues == [3, 2] {
-            let tripRank = counts.first { $0.value == 3 }!.key
-            let pairRank = counts.first { $0.value == 2 }!.key
+            guard let tripRankEntry = counts.first(where: { $0.value == 3 }),
+                  let pairRankEntry = counts.first(where: { $0.value == 2 }) else {
+                return (0, ranks) // Fallback to high card if something unexpected happens
+            }
+            let tripRank = tripRankEntry.key
+            let pairRank = pairRankEntry.key
             return (6, [tripRank, pairRank])
         }
         
@@ -123,7 +131,10 @@ class HandEvaluator {
         
         // 3. Three of a Kind
         if countsValues == [3, 1, 1] {
-            let tripRank = counts.first { $0.value == 3 }!.key
+            guard let tripRankEntry = counts.first(where: { $0.value == 3 }) else {
+                return (0, ranks) // Fallback to high card if something unexpected happens
+            }
+            let tripRank = tripRankEntry.key
             let kickers = ranks.filter { $0 != tripRank }.sorted(by: >)
             return (3, [tripRank] + kickers)
         }
@@ -131,13 +142,18 @@ class HandEvaluator {
         // 2. Two Pair
         if countsValues == [2, 2, 1] {
             let pairs = counts.filter { $0.value == 2 }.keys.sorted(by: >)
-            let kicker = counts.filter { $0.value == 1 }.keys.first!
-            return (2, pairs + [kicker])
+            guard let kickerEntry = counts.filter({ $0.value == 1 }).keys.first else {
+                return (0, ranks) // Fallback to high card if something unexpected happens
+            }
+            return (2, pairs + [kickerEntry])
         }
         
         // 1. One Pair
         if countsValues == [2, 1, 1, 1] {
-            let pairRank = counts.first { $0.value == 2 }!.key
+            guard let pairRankEntry = counts.first(where: { $0.value == 2 }) else {
+                return (0, ranks) // Fallback to high card if something unexpected happens
+            }
+            let pairRank = pairRankEntry.key
             let kickers = ranks.filter { $0 != pairRank }.sorted(by: >)
             return (1, [pairRank] + kickers)
         }

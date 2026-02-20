@@ -22,8 +22,10 @@ struct GameHeroControls: View {
     @State private var errorMessage = ""
     
     var body: some View {
-        let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman }) ?? 0
-        let hero = store.engine.players.count > heroIndex ? store.engine.players[heroIndex] : nil
+        let heroIndex = store.engine.players.firstIndex(where: { $0.isHuman })
+        let hero: Player? = heroIndex.flatMap { index in
+            store.engine.players.indices.contains(index) ? store.engine.players[index] : nil
+        }
         
         return Group {
             switch store.state {
@@ -255,9 +257,11 @@ struct GameHeroControls: View {
             
         case .waitingForAction:
             if let hero = hero,
-               store.engine.activePlayerIndex == heroIndex,
+               let idx = heroIndex,
+               store.engine.activePlayerIndex == idx,
                hero.status == .active {
                 let callAmount = store.engine.currentBet - hero.currentBet
+                let canCheck = store.engine.canCheck()
                 let minRaiseTo = store.engine.currentBet + store.engine.minRaise
                 let maxRaiseTo = hero.currentBet + hero.chips  // All-in amount
                 
@@ -290,24 +294,24 @@ struct GameHeroControls: View {
                             
                             Button(action: {
                                 HapticFeedback.buttonPress()
-                                // callAmount > 0 时执行跟注，callAmount == 0 时执行让牌
-                                if callAmount > 0 {
-                                    store.engine.processAction(.call)
+                                // canCheck == true 时执行让牌，canCheck == false 时执行跟注
+                                if canCheck {
+                                    store.engine.processAction(.check)
                                     store.send(.playerActed)
                                     if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
                                 } else {
-                                    store.engine.processAction(.check)
+                                    store.engine.processAction(.call)
                                     store.send(.playerActed)
                                     if settings.soundEnabled { SoundManager.shared.playSound(.chip) }
                                 }
                             }) {
-                                Text(callAmount == 0 ? "让牌" : "跟注 $\(callAmount)")
+                                Text(canCheck ? "让牌" : "跟注 $\(callAmount)")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.white)
                                     .frame(width: 100, height: 44)
                                     .background(Capsule().fill(Color.blue.opacity(0.8)))
                             }
-                            .accessibilityLabel(callAmount == 0 ? "让牌" : "跟注 \(callAmount) 筹码")
+                            .accessibilityLabel(canCheck ? "让牌" : "跟注 \(callAmount) 筹码")
                             .accessibilityAddTraits(.isButton)
                             
                             // Open raise panel

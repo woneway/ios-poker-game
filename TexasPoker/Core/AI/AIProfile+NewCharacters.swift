@@ -23,7 +23,10 @@ extension AIProfile {
         cbetTurnFreq: 0.03,
         positionAwareness: 0.05,
         tiltSensitivity: 0.4,
-        callDownTendency: 0.90
+        callDownTendency: 0.90,
+        riskTolerance: 0.2,    // Very conservative
+        bluffDetection: 0.1,  // Can't read opponents
+        deepStackThreshold: 250 // Needs deep to play
     )
     
     /// 9. 紧弱玛丽 (Tight-Passive Mary)
@@ -42,7 +45,10 @@ extension AIProfile {
         cbetTurnFreq: 0.05,
         positionAwareness: 0.25,
         tiltSensitivity: 0.15,
-        callDownTendency: 0.40
+        callDownTendency: 0.40,
+        riskTolerance: 0.3,    // Conservative
+        bluffDetection: 0.25,  // Low
+        deepStackThreshold: 250 // Tight even deep
     )
     
     /// 10. 超紧尼特 (Nit Steve) - 比 Rock 更紧
@@ -61,7 +67,10 @@ extension AIProfile {
         cbetTurnFreq: 0.70,
         positionAwareness: 0.15,
         tiltSensitivity: 0.05,
-        callDownTendency: 0.05
+        callDownTendency: 0.05,
+        riskTolerance: 0.2,    // Very conservative
+        bluffDetection: 0.4,   // Normal
+        deepStackThreshold: 300 // Never loosens
     )
     
     /// 11. 诈唬王杰克 (Bluffing Jack)
@@ -80,7 +89,10 @@ extension AIProfile {
         cbetTurnFreq: 0.68,
         positionAwareness: 0.70,
         tiltSensitivity: 0.25,
-        callDownTendency: 0.20
+        callDownTendency: 0.20,
+        riskTolerance: 0.85,   // Very aggressive
+        bluffDetection: 0.35,   // Overestimates own skill
+        deepStackThreshold: 150 // More bluffs deep
     )
     
     /// 12. 短筹码专家 (Short Stack Sam)
@@ -98,7 +110,10 @@ extension AIProfile {
         cbetTurnFreq: 0.80,
         positionAwareness: 0.90,
         tiltSensitivity: 0.10,
-        callDownTendency: 0.10
+        callDownTendency: 0.10,
+        riskTolerance: 0.8,    // Push/fold is high variance
+        bluffDetection: 0.45,  // Normal
+        deepStackThreshold: 100 // Only good when short
     )
     
     /// 13. 陷阱大师 (Trapper Tony)
@@ -116,7 +131,10 @@ extension AIProfile {
         cbetTurnFreq: 0.50,
         positionAwareness: 0.75,
         tiltSensitivity: 0.12,
-        callDownTendency: 0.35
+        callDownTendency: 0.35,
+        riskTolerance: 0.5,    // Balanced
+        bluffDetection: 0.75,  // Good at trapping
+        deepStackThreshold: 180 // Best when deep
     )
     
     /// 14. 天才少年 (Prodigy Pete)
@@ -134,7 +152,10 @@ extension AIProfile {
         cbetTurnFreq: 0.52,
         positionAwareness: 0.88,
         tiltSensitivity: 0.08,
-        callDownTendency: 0.28
+        callDownTendency: 0.28,
+        riskTolerance: 0.65,  // Good EV seeker
+        bluffDetection: 0.8,  // Adapts well
+        deepStackThreshold: 160 // Versatile
     )
     
     /// 15. 老手维克多 (Veteran Victor)
@@ -152,7 +173,10 @@ extension AIProfile {
         cbetTurnFreq: 0.48,
         positionAwareness: 0.82,
         tiltSensitivity: 0.05,
-        callDownTendency: 0.30
+        callDownTendency: 0.30,
+        riskTolerance: 0.55,  // Experienced
+        bluffDetection: 0.85,  // Expert fish detector
+        deepStackThreshold: 180 // Solid deep play
     )
     
     // MARK: - All AI Profiles

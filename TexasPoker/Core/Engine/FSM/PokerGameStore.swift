@@ -23,6 +23,8 @@ class PokerGameStore: ObservableObject {
     @Published var showLeaveConfirm: Bool = false
     @Published var showCashSessionSummary: Bool = false
     @Published var currentSession: CashGameSession?
+    // 记录这手牌开始时 hero 的 chips，用于正确计算盈利
+    private var heroChipsAtHandStart: Int = 0
     
     enum SpectateSpeed: Double, CaseIterable, Identifiable {
         case slow = 0.5
@@ -115,9 +117,15 @@ class PokerGameStore: ObservableObject {
         $state
             .filter { $0 == .betting }
             .sink { [weak self] _ in
-                self?.pollForHumanTurn()
-                self?.scheduleAIWatchdog()
-                self?.scheduleHandOverWatchdog()
+                guard let self = self else { return }
+                // 立即同步检查是否是人类玩家的回合，避免延迟
+                if self.isHumanTurn {
+                    self.state = .waitingForAction
+                    return
+                }
+                self.pollForHumanTurn()
+                self.scheduleAIWatchdog()
+                self.scheduleHandOverWatchdog()
             }
             .store(in: &cancellables)
         
@@ -163,7 +171,7 @@ class PokerGameStore: ObservableObject {
         }
         handOverWatchdogTask = task
         // 定期检查，每 2 秒一次
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: task)
+        DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.showdown, execute: task)
     }
     
     /// 轮询检查是否轮到人类玩家（解决 AI 在 dealing 期间已完成行动的竞态问题）
@@ -176,7 +184,7 @@ class PokerGameStore: ObservableObject {
         pollTasksCancelled = true
 
         // 检查多次，覆盖 AI 延迟执行的时间窗口
-        for delay in [0.1, 0.5, 1.0, 2.0, 3.0] {
+        for _ in [0.1, 0.5, 1.0, 2.0, 3.0] {
             let task = DispatchWorkItem { [weak self] in
                 guard let self = self else { return }
                 // 检查是否需要取消
@@ -197,7 +205,7 @@ class PokerGameStore: ObservableObject {
                 }
             }
             pollTasks.append(task)
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: task)
+            DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.playerAction, execute: task)
         }
     }
 
@@ -225,7 +233,7 @@ class PokerGameStore: ObservableObject {
             }
         }
         watchdogTask = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: task)
+        DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.showdown, execute: task)
     }
     
     /// Number of players still in the game (chips > 0)
@@ -250,6 +258,11 @@ class PokerGameStore: ObservableObject {
                 finishGame()
                 return
             }
+            // 记录这手牌开始时 hero 的 chips
+            #if DEBUG
+            print("📊 .idle -> .start: 调用 recordHeroChipsAtHandStart, handNumber=\(engine.handNumber)")
+            #endif
+            self.recordHeroChipsAtHandStart()
             state = .dealing
             engine.startHand()
             scheduleDealCompleteTimer()
@@ -282,12 +295,15 @@ class PokerGameStore: ObservableObject {
                 finishGame()
             }
             // 现金局：记录每手盈利
+            #if DEBUG
+            print("📊 .betting -> .handOver: 调用 recordHandProfit, handNumber=\(engine.handNumber)")
+            #endif
             if engine.gameMode == .cashGame {
                 recordHandProfit()
             }
             if isLeavingAfterHand && engine.gameMode == .cashGame {
                 // 延迟自动离开，让玩家看到 showdown 结果
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.playerAction) { [weak self] in
                     self?.leaveTable()
                 }
             }
@@ -299,12 +315,15 @@ class PokerGameStore: ObservableObject {
                 finishGame()
             }
             // 现金局：记录每手盈利
+            #if DEBUG
+            print("📊 .waitingForAction -> .handOver: 调用 recordHandProfit, handNumber=\(engine.handNumber)")
+            #endif
             if engine.gameMode == .cashGame {
                 recordHandProfit()
             }
             if isLeavingAfterHand && engine.gameMode == .cashGame {
                 // 延迟自动离开，让玩家看到 showdown 结果
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.playerAction) { [weak self] in
                     self?.leaveTable()
                 }
             }
@@ -314,8 +333,20 @@ class PokerGameStore: ObservableObject {
                 finishGame()
                 return
             }
+            // 现金局：如果hero被淘汰需要rebuy，阻止继续游戏
+            if engine.gameMode == .cashGame && showBuyIn {
+                #if DEBUG
+                print("⏸️ 现金局：hero需要rebuy，暂停游戏")
+                #endif
+                return
+            }
+            #if DEBUG
+            print("📊 .showdown -> .nextHand: 调用 recordHeroChipsAtHandStart, handNumber before startHand=\(engine.handNumber)")
+            #endif
             state = .dealing
             engine.startHand()
+            // 在 engine.startHand() 之后记录 hero chips，因为此时新的一手牌已经开始了
+            self.recordHeroChipsAtHandStart()
             scheduleDealCompleteTimer()
             
         // MARK: - Spectating Transitions
@@ -349,7 +380,7 @@ class PokerGameStore: ObservableObject {
             guard engine.gameMode == .cashGame else { break }
             isLeavingAfterHand = true
             // 自动帮玩家弃牌
-            if let heroIndex = engine.players.firstIndex(where: { $0.isHuman }) {
+            if engine.players.contains(where: { $0.isHuman }) {
                 engine.processAction(.fold)
             }
             showLeaveConfirm = false
@@ -400,7 +431,7 @@ class PokerGameStore: ObservableObject {
             self.send(.dealComplete)
         }
         dealCompleteTimer = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.tiltWarning, execute: work)
     }
     
     // MARK: - Game Over
@@ -661,25 +692,105 @@ class PokerGameStore: ObservableObject {
         state = .idle
     }
     
-    func startCashSession(buyIn: Int) {
-        currentSession = CashGameSession(buyIn: buyIn)
+    func startCashSession(buyIn: Int, maxHands: Int = 0) {
+        currentSession = CashGameSession(buyIn: buyIn, maxHands: maxHands)
         showBuyIn = false
     }
     
-    func recordHandProfit() {
-        guard engine.gameMode == .cashGame else { return }
+    /// 记录这手牌开始时 hero 的 chips，用于正确计算盈利
+    private func recordHeroChipsAtHandStart() {
         guard let hero = engine.players.first(where: { $0.isHuman }) else { return }
-        guard var session = currentSession else { return }
-        
-        let profit: Int
-        if engine.winners.contains(hero.id) {
-            profit = engine.pot.total - hero.totalBetThisHand
-        } else {
-            profit = -hero.totalBetThisHand
+        heroChipsAtHandStart = hero.chips
+        #if DEBUG
+        print("📊 recordHeroChipsAtHandStart: hero.chips=\(hero.chips), handNumber=\(engine.handNumber)")
+        #endif
+    }
+    
+    /// 重置 hero 的 chips 记录点，用于 rebuy 后正确计算盈利
+    func resetHeroChipsAtHandStart() {
+        guard let hero = engine.players.first(where: { $0.isHuman }) else { return }
+        heroChipsAtHandStart = hero.chips
+        #if DEBUG
+        print("📊 resetHeroChipsAtHandStart: hero.chips=\(hero.chips) (after rebuy)")
+        #endif
+    }
+    
+    func recordHandProfit() {
+        #if DEBUG
+        print("📊 recordHandProfit: 开始, gameMode=\(engine.gameMode)")
+        #endif
+        guard engine.gameMode == .cashGame else { 
+            #if DEBUG
+            print("📊 recordHandProfit: guard failed - not cashGame")
+            #endif
+            return 
         }
+        guard let hero = engine.players.first(where: { $0.isHuman }) else { 
+            #if DEBUG
+            print("📊 recordHandProfit: guard failed - no hero")
+            #endif
+            return 
+        }
+        guard var session = currentSession else { 
+            #if DEBUG
+            print("📊 recordHandProfit: guard failed - no session")
+            #endif
+            return 
+        }
+        
+        // 正确计算盈利：这手牌结束后的 chips 减去这手牌开始时的 chips
+        // 这样无论是赢是输，计算都是正确的
+        // 盈利 = showdown 后 chips - heroChipsAtHandStart
+        let profit = hero.chips - heroChipsAtHandStart
+        
+        // 判断是否获胜
+        let heroWon = engine.winners.contains(hero.id) || profit > 0
+        
+        #if DEBUG
+        print("📊 recordHandProfit: hero.chips=\(hero.chips), heroChipsAtHandStart=\(heroChipsAtHandStart), profit=\(profit), handNumber=\(engine.handNumber)")
+        #endif
+        
         session.handProfits.append(profit)
         session.handsPlayed = engine.handNumber
+        if heroWon {
+            session.handsWon += 1
+        }
         currentSession = session
+        
+        // 记录AI玩家输赢，用于资金管理
+        recordAIHandResults(players: engine.players, startingChips: engine.players.reduce(into: [String: Int]()) { dict, player in
+            dict[player.id.uuidString] = player.startingChips
+        })
+        
+        checkCashGameEndConditions()
+    }
+    
+    /// 检查现金局结束条件：玩家淘汰或手数达到限制
+    private func checkCashGameEndConditions() {
+        guard engine.gameMode == .cashGame else { return }
+        guard var session = currentSession else { return }
+        
+        // 检查人类玩家是否被淘汰
+        if let heroIndex = engine.players.firstIndex(where: { $0.isHuman }),
+           engine.players[heroIndex].chips <= 0 {
+            #if DEBUG
+            print("💰 Hero被淘汰，显示rebuy界面")
+            #endif
+            // 标记玩家淘汰
+            engine.players[heroIndex].status = .eliminated
+            // 显示rebuy界面
+            showBuyIn = true
+            return
+        }
+        
+        // 检查是否达到手数限制
+        if session.isHandLimitReached {
+            #if DEBUG
+            print("🎯 达到手数限制 \(session.maxHands)，结束游戏")
+            #endif
+            // 强制结束session
+            leaveTable()
+        }
     }
     
     private func saveCashSession(_ session: CashGameSession) {
@@ -734,7 +845,15 @@ class PokerGameStore: ObservableObject {
         gameRecordSaved = false
         state = .idle
         
-        // Reset cash game state
+        // Reset cash game state - 先保存session数据
+        if var session = currentSession, engine.gameMode == .cashGame {
+            session.endTime = Date()
+            if let heroIndex = engine.players.firstIndex(where: { $0.isHuman }) {
+                session.finalChips = engine.players[heroIndex].chips
+            }
+            session.handsPlayed = engine.handNumber
+            saveCashSession(session)
+        }
         isLeavingAfterHand = false
         showBuyIn = (mode == .cashGame)
         showLeaveConfirm = false

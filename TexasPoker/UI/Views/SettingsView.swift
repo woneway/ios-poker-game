@@ -13,6 +13,8 @@ struct SettingsView: View {
     
     @State private var showHistory = false
     @State private var showStatistics = false
+    @State private var showPlayerAnalysis = false
+    @State private var showPlayerList = false
     @State private var showNewProfileAlert = false
     @State private var newProfileName = ""
     @State private var showResetConfirmation = false
@@ -29,28 +31,35 @@ struct SettingsView: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                // Profile Section
-                profileSection
+            ZStack {
+                Color(hex: "0f0f23").ignoresSafeArea()
                 
-                // Game Settings Section
-                gameSettingsSection
-                
-                // Sound Settings Section
-                soundSettingsSection
-                
-                // AI Difficulty Section
-                difficultySection
-                
-                // Statistics Section
-                statisticsSection
-                
-                // About Section
-                aboutSection
-                
-                // Quit Button
-                quitSection
+                Form {
+                    // Profile Section
+                    profileSection
+                    
+                    // Game Settings Section
+                    gameSettingsSection
+                    
+                    // Sound Settings Section
+                    soundSettingsSection
+                    
+                    // AI Difficulty Section
+                    difficultySection
+                    
+                    // Statistics Section
+                    statisticsSection
+                    
+                    // About Section
+                    aboutSection
+                    
+                    // Quit Button
+                    quitSection
+                }
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
             }
+            .preferredColorScheme(.dark)
             .navigationTitle("游戏设置")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -100,6 +109,14 @@ struct SettingsView: View {
             .sheet(isPresented: $showStatistics) {
                 EnhancedStatisticsView()
                     .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
+            }
+            .sheet(isPresented: $showPlayerAnalysis) {
+                PlayerAnalysisView(hideBackButton: true)
+            }
+            .sheet(isPresented: $showPlayerList) {
+                NavigationView {
+                    PlayerListView()
+                }
             }
             .sheet(isPresented: $showTournamentSetup) {
                 TournamentSetupView { config, difficulty in
@@ -378,6 +395,32 @@ struct SettingsView: View {
                     Image(systemName: "chart.bar.fill")
                         .foregroundColor(.green)
                     Text("数据统计")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+            }
+            
+            // Player Analysis
+            Button(action: { showPlayerAnalysis = true }) {
+                HStack {
+                    Image(systemName: "person.2.fill")
+                        .foregroundColor(.purple)
+                    Text("玩家分析")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+            }
+            
+            // Player List
+            Button(action: { showPlayerList = true }) {
+                HStack {
+                    Image(systemName: "list.bullet")
+                        .foregroundColor(.orange)
+                    Text("对手列表")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption)

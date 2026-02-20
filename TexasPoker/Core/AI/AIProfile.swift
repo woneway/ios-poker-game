@@ -72,6 +72,20 @@ struct AIProfile: Equatable {
     // Call-down tendency: how willing to call bets without strong hand (for calling stations)
     var callDownTendency: Double
 
+    // === Extended Behavior Dimensions ===
+
+    /// Risk tolerance (0.0 = extremely conservative, 1.0 = max EV seeker)
+    /// Affects: whether to call uncertain all-ins, whether to buy insurance
+    let riskTolerance: Double
+
+    /// Bluff detection ability (0.0 = can't read bluffs, 1.0 = accurately detects)
+    /// Affects: fold frequency when facing potential bluffs
+    let bluffDetection: Double
+
+    /// Deep stack threshold (in big blinds)
+    /// When stack depth exceeds this,启用特殊策略
+    let deepStackThreshold: Double
+
     // Current tilt level (mutable, adjusted after each hand)
     var currentTilt: Double = 0.0
 
@@ -164,7 +178,10 @@ struct AIProfile: Equatable {
         cbetTurnFreq: 0.55,    // Barrels turn with strong hands
         positionAwareness: 0.3, // Ignores position mostly - just plays premiums
         tiltSensitivity: 0.1,
-        callDownTendency: 0.15  // Folds if beaten, very discipline
+        callDownTendency: 0.15, // Folds if beaten, very discipline
+        riskTolerance: 0.4,    // Conservative, plays solid hands
+        bluffDetection: 0.5,   // Average ability to read opponents
+        deepStackThreshold: 200 // Slightly looser in deep games
     )
     
     /// 2. 疯子麦克 (Maniac Mike) - Ultra-Loose-Aggressive
@@ -183,7 +200,10 @@ struct AIProfile: Equatable {
         cbetTurnFreq: 0.70,    // High double-barrel rate
         positionAwareness: 0.2, // Barely cares about position
         tiltSensitivity: 0.3,
-        callDownTendency: 0.40  // Will call light sometimes
+        callDownTendency: 0.40, // Will call light sometimes
+        riskTolerance: 0.9,     // Extremely aggressive, max EV seeker
+        bluffDetection: 0.2,    // Can't read opponents well
+        deepStackThreshold: 150 // Even more aggressive in deep games
     )
     
     /// 3. 跟注站安娜 (Calling Station Anna) - Loose-Passive
@@ -197,13 +217,16 @@ struct AIProfile: Equatable {
         description: "喜欢跟注，舍不得弃牌",
         tightness: 0.30,       // Plays ~70% of hands
         aggression: 0.12,      // Almost never raises
-        bluffFreq: 0.03,       // Doesn't bluff (just calls)
-        foldTo3Bet: 0.15,      // Doesn't fold to 3-bets either (calls!)
-        cbetFreq: 0.05,        // Almost never c-bets (passive player)
-        cbetTurnFreq: 0.02,    // Almost never fires turn
-        positionAwareness: 0.1, // Ignores position
+        bluffFreq: 0.03,      // Doesn't bluff (just calls)
+        foldTo3Bet: 0.35,      // Calls most 3-bets (calling station trait)
+        cbetFreq: 0.05,       // Almost never c-bets (passive player)
+        cbetTurnFreq: 0.02,   // Almost never fires turn
+        positionAwareness: 0.1,// Ignores position
         tiltSensitivity: 0.2,
-        callDownTendency: 0.85  // THE defining trait: calls down with anything
+        callDownTendency: 0.85, // THE defining trait: calls down with anything
+        riskTolerance: 0.3,   // Conservative but calls too much
+        bluffDetection: 0.15,  // Can't read opponents at all
+        deepStackThreshold: 200 // Still calls in deep games
     )
     
     /// 4. 狡猾狐狸 (The Fox) - Balanced TAG (Tight-Aggressive)
@@ -222,7 +245,10 @@ struct AIProfile: Equatable {
         cbetTurnFreq: 0.45,    // Selective turn barrels
         positionAwareness: 0.80, // Very position-aware
         tiltSensitivity: 0.15,
-        callDownTendency: 0.30  // Moderate - will fold weak hands to pressure
+        callDownTendency: 0.30, // Moderate - will fold weak hands to pressure
+        riskTolerance: 0.6,   // Balanced risk approach
+        bluffDetection: 0.7,  // Good at reading opponents
+        deepStackThreshold: 180 // More aggressive in deep games
     )
     
     /// 5. 鲨鱼汤姆 (Shark Tom) - LAG Position Master
@@ -241,7 +267,10 @@ struct AIProfile: Equatable {
         cbetTurnFreq: 0.55,    // Fires turn with equity
         positionAwareness: 0.95, // Master of position
         tiltSensitivity: 0.1,
-        callDownTendency: 0.25  // Disciplined
+        callDownTendency: 0.25, // Disciplined
+        riskTolerance: 0.7,   // Seeks max EV
+        bluffDetection: 0.85, // Excellent at reading opponents
+        deepStackThreshold: 150 // Very aggressive in deep games
     )
     
     /// 6. 学院派艾米 (Academic Amy) - GTO Solver
@@ -261,7 +290,10 @@ struct AIProfile: Equatable {
         cbetTurnFreq: 0.42,    // Board-texture dependent
         positionAwareness: 0.85, // Very position-aware
         tiltSensitivity: 0.02,  // Never tilts (robot precision)
-        callDownTendency: 0.35   // Calls when odds dictate
+        callDownTendency: 0.35, // Calls when odds dictate
+        riskTolerance: 0.6,   // EV-based decision making
+        bluffDetection: 0.9,  // Best at reading opponents
+        deepStackThreshold: 200 // GTO-style in deep games
     )
     
     /// 7. 情绪玩家大卫 (Tilt David) - Dynamic: TAG → LAG-Fish under tilt
@@ -280,9 +312,98 @@ struct AIProfile: Equatable {
         cbetTurnFreq: 0.40,    // Normal
         positionAwareness: 0.5, // Moderate position sense
         tiltSensitivity: 0.85,  // THE defining trait: extreme tilt potential
-        callDownTendency: 0.30  // Normal; rises to 0.50+ when tilted
+        callDownTendency: 0.30, // Normal; rises to 0.50+ when tilted
+        riskTolerance: 0.5,   // Moderate
+        bluffDetection: 0.4,  // Average (gets worse when tilted)
+        deepStackThreshold: 180 // Moderate deep play
     )
     
     /// Legacy preset for backward compatibility
     static let balanced = fox
+    
+    // MARK: - Signature Actions
+    
+    /// Signature actions for visual feedback
+    enum SignatureAction: String {
+        case none = ""
+        case slowNod = "slowNod"           // 慢慢点头 - 深思熟虑型
+        case quickRaise = "quickRaise"     // 快速加注 - 激进型
+        case hesitantCall = "hesitantCall" // 犹豫跟注 - 跟注站
+        case confidentCheck = "confidentCheck" // 自信过牌
+        case angryThrow = "angryThrow"    // 愤怒拍桌 - tilt后
+        case smugSmile = "smugSmile"      // 轻蔑微笑 - 赢牌时
+        case shrug = "shrug"               // 耸肩 - 无所谓
+    }
+    
+    /// Returns signature action based on player ID and action type
+    func signatureAction(for actionType: String, isRaising: Bool, isCalling: Bool, isChecking: Bool) -> SignatureAction {
+        switch id {
+        case "rock":
+            return .shrug
+        case "maniac":
+            return isRaising ? .quickRaise : .none
+        case "calling_station":
+            return isCalling ? .hesitantCall : .none
+        case "shark":
+            return isChecking ? .confidentCheck : .none
+        case "fox":
+            return .smugSmile
+        case "tilt_david":
+            return currentTilt > 0.5 ? .angryThrow : .none
+        case "academic":
+            return .slowNod
+        default:
+            return .none
+        }
+    }
+    
+    // MARK: - Commentary System
+    
+    /// Returns a random commentary line based on player ID and action
+    func commentary(for actionType: String) -> String? {
+        let commentaries: [String: [String]] = [
+            "maniac": [
+                "哈哈，这把我要拿下！",
+                "All-in! 来吧！",
+                "怕了吧？",
+                "跟我玩？奉陪到底！"
+            ],
+            "rock": [
+                "这牌没法玩",
+                "弃",
+                "嗯..."
+            ],
+            "calling_station": [
+                "我看看",
+                "我跟",
+                "哎呀我就知道你要搞我",
+                "再跟一手"
+            ],
+            "tilt_david": [
+                "你有种！",
+                "来啊！谁怕谁！",
+                "我跟你拼了！",
+                "别高兴太早！"
+            ],
+            "fox": [
+                "有意思",
+                "呵呵"
+            ],
+            "shark": [
+                "不错",
+                "跟我玩这套？"
+            ]
+        ]
+        
+        guard let lines = commentaries[id] else {
+            return nil
+        }
+        
+        // Only show commentary sometimes (30% chance)
+        guard Double.random(in: 0...1) < 0.3 else {
+            return nil
+        }
+        
+        return lines.randomElement()
+    }
 }

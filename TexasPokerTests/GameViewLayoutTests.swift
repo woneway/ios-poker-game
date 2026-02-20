@@ -175,7 +175,10 @@ class GameViewLayoutTests: XCTestCase {
                     cbetTurnFreq: 0.45,
                     positionAwareness: 0.5,
                     tiltSensitivity: 0.2,
-                    callDownTendency: 0.3
+                    callDownTendency: 0.3,
+                    riskTolerance: 0.5,
+                    bluffDetection: 0.5,
+                    deepStackThreshold: 0.5
                 )
             )
             players.append(player)

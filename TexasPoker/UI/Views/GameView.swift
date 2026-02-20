@@ -7,6 +7,8 @@ struct GameView: View {
     @StateObject private var store: PokerGameStore
     @Environment(\.colorScheme) var colorScheme
     
+    @State private var cancellables = Set<AnyCancellable>()
+    
     init(settings: GameSettings) {
         self.settings = settings
         let config = settings.getTournamentConfig()
@@ -15,48 +17,66 @@ struct GameView: View {
             config: config
         ))
     }
-
-    // MARK: - Notification Observers
-
-    @State private var chipAnimationObserver: NSObjectProtocol?
-    @State private var winnerChipAnimationObserver: NSObjectProtocol?
-
-    private func setupNotificationObservers() {
-        // Listen for chip animation notifications
-        chipAnimationObserver = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("ChipAnimation"),
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let seatIndex = notification.userInfo?["seatIndex"] as? Int,
-               let amount = notification.userInfo?["amount"] as? Int {
-                self.scene.animateChipToPot(from: seatIndex, amount: amount)
+    
+    private func setupCombineSubscribers() {
+        let scene = self.scene
+        GameEventPublisher.shared.chipAnimation
+            .receive(on: DispatchQueue.main)
+            .sink { event in
+                scene.animateChipToPot(from: event.seatIndex, amount: event.amount)
             }
-        }
-
-        // Listen for winner chip animation notifications
-        winnerChipAnimationObserver = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("WinnerChipAnimation"),
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let seatIndex = notification.userInfo?["seatIndex"] as? Int,
-               let amount = notification.userInfo?["amount"] as? Int {
-                self.scene.animateWinnerChips(to: seatIndex, amount: amount)
+            .store(in: &cancellables)
+        
+        GameEventPublisher.shared.winnerChipAnimation
+            .receive(on: DispatchQueue.main)
+            .sink { event in
+                scene.animateWinnerChips(to: event.seatIndex, amount: event.amount)
             }
-        }
+            .store(in: &cancellables)
+        
+        GameEventPublisher.shared.playerAction
+            .receive(on: DispatchQueue.main)
+            .sink { event in
+                if event.isThinking {
+                    PlayerAnimationManager.shared.startAnimation(for: event.playerID.uuidString, type: .thinking)
+                }
+            }
+            .store(in: &cancellables)
+        
+        GameEventPublisher.shared.playerWon
+            .receive(on: DispatchQueue.main)
+            .sink { event in
+                if let index = store.engine.players.firstIndex(where: { $0.id == event.playerID }) {
+                    scene.animateWinnerChips(to: index, amount: store.engine.pot.total / store.engine.winners.count)
+                }
+            }
+            .store(in: &cancellables)
+        
+        GameEventPublisher.shared.playerStatsUpdated
+            .receive(on: DispatchQueue.main)
+            .sink { _ in
+                store.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+        
+        GameEventPublisher.shared.aiDecision
+            .receive(on: DispatchQueue.main)
+            .sink { event in
+                #if DEBUG
+                print("🤔 \(event.playerName): \(event.action) - \(event.reasoning)")
+                print("   Equity: \(String(format:"%.1f%%", event.equity * 100)) | PotOdds: \(String(format:"%.1f%%", event.potOdds * 100))")
+                #endif
+                // Show AI decision toast
+                self.aiDecisionToast = event
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    if self.aiDecisionToast?.playerID == event.playerID {
+                        self.aiDecisionToast = nil
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
-
-    private func removeNotificationObservers() {
-        if let observer = chipAnimationObserver {
-            NotificationCenter.default.removeObserver(observer)
-            chipAnimationObserver = nil
-        }
-        if let observer = winnerChipAnimationObserver {
-            NotificationCenter.default.removeObserver(observer)
-            winnerChipAnimationObserver = nil
-        }
-    }
+    
     @State private var showSettings = false
     @State private var lastProfileId: String = ProfileManager.shared.currentProfileId
     @State private var showRaisePanel = false
@@ -67,6 +87,7 @@ struct GameView: View {
     @State private var unreadLogCount: Int = 0
     @State private var toastEntry: ActionLogEntry? = nil
     @State private var lastKnownLogCount: Int = 0
+    @State private var aiDecisionToast: AIDecisionEvent? = nil
     
     // MARK: - Session Summary State
     @State private var showSessionSummary = false
@@ -85,11 +106,24 @@ struct GameView: View {
     
     var body: some View {
         GeometryReader { geo in
-            Group {
-                if DeviceHelper.isIPad && DeviceHelper.isLandscape(geo) {
-                    landscapeLayout(geo: geo)
-                } else {
-                    portraitLayout(geo: geo)
+            ZStack {
+                // Premium background gradient
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color(hex: "1a1a2e"),
+                        Color(hex: "16213e"),
+                        Color(hex: "0f3460")
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                
+                Group {
+                    if DeviceHelper.isIPad && DeviceHelper.isLandscape(geo) {
+                        landscapeLayout(geo: geo)
+                    } else {
+                        portraitLayout(geo: geo)
+                    }
                 }
             }
         }
@@ -149,16 +183,14 @@ struct GameView: View {
             )
         }
         .onAppear {
-            // Setup notification observers (with cleanup)
-            setupNotificationObservers()
+            setupCombineSubscribers()
 
             scene.onAnimationComplete = {
                 DispatchQueue.main.async { store.send(.dealComplete) }
             }
         }
         .onDisappear {
-            // Cleanup notification observers to prevent memory leaks
-            removeNotificationObservers()
+            cancellables.removeAll()
         }
         .onChangeCompat(of: store.state) { newState in
             if newState == .dealing {
@@ -251,10 +283,26 @@ struct GameView: View {
                 BuyInView(
                     config: store.engine.cashGameConfig ?? .default,
                     onConfirm: { buyInAmount in
-                        store.startCashSession(buyIn: buyInAmount)
-                        // 设置 Hero 筹码
+                        // 关闭买入界面
+                        store.showBuyIn = false
+                        
+                        // 检查是首次买入还是rebuy
+                        if store.currentSession != nil {
+                            // Rebuy: 更新现有session
+                            if var session = store.currentSession {
+                                session.topUpTotal += buyInAmount
+                                store.currentSession = session
+                            }
+                        } else {
+                            // 首次买入：创建新session
+                            // 默认50手后结束，可根据需要调整
+                            store.startCashSession(buyIn: buyInAmount, maxHands: 50)
+                        }
+                        
+                        // 设置 Hero 筹码并设为active
                         if let idx = store.engine.players.firstIndex(where: { $0.isHuman }) {
                             store.engine.players[idx].chips = buyInAmount
+                            store.engine.players[idx].status = .active
                         }
                         // 设置 AI 筹码 - 只对已淘汰的 AI 设置新买入
                         for i in 0..<store.engine.players.count {
@@ -263,8 +311,12 @@ struct GameView: View {
                                 store.engine.players[i].chips = CashGameManager.randomAIBuyIn(
                                     config: store.engine.cashGameConfig ?? .default
                                 )
+                                store.engine.players[i].status = .active
                             }
                         }
+                        
+                        // 重置盈利计算起点
+                        store.resetHeroChipsAtHandStart()
                     }
                 )
             }
@@ -474,6 +526,16 @@ struct GameView: View {
                     .padding(.trailing, 12)
                     .padding(.top, 44)
                     .frame(maxHeight: .infinity, alignment: .top)
+            }
+            
+            // AI 决策推理提示
+            if let aiDecision = aiDecisionToast {
+                AIDecisionToast(event: aiDecision)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 12)
+                    .padding(.top, 80)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
             }
         }
     }

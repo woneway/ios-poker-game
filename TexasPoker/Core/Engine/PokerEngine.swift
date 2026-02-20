@@ -10,45 +10,53 @@ class PokerEngine: ObservableObject {
     @Published var activePlayerIndex: Int
     @Published var currentStreet: Street
 
-    // Betting state
     @Published var currentBet: Int = 0
     @Published var minRaise: Int = 0
 
-    // Winner state
     @Published var winners: [UUID] = []
     @Published var winMessage: String = ""
     @Published var isHandOver: Bool = false
 
-    // Hand counter
     @Published var handNumber: Int = 0
 
-    // Action log
     @Published var actionLog: [ActionLogEntry] = []
     let maxLogEntries = 30
+    
+    // MARK: - Computed Properties
+    
+    var activePlayers: [Player] {
+        players.filter { $0.status == .active || $0.status == .allIn }
+    }
+    
+    var activePlayerCount: Int {
+        activePlayers.count
+    }
+    
+    var eliminatedPlayers: [Player] {
+        players.filter { $0.status == .eliminated }
+    }
+    
+    var nonFoldedPlayers: [Player] {
+        players.filter { $0.status != .folded && $0.status != .eliminated }
+    }
 
-    // Internal tracking (accessible to extensions)
-    var hasActed: [UUID: Bool] = [:]
+    @Published var hasActed: [UUID: Bool] = [:]
     var lastRaiserID: UUID? = nil
     var bigBlindIndex: Int = 0
     var smallBlindIndex: Int = 0
 
-    /// Tracks who was the preflop aggressor (raiser) for c-bet logic
     @Published var preflopAggressorID: UUID? = nil
 
-    // Previous hand results (for tilt system)
     var lastHandLosers: Set<UUID> = []
     var lastPotSize: Int = 0
 
-    // Elimination tracking (for final rankings)
     @Published var eliminationOrder: [(name: String, avatar: String, hand: Int, isHuman: Bool)] = []
 
-    /// 追踪本手牌所有街的下注动作（用于AI决策如triple barrel检测）
     var bettingHistory: [Street: [BetAction]] = [:]
 
     var smallBlindAmount: Int = 10
     var bigBlindAmount: Int = 20
 
-    // Tournament support
     @Published var gameMode: GameMode = .cashGame
     @Published var tournamentConfig: TournamentConfig?
     @Published var currentBlindLevel: Int = 0
@@ -56,7 +64,6 @@ class PokerEngine: ObservableObject {
     @Published var anteAmount: Int = 0
     @Published var rebuyCount: Int = 0
 
-    // Cash game support
     @Published var cashGameConfig: CashGameConfig?
 
     /// 追踪引擎是否已注册到 DecisionEngine（避免重复注销）
@@ -263,9 +270,6 @@ class PokerEngine: ObservableObject {
         // allIn 玩家不能再下注，但仍然参与后续发牌和底池争夺
         let canBet = players.filter { $0.status == .active || $0.status == .allIn }
 
-        // 预先保存 currentStreet，用于后续判断
-        let previousStreet = currentStreet
-
         // 只有在需要继续下注时才提前发牌（只有 active 玩家可以继续下注）
         if activePlayersCount >= 2 {
             // 有足够的 active 玩家，可以继续正常发牌流程
@@ -401,11 +405,7 @@ class PokerEngine: ObservableObject {
         recordActionStats(action: action, originalPlayer: player, updatedPlayer: result.playerUpdate, potAddition: result.potAddition)
         
         if result.potAddition > 0 {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("ChipAnimation"),
-                object: nil,
-                userInfo: ["seatIndex": activePlayerIndex, "amount": result.potAddition]
-            )
+            GameEventPublisher.shared.publishChipAnimation(seatIndex: activePlayerIndex, amount: result.potAddition)
         }
         
         #if DEBUG
@@ -467,6 +467,22 @@ class PokerEngine: ObservableObject {
             let currentPlayer = self.players[capturedIndex]
             guard currentPlayer.status == .active && !currentPlayer.isHuman else { return }
             let action = DecisionEngine.makeDecision(player: currentPlayer, engine: self)
+            
+            // Publish AI decision for UI display
+            let equity = MonteCarloSimulator.calculateEquity(
+                holeCards: currentPlayer.holeCards,
+                communityCards: self.communityCards,
+                playerCount: 2,
+                iterations: 100
+            )
+            let potOdds = self.currentBet > 0 ? Double(self.currentBet - currentPlayer.currentBet) / Double(self.pot.total) : 0
+            DecisionEngine.publishDecision(
+                player: currentPlayer,
+                action: action,
+                equity: equity,
+                potOdds: potOdds
+            )
+            
             self.processAction(action)
         }
     }

@@ -63,23 +63,42 @@ struct GameActionLogPanel: View {
     }
     
     private func actionLogRow(_ entry: ActionLogEntry) -> some View {
-        HStack(spacing: 4) {
-            // Avatar
-            Text(entry.avatar)
-                .font(.system(size: 10))
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                // Avatar
+                Text(entry.avatar)
+                    .font(.system(size: 10))
+                
+                // Action icon with color
+                Image(systemName: entry.iconName)
+                    .font(.system(size: 8))
+                    .foregroundColor(actionColor(entry))
+                
+                // Action text
+                Text(entry.actionText)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(actionColor(entry))
+                    .lineLimit(1)
+                
+                Spacer(minLength: 0)
+            }
             
-            // Action icon with color
-            Image(systemName: entry.iconName)
-                .font(.system(size: 8))
-                .foregroundColor(actionColor(entry))
-            
-            // Action text
-            Text(entry.actionText)
-                .font(.system(size: 9, weight: .medium))
-                .foregroundColor(actionColor(entry))
-                .lineLimit(1)
-            
-            Spacer(minLength: 0)
+            // 签名动作和评语
+            if entry.signatureAction != nil || entry.commentary != nil {
+                HStack(spacing: 4) {
+                    if let sig = entry.signatureAction {
+                        Text("[\(sig)]")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.yellow)
+                    }
+                    if let comment = entry.commentary {
+                        Text(comment)
+                            .font(.system(size: 8))
+                            .italic()
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+            }
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)

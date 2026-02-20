@@ -138,5 +138,45 @@ class MonteCarloSimulator {
         
         return equity
     }
+    
+    /// 动态迭代次数：根据手牌复杂度调整
+    /// - Parameters:
+    ///   - hasDrawingHand: 是否有听牌
+    ///   - communityCardsCount: 公共牌数量
+    ///   - baseIterations: 基础迭代次数
+    /// - Returns: 推荐迭代次数
+    static func dynamicIterations(hasDrawingHand: Bool, communityCardsCount: Int, baseIterations: Int = 1000) -> Int {
+        var iterations = baseIterations
+        
+        if hasDrawingHand {
+            iterations += 500
+        }
+        
+        if communityCardsCount < 3 {
+            iterations += 500
+        }
+        
+        return min(iterations, 5000)
+    }
+    
+    /// 异步计算Equity (不阻塞主线程)
+    static func calculateEquityAsync(
+        holeCards: [Card],
+        communityCards: [Card],
+        playerCount: Int,
+        iterations: Int = 1000
+    ) async -> Double {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let equity = calculateEquity(
+                    holeCards: holeCards,
+                    communityCards: communityCards,
+                    playerCount: playerCount,
+                    iterations: iterations
+                )
+                continuation.resume(returning: equity)
+            }
+        }
+    }
 
 }

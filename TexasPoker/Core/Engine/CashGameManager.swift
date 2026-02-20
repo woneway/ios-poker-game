@@ -1,6 +1,15 @@
 import Foundation
 import CoreData
 
+/// 记录AI玩家输赢，用于资金管理
+private func recordAIResult(playerId: String, profit: Int) {
+    if profit > 0 {
+        AIBankrollManager.shared.recordWin(playerId, amount: profit)
+    } else if profit < 0 {
+        AIBankrollManager.shared.recordLoss(playerId, amount: -profit)
+    }
+}
+
 // 使用自定义确定性随机数生成器（替代 SeededRandomNumberGenerator）
 private struct DeterministicRandom {
     private static var seed: UInt64 = 0
@@ -161,6 +170,7 @@ struct CashGameManager {
     static func resetSystemPool() {
         systemChipsPool = 0
         profileEntryCounts = [:]  // 重置入场计数器
+        AIPlayerBankrollManager.shared.resetAllEntryIndexes()  // 重置 UserDefaults 中的 entryIndex
 
         #if DEBUG
         print("🔄 CashGameManager 系统池和入场计数器已重置")
@@ -209,11 +219,13 @@ struct CashGameManager {
     /// 检查并执行 AI 入场
     /// - 每个空位独立按 50% 概率补入
     /// - 活跃玩家 < 3 时强制补入
-    /// - 优先使用系统池中的筹码，保持经济平衡
+    /// - 优先尝试让有 bankroll 的 AI 玩家重新加入
+    /// - 其次使用系统池中的筹码，保持经济平衡
     static func checkAIEntries(
         players: inout [Player],
         config: CashGameConfig,
-        difficulty: AIProfile.Difficulty
+        difficulty: AIProfile.Difficulty,
+        profileId: String
     ) -> [Player] {
         // 找到所有空座位（eliminated 状态）
         var emptySeatIndices: [Int] = []
@@ -243,6 +255,26 @@ struct CashGameManager {
             #endif
 
             if shouldEnter {
+                // 优先尝试重新加入已有 AI 玩家
+                if let rejoinedPlayer = findRejoinableAIPlayer(
+                    players: players,
+                    config: config,
+                    profileId: profileId
+                ) {
+                    TournamentManager.replaceEliminatedPlayer(
+                        at: seatIndex,
+                        with: rejoinedPlayer,
+                        players: &players
+                    )
+                    enteredPlayers.append(rejoinedPlayer)
+                    
+                    #if DEBUG
+                    print("🔄 AI 玩家 \(rejoinedPlayer.playerUniqueId) 重新加入，持有筹码 $\(rejoinedPlayer.chips)")
+                    #endif
+                    continue
+                }
+                
+                // 如果没有可重新加入的玩家，生成新的随机 AI 玩家
                 // 计算买入金额：优先使用系统池，其次随机生成
                 var buyInAmount: Int
                 let minBuyIn = config.bigBlind * 40
@@ -264,7 +296,8 @@ struct CashGameManager {
                 // 生成随机 AI 玩家
                 if let newPlayer = generateRandomAIPlayer(
                     difficulty: difficulty,
-                    buyInAmount: buyInAmount
+                    buyInAmount: buyInAmount,
+                    profileId: profileId
                 ) {
                     // 执行座位替换
                     TournamentManager.replaceEliminatedPlayer(
@@ -288,11 +321,12 @@ struct CashGameManager {
     /// - 筹码 > maxBuyIn * 1.5 时 10% 概率离场
     /// - 筹码 < maxBuyIn * 0.3 时 20% 概率离场
     /// - 人类玩家不离场
-    /// - 离场时筹码放入系统池，供新玩家使用
-    /// - 同时清理该玩家的 entryIndex 追踪（可选：保留用于统计）
+    /// - 离场时将剩余筹码添加回 AI 的 bankroll
+    /// - 同时将部分筹码放入系统池，供新玩家使用
     static func checkAIDepartures(
         players: inout [Player],
-        config: CashGameConfig
+        config: CashGameConfig,
+        profileId: String
     ) -> [Player] {
         var departedPlayers: [Player] = []
 
@@ -316,6 +350,16 @@ struct CashGameManager {
                 if shouldDepart {
                     // 将筹码放入系统池（而不是直接丢弃）
                     let departingChips = player.chips
+                    
+                    // 将剩余筹码添加回 AI 的 bankroll
+                    if let aiProfileId = player.aiProfile?.id {
+                        let _ = AIPlayerBankrollManager.shared.updateBankroll(
+                            profileId: profileId,
+                            aiProfileId: aiProfileId,
+                            delta: departingChips
+                        )
+                    }
+                    
                     // 修复：检查是否超过最大值，如果是则只添加最大可容纳的金额
                     let chipsToAdd = min(departingChips, maxSystemPoolSize - systemChipsPool)
                     systemChipsPool += chipsToAdd
@@ -348,6 +392,16 @@ struct CashGameManager {
                 if shouldDepart {
                     // 将筹码放入系统池
                     let departingChips = player.chips
+                    
+                    // 将剩余筹码添加回 AI 的 bankroll
+                    if let aiProfileId = player.aiProfile?.id {
+                        let _ = AIPlayerBankrollManager.shared.updateBankroll(
+                            profileId: profileId,
+                            aiProfileId: aiProfileId,
+                            delta: departingChips
+                        )
+                    }
+                    
                     // 修复：检查是否超过最大值，如果是则只添加最大可容纳的金额
                     let chipsToAdd = min(departingChips, maxSystemPoolSize - systemChipsPool)
                     systemChipsPool += chipsToAdd
@@ -388,13 +442,90 @@ struct CashGameManager {
         systemChipsPool -= drawn
         return drawn
     }
+    
+    // MARK: - AI Player Rejoin Logic
+    
+    /// 检查是否有可重新加入的 AI 玩家
+    /// 优先尝试让之前离开的 AI 玩家重新加入
+    /// - Parameters:
+    ///   - players: 当前玩家列表
+    ///   - config: 现金游戏配置
+    /// - Returns: 可重新加入的 AI 玩家（如果有）
+    static func findRejoinableAIPlayer(
+        players: [Player],
+        config: CashGameConfig,
+        profileId: String
+    ) -> Player? {
+        let minBuyIn = config.bigBlind * 40
+        
+        // 遍历所有预设 AI 玩家，检查是否有 bankroll 且不在当前游戏中
+        for profile in AIProfile.allPresets {
+            let bankroll = AIPlayerBankrollManager.shared.getBankroll(
+                profileId: profileId,
+                aiProfileId: profile.id
+            )
+            
+            // 检查资金是否足够买入
+            guard bankroll >= minBuyIn else { continue }
+            
+            // 检查是否已在游戏中
+            let isInGame = players.contains { player in
+                player.aiProfile?.id == profile.id && player.status != .eliminated
+            }
+            guard !isInGame else { continue }
+            
+            // 获取下一个入场序号
+            let entryIndex = AIPlayerBankrollManager.shared.getNextEntryIndex(
+                profileId: profileId,
+                aiProfileId: profile.id
+            )
+            
+            // 计算买入金额（不能超过 bankroll 和最大买入）
+            let maxBuyIn = min(bankroll, config.maxBuyIn)
+            let buyInAmount: Int
+            if systemChipsPool >= minBuyIn {
+                buyInAmount = drawSystemChips(amount: randomAIBuyIn(config: config))
+            } else {
+                buyInAmount = randomAIBuyIn(config: config)
+            }
+            let finalBuyIn = min(buyInAmount, maxBuyIn)
+            
+            // 从 bankroll 中扣除买入金额
+            if let _ = AIPlayerBankrollManager.shared.deductBuyIn(
+                profileId: profileId,
+                aiProfileId: profile.id,
+                buyInAmount: finalBuyIn
+            ) {
+                return Player(
+                    name: profile.name,
+                    chips: finalBuyIn,
+                    isHuman: false,
+                    aiProfile: profile,
+                    entryIndex: entryIndex
+                )
+            }
+        }
+        
+        return nil
+    }
+    
+    /// 检查玩家资金是否足够加入现金游戏
+    /// - Parameters:
+    ///   - bankroll: 玩家当前资金
+    ///   - config: 现金游戏配置
+    /// - Returns: 验证是否通过
+    static func validateBankrollForCashGame(bankroll: Int, config: CashGameConfig) -> Bool {
+        let minBuyIn = config.bigBlind * 40
+        return bankroll >= minBuyIn
+    }
 
     // MARK: - Private Helpers
 
     /// 生成随机 AI 玩家（现金游戏版本）
     private static func generateRandomAIPlayer(
         difficulty: AIProfile.Difficulty,
-        buyInAmount: Int
+        buyInAmount: Int,
+        profileId: String
     ) -> Player? {
         #if DEBUG
         let profile = randomGenerator.randomElement(from: difficulty.availableProfiles) ?? .fox
@@ -402,8 +533,11 @@ struct CashGameManager {
         let profile = difficulty.availableProfiles.randomElement() ?? .fox
         #endif
 
-        // 生成唯一的 entryIndex（不再需要名称后缀去重）
-        let entryIndex = generateEntryIndex(for: profile)
+        // 获取下一个入场序号（使用 bankroll manager 的 entry index）
+        let entryIndex = AIPlayerBankrollManager.shared.getNextEntryIndex(
+            profileId: profileId,
+            aiProfileId: profile.id
+        )
 
         return Player(
             name: profile.name,

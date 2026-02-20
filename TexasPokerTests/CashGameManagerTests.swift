@@ -124,7 +124,8 @@ class CashGameManagerTests: XCTestCase {
         let entered = CashGameManager.checkAIEntries(
             players: &players,
             config: config,
-            difficulty: .normal
+            difficulty: .normal,
+            profileId: "test"
         )
 
         XCTAssertTrue(entered.isEmpty)
@@ -146,7 +147,8 @@ class CashGameManagerTests: XCTestCase {
         let entered = CashGameManager.checkAIEntries(
             players: &players,
             config: config,
-            difficulty: .normal
+            difficulty: .normal,
+            profileId: "test"
         )
 
         // 应该强制补入所有空位（2个）
@@ -180,7 +182,8 @@ class CashGameManagerTests: XCTestCase {
             let entered = CashGameManager.checkAIEntries(
                 players: &testPlayers,
                 config: config,
-                difficulty: .normal
+                difficulty: .normal,
+                profileId: "test"
             )
             if !entered.isEmpty { hadEntry = true }
             if entered.isEmpty { hadNoEntry = true }
@@ -205,7 +208,8 @@ class CashGameManagerTests: XCTestCase {
         let entered = CashGameManager.checkAIEntries(
             players: &players,
             config: config,
-            difficulty: .normal
+            difficulty: .normal,
+            profileId: "test"
         )
 
         XCTAssertEqual(entered.count, 1)
@@ -228,7 +232,8 @@ class CashGameManagerTests: XCTestCase {
 
         let departed = CashGameManager.checkAIDepartures(
             players: &players,
-            config: config
+            config: config,
+            profileId: "test"
         )
 
         XCTAssertTrue(departed.isEmpty)
@@ -253,7 +258,8 @@ class CashGameManagerTests: XCTestCase {
             var testPlayers = players
             let departed = CashGameManager.checkAIDepartures(
                 players: &testPlayers,
-                config: config
+                config: config,
+                profileId: "test"
             )
             if !departed.isEmpty { departedCount += 1 }
         }
@@ -280,7 +286,8 @@ class CashGameManagerTests: XCTestCase {
             var testPlayers = players
             let departed = CashGameManager.checkAIDepartures(
                 players: &testPlayers,
-                config: config
+                config: config,
+                profileId: "test"
             )
             if !departed.isEmpty { departedCount += 1 }
         }
@@ -299,7 +306,8 @@ class CashGameManagerTests: XCTestCase {
 
         let departed = CashGameManager.checkAIDepartures(
             players: &players,
-            config: config
+            config: config,
+            profileId: "test"
         )
 
         XCTAssertTrue(departed.isEmpty)
@@ -317,7 +325,8 @@ class CashGameManagerTests: XCTestCase {
 
         let departed = CashGameManager.checkAIDepartures(
             players: &players,
-            config: config
+            config: config,
+            profileId: "test"
         )
 
         XCTAssertTrue(departed.isEmpty)
@@ -333,13 +342,15 @@ class CashGameManagerTests: XCTestCase {
         let entered = CashGameManager.checkAIEntries(
             players: &players,
             config: config,
-            difficulty: .normal
+            difficulty: .normal,
+            profileId: "test"
         )
         XCTAssertTrue(entered.isEmpty)
 
         let departed = CashGameManager.checkAIDepartures(
             players: &players,
-            config: config
+            config: config,
+            profileId: "test"
         )
         XCTAssertTrue(departed.isEmpty)
     }
@@ -356,7 +367,8 @@ class CashGameManagerTests: XCTestCase {
 
         let departed = CashGameManager.checkAIDepartures(
             players: &players,
-            config: config
+            config: config,
+            profileId: "test"
         )
 
         XCTAssertTrue(departed.isEmpty)  // eliminated 玩家不参与离场检查
@@ -382,7 +394,8 @@ class CashGameManagerTests: XCTestCase {
         let entered = CashGameManager.checkAIEntries(
             players: &players,
             config: config,
-            difficulty: .normal
+            difficulty: .normal,
+            profileId: "test"
         )
 
         XCTAssertEqual(entered.count, 1)
@@ -406,7 +419,8 @@ class CashGameManagerTests: XCTestCase {
         let entered1 = CashGameManager.checkAIEntries(
             players: &players,
             config: config,
-            difficulty: .normal
+            difficulty: .normal,
+            profileId: "test"
         )
 
         // 强制让第二个玩家入场（设置系统池确保100%入场）
@@ -445,13 +459,14 @@ class CashGameManagerTests: XCTestCase {
         CashGameManager.checkAIEntries(
             players: &players,
             config: config,
-            difficulty: difficulty
+            difficulty: difficulty,
+            profileId: "test"
         )
 
         // 移除第一个玩家（模拟离场）
         players[0].chips = 0
         players[0].status = .eliminated
-        CashGameManager.checkAIDepartures(players: &players, config: config)
+        CashGameManager.checkAIDepartures(players: &players, config: config, profileId: "test")
 
         // 第二次入场
         #if DEBUG
@@ -464,7 +479,8 @@ class CashGameManagerTests: XCTestCase {
         let entered2 = CashGameManager.checkAIEntries(
             players: &players,
             config: config,
-            difficulty: difficulty
+            difficulty: difficulty,
+            profileId: "test"
         )
 
         // 如果两次都是同一 profile，entryIndex 应该递增
@@ -479,7 +495,7 @@ class CashGameManagerTests: XCTestCase {
         let profile = AIProfile.rock
         let player = Player(name: profile.name, chips: 1000, aiProfile: profile, entryIndex: 1)
 
-        XCTAssertEqual(player.playerUniqueId, "rock#1")
+        XCTAssertEqual(player.playerUniqueId, "石头#1")
     }
 
     func testEntryIndexZeroWhenNotSet() {
@@ -498,7 +514,7 @@ class CashGameManagerTests: XCTestCase {
         let player2 = Player(name: profile.name, chips: 1500, aiProfile: profile, entryIndex: 2)
 
         XCTAssertNotEqual(player1.playerUniqueId, player2.playerUniqueId)
-        XCTAssertEqual(player1.playerUniqueId, "rock#1")
-        XCTAssertEqual(player2.playerUniqueId, "rock#2")
+        XCTAssertEqual(player1.playerUniqueId, "石头#1")
+        XCTAssertEqual(player2.playerUniqueId, "石头#2")
     }
 }

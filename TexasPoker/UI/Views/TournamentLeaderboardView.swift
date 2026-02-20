@@ -31,7 +31,7 @@ struct TournamentLeaderboardView: View {
             // Player list
             playerList
         }
-        .background(Color.adaptiveSurface(colorScheme))
+        .background(Color(hex: "0f0f23"))
     }
     
     // MARK: - Header
@@ -41,6 +41,7 @@ struct TournamentLeaderboardView: View {
                 Text("锦标赛排名")
                     .font(.title2)
                     .fontWeight(.bold)
+                    .foregroundColor(.white)
                 
                 Spacer()
                 
@@ -63,7 +64,7 @@ struct TournamentLeaderboardView: View {
                     Label("奖池: $\(entrantsCount * config.startingChips)", systemImage: "dollarsign.circle")
                 }
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(.gray)
             }
         }
         .padding()
@@ -357,7 +358,7 @@ struct StatBox: View {
         VStack(spacing: 4) {
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(.gray)
             Text(value)
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(color)
