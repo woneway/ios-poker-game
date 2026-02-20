@@ -26,7 +26,7 @@ struct BuyInView: View {
                 // 买入次数显示
                 if remainingBuyIns < Int.max {
                     HStack(spacing: 4) {
-                        Text("剩余买入次数:")
+                        Text("整桌剩余买入次数:")
                             .font(.subheadline)
                             .foregroundColor(.white.opacity(0.6))
                         Text("\(remainingBuyIns)")
