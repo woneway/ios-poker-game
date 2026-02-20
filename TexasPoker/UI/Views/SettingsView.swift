@@ -239,8 +239,41 @@ struct SettingsView: View {
                 tournamentSettings
             }
             
+            // Cash Game Settings
+            if settings.gameMode == .cashGame {
+                cashGameSettings
+            }
+            
         } header: {
             Text("游戏设置")
+        }
+    }
+    
+    // MARK: - Cash Game Settings
+    private var cashGameSettings: some View {
+        Group {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("最大买入次数")
+                    Spacer()
+                    Text("\(settings.cashGameMaxBuyIns) 次")
+                        .foregroundColor(.secondary)
+                }
+                
+                Slider(
+                    value: Binding(
+                        get: { Double(settings.cashGameMaxBuyIns) },
+                        set: { settings.cashGameMaxBuyIns = Int($0) }
+                    ),
+                    in: 1...10,
+                    step: 1
+                )
+                
+                Text("所有玩家合计可买入的总次数，达到后无法继续买入")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 4)
         }
     }
     

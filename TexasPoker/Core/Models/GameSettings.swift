@@ -13,6 +13,7 @@ class GameSettings: ObservableObject {
     private let tournamentPresetKey = "tournamentPreset"
     private let playerCountKey = "playerCount"
     private let useRandomOpponentsKey = "useRandomOpponents"
+    private let cashGameMaxBuyInsKey = "cashGameMaxBuyIns"
     
     // MARK: - Game Speed
     @Published var gameSpeed: Double {
@@ -150,9 +151,30 @@ class GameSettings: ObservableObject {
         let presetRaw = defaults.string(forKey: tournamentPresetKey) ?? "standard"
         self.tournamentPreset = TournamentPreset(rawValue: presetRaw) ?? .standard
         
+        // Cash game max buy-ins
+        self.cashGameMaxBuyIns = defaults.object(forKey: cashGameMaxBuyInsKey) as? Int ?? 5
+        
         // Sync sound manager after all stored properties are initialized
         SoundManager.shared.volume = Float(initialSoundVolume)
         SoundManager.shared.isMuted = !initialSoundEnabled
+    }
+    
+    // MARK: - Cash Game Settings
+    
+    @Published var cashGameMaxBuyIns: Int {
+        didSet {
+            UserDefaults.standard.set(cashGameMaxBuyIns, forKey: cashGameMaxBuyInsKey)
+        }
+    }
+    
+    func getCashGameConfig() -> CashGameConfig {
+        return CashGameConfig(
+            smallBlind: 10,
+            bigBlind: 20,
+            minBuyIn: 400,
+            maxBuyIn: 2000,
+            maxBuyIns: cashGameMaxBuyIns
+        )
     }
     
     // MARK: - Helper Methods
@@ -173,6 +195,7 @@ class GameSettings: ObservableObject {
         useRandomOpponents = true
         gameMode = .cashGame
         tournamentPreset = .standard
+        cashGameMaxBuyIns = 5
     }
     
     /// Generate game setup based on current settings

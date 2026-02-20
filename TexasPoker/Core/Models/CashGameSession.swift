@@ -19,15 +19,23 @@ struct CashGameSession: Codable, Identifiable {
     /// The max single buy-in amount (used for calculating top-up counts)
     var maxBuyIn: Int = 2000
     
-    /// Total number of buy-ins (initial + top-ups)
+    /// Total number of buy-ins across all players (human + AI)
     var totalBuyInCount: Int {
+        return aiBuyInCount + humanBuyInCount
+    }
+    
+    /// Human buy-in count (initial + top-ups)
+    var humanBuyInCount: Int {
         guard initialBuyIn > 0 else { return 0 }
-        var count = 1  // initial buy-in
+        var count = 1
         if maxBuyIn > 0 && topUpTotal > 0 {
             count += topUpTotal / maxBuyIn
         }
         return count
     }
+    
+    /// AI buy-in count (tracked separately)
+    var aiBuyInCount: Int = 0
     
     /// Whether session has reached the buy-in limit
     var isBuyInLimitReached: Bool {
@@ -38,6 +46,11 @@ struct CashGameSession: Codable, Identifiable {
     var remainingBuyIns: Int {
         guard maxBuyIns > 0 else { return Int.max }
         return max(0, maxBuyIns - totalBuyInCount)
+    }
+    
+    /// Records an AI player buy-in
+    mutating func recordAIPurchase() {
+        aiBuyInCount += 1
     }
     
     /// Legacy property for compatibility

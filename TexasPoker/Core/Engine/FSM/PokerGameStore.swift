@@ -697,6 +697,12 @@ class PokerGameStore: ObservableObject {
         showBuyIn = false
     }
     
+    func recordAIPurchase() {
+        guard var session = currentSession else { return }
+        session.recordAIPurchase()
+        currentSession = session
+    }
+    
     /// 记录这手牌开始时 hero 的 chips，用于正确计算盈利
     private func recordHeroChipsAtHandStart() {
         guard let hero = engine.players.first(where: { $0.isHuman }) else { return }

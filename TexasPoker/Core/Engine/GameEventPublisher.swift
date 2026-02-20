@@ -42,6 +42,10 @@ struct AIDecisionEvent {
     let confidence: Double
 }
 
+struct AIEntryEvent {
+    let count: Int
+}
+
 @Observable
 final class GameEventPublisher {
     static let shared = GameEventPublisher()
@@ -54,6 +58,7 @@ final class GameEventPublisher {
     let playerAction = PassthroughSubject<PlayerActionEvent, Never>()
     let playerEmotion = PassthroughSubject<PlayerEmotionEvent, Never>()
     let aiDecision = PassthroughSubject<AIDecisionEvent, Never>()
+    let aiEntry = PassthroughSubject<AIEntryEvent, Never>()
     
     private init() {}
     
@@ -103,5 +108,9 @@ final class GameEventPublisher {
             potOdds: potOdds,
             confidence: confidence
         ))
+    }
+    
+    func publishAIEntry(count: Int) {
+        aiEntry.send(AIEntryEvent(count: count))
     }
 }

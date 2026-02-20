@@ -75,6 +75,16 @@ struct GameView: View {
                 }
             }
             .store(in: &cancellables)
+        
+        // AI入场事件 - 记录买入次数
+        GameEventPublisher.shared.aiEntry
+            .receive(on: DispatchQueue.main)
+            .sink { [self] event in
+                for _ in 0..<event.count {
+                    store.recordAIPurchase()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     @State private var showSettings = false
@@ -315,6 +325,8 @@ struct GameView: View {
                                     config: store.engine.cashGameConfig ?? .default
                                 )
                                 store.engine.players[i].status = .active
+                                // 记录AI买入
+                                store.recordAIPurchase()
                             }
                         }
                         

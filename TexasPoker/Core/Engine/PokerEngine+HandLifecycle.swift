@@ -227,6 +227,11 @@ extension PokerEngine {
             for entry in newEntries {
                 actionLog.append(ActionLogEntry(systemMessage: "新玩家 \(entry.name) 入座"))
             }
+            
+            // 发布AI入场事件，用于记录买入次数
+            if !newEntries.isEmpty && gameMode == .cashGame {
+                GameEventPublisher.shared.publishAIEntry(count: newEntries.count)
+            }
         } else if gameMode == .tournament {
             // 锦标赛：使用 TournamentManager
             let diffLevel = DecisionEngine.difficultyManager.currentDifficulty
