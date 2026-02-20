@@ -255,14 +255,15 @@ class PokerEngine: ObservableObject {
         }
 
         // 关键修复：当所有玩家都是 all-in 时（没有 active 玩家），
-        // 应该直接进入 showdown，不需要再发牌
+        // 或者只有1个active玩家但有all-in玩家时，应该先发完剩余公共牌再结算
         let activePlayersCount = players.filter { $0.status == .active }.count
-        if activePlayersCount == 0 {
-            // 没有 active 玩家（所有人都是 all-in），直接进入 showdown
+        let allInPlayersCount = players.filter { $0.status == .allIn }.count
+        
+        if activePlayersCount == 0 || (activePlayersCount == 1 && allInPlayersCount >= 1) {
             #if DEBUG
-            print("🔍 dealNextStreet: 所有玩家都是 all-in，直接进入 showdown")
+            print("🔍 dealNextStreet: 玩家all-in状态: active=\(activePlayersCount), allIn=\(allInPlayersCount)，发完公共牌后结算")
             #endif
-            endHand()
+            runOutBoard()
             return
         }
 

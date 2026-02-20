@@ -279,7 +279,8 @@ struct GameView: View {
         }
         // Buy-in Overlay
         .overlay {
-            if store.showBuyIn && store.engine.gameMode == .cashGame {
+            if store.showBuyIn && store.engine.gameMode == .cashGame &&
+               (store.currentSession == nil || !store.currentSession!.isBuyInLimitReached) {
                 BuyInView(
                     config: store.engine.cashGameConfig ?? .default,
                     onConfirm: { buyInAmount in

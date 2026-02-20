@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "13B07FBC1A68108700A75B9A"
+               BlueprintIdentifier = "C53A13F42F3C64EC00EEF419"
                BuildableName = "TexasPoker.app"
                BlueprintName = "TexasPoker"
                ReferencedContainer = "container:TexasPoker.xcodeproj">
@@ -34,7 +34,7 @@
             parallelizable = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "13B07FB01A68108700A75B9A"
+               BlueprintIdentifier = "C53A14062F3C64EE00EEF419"
                BuildableName = "TexasPokerTests.xctest"
                BlueprintName = "TexasPokerTests"
                ReferencedContainer = "container:TexasPoker.xcodeproj">
@@ -56,7 +56,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "13B07FBC1A68108700A75B9A"
+            BlueprintIdentifier = "C53A13F42F3C64EC00EEF419"
             BuildableName = "TexasPoker.app"
             BlueprintName = "TexasPoker"
             ReferencedContainer = "container:TexasPoker.xcodeproj">
@@ -73,7 +73,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "13B07FBC1A68108700A75B9A"
+            BlueprintIdentifier = "C53A13F42F3C64EC00EEF419"
             BuildableName = "TexasPoker.app"
             BlueprintName = "TexasPoker"
             ReferencedContainer = "container:TexasPoker.xcodeproj">

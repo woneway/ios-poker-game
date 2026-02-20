@@ -32,6 +32,16 @@ class HandEvaluator {
         }
         
         let allCards = holeCards + communityCards
+        
+        // 处理公共牌不足5张的情况（如翻牌前全下）
+        if allCards.count < 5 {
+            // 牌数不足时，按高牌评估（使用可用牌的等级作为kickers）
+            let sortedRanks = allCards.map { $0.rank.rawValue }.sorted(by: >)
+            let score = (0, sortedRanks) // 高牌牌型，分数为0，kickers为牌等级
+            evaluationCache[key] = score
+            return score
+        }
+        
         let combinations = combinationsOf5(from: allCards)
         
         var bestScore = (-1, [Int]())

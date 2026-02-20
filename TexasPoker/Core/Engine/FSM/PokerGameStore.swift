@@ -770,6 +770,15 @@ class PokerGameStore: ObservableObject {
         guard engine.gameMode == .cashGame else { return }
         guard var session = currentSession else { return }
         
+        // 先检查是否达到总优先买入限制（于rebuy检查）
+        if session.isBuyInLimitReached {
+            #if DEBUG
+            print("🎯 达到总买入限制 \(session.maxBuyIns)，结束游戏")
+            #endif
+            leaveTable()
+            return
+        }
+        
         // 检查人类玩家是否被淘汰
         if let heroIndex = engine.players.firstIndex(where: { $0.isHuman }),
            engine.players[heroIndex].chips <= 0 {
@@ -780,16 +789,6 @@ class PokerGameStore: ObservableObject {
             engine.players[heroIndex].status = .eliminated
             // 显示rebuy界面
             showBuyIn = true
-            return
-        }
-        
-        // 检查是否达到总买入限制
-        if session.isBuyInLimitReached {
-            #if DEBUG
-            print("🎯 达到总买入限制 \(session.maxBuyIns)，结束游戏")
-            #endif
-            // 强制结束session
-            leaveTable()
         }
     }
     

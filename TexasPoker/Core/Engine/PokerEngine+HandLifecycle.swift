@@ -264,12 +264,17 @@ extension PokerEngine {
     
     /// 所有人 All-in 时，快速依次发完剩余公共牌然后结算
     func runOutBoard() {
-        let streetsToGo = DealingManager.streetsRemaining(from: currentStreet)
+        let startingStreet = currentStreet
+        let streetsToGo = DealingManager.streetsRemaining(from: startingStreet)
 
         guard streetsToGo > 0 else {
             endHand()
             return
         }
+
+        #if DEBUG
+        print("🔍 runOutBoard: startingStreet=\(startingStreet), streetsToGo=\(streetsToGo)")
+        #endif
 
         // 保存当前手牌标识，用于检测游戏状态变化
         let handId = handNumber
@@ -280,7 +285,6 @@ extension PokerEngine {
                 guard let self = self else { return }
 
                 // 检查手牌是否仍是同一手（防止竞态条件）
-                // 检查游戏是否已结束
                 guard self.handNumber == handId && !self.isHandOver else {
                     #if DEBUG
                     print("⚠️ runOutBoard: 跳过发牌，手牌已变化或游戏已结束")
@@ -288,23 +292,14 @@ extension PokerEngine {
                     return
                 }
 
-                // 再次确认当前 street 仍是预期值（防止重复发牌）
-                let expectedStreet: Street
-                switch i {
-                case 0: expectedStreet = .flop
-                case 1: expectedStreet = .turn
-                case 2: expectedStreet = .river
-                default: return
-                }
-
-                guard self.currentStreet == expectedStreet else {
-                    #if DEBUG
-                    print("⚠️ runOutBoard: 当前 street 不匹配，跳过发牌")
-                    #endif
-                    return
-                }
-
+                // 直接发牌，不需要检查 street 匹配
+                // 因为我们是按照固定顺序发牌的：flop -> turn -> river
+                let previousStreet = self.currentStreet
                 DealingManager.dealStreetCards(deck: &self.deck, communityCards: &self.communityCards, currentStreet: &self.currentStreet)
+
+                #if DEBUG
+                print("🔍 runOutBoard: 发牌 \(previousStreet) -> \(self.currentStreet), communityCards count: \(self.communityCards.count)")
+                #endif
 
                 if i == streetsToGo - 1 {
                     // 最后一条街发完后结算
