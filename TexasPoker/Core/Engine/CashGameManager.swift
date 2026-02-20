@@ -255,7 +255,8 @@ struct CashGameManager {
             #endif
 
             if shouldEnter {
-                // 优先尝试重新加入已有 AI 玩家
+                // 只尝试重新加入已有AI玩家，不生成新玩家
+                // 因为AIProfile和AI玩家是一一对应的，游戏过程中不产生新玩家
                 if let rejoinedPlayer = findRejoinableAIPlayer(
                     players: players,
                     config: config,
@@ -267,50 +268,12 @@ struct CashGameManager {
                         players: &players
                     )
                     enteredPlayers.append(rejoinedPlayer)
-                    
-                    #if DEBUG
-                    print("🔄 AI 玩家 \(rejoinedPlayer.playerUniqueId) 重新加入，持有筹码 $\(rejoinedPlayer.chips)")
-                    #endif
-                    continue
-                }
-                
-                // 如果没有可重新加入的玩家，生成新的随机 AI 玩家
-                // 计算买入金额：优先使用系统池，其次随机生成
-                var buyInAmount: Int
-                let minBuyIn = config.bigBlind * 40
-                
-                if systemChipsPool >= minBuyIn {
-                    // 系统池有足够筹码，使用系统池
-                    buyInAmount = drawSystemChips(amount: randomAIBuyIn(config: config))
-                } else if systemChipsPool > 0 {
-                    // 系统池部分筹码，不够的补齐
-                    let systemChips = systemChipsPool
-                    let neededChips = randomAIBuyIn(config: config) - systemChips
-                    _ = drawSystemChips(amount: systemChips)  // 清空系统池
-                    buyInAmount = systemChips + neededChips
-                } else {
-                    // 系统池为空，使用随机金额
-                    buyInAmount = randomAIBuyIn(config: config)
-                }
 
-                // 生成随机 AI 玩家
-                if let newPlayer = generateRandomAIPlayer(
-                    difficulty: difficulty,
-                    buyInAmount: buyInAmount,
-                    profileId: profileId
-                ) {
-                    // 执行座位替换
-                    TournamentManager.replaceEliminatedPlayer(
-                        at: seatIndex,
-                        with: newPlayer,
-                        players: &players
-                    )
-                    enteredPlayers.append(newPlayer)
-                    
                     #if DEBUG
-                    print("🎰 新玩家 \(newPlayer.playerUniqueId) 入场，买入 $\(buyInAmount)，系统池剩余 $\(systemChipsPool)")
+                    print("🔄 AI 玩家 \(rejoinedPlayer.displayName) 重新加入，持有筹码 $\(rejoinedPlayer.chips)")
                     #endif
                 }
+                // 如果没有可重新加入的玩家，不生成新玩家，直接跳过此空位
             }
         }
 
@@ -517,43 +480,5 @@ struct CashGameManager {
     static func validateBankrollForCashGame(bankroll: Int, config: CashGameConfig) -> Bool {
         let minBuyIn = config.bigBlind * 40
         return bankroll >= minBuyIn
-    }
-
-    // MARK: - Private Helpers
-
-    /// 生成随机 AI 玩家（现金游戏版本）
-    private static func generateRandomAIPlayer(
-        difficulty: AIProfile.Difficulty,
-        buyInAmount: Int,
-        profileId: String
-    ) -> Player? {
-        #if DEBUG
-        let profile = randomGenerator.randomElement(from: difficulty.availableProfiles) ?? .fox
-        #else
-        let profile = difficulty.availableProfiles.randomElement() ?? .fox
-        #endif
-
-        // 获取下一个入场序号（使用 bankroll manager 的 entry index）
-        let entryIndex = AIPlayerBankrollManager.shared.getNextEntryIndex(
-            profileId: profileId,
-            aiProfileId: profile.id
-        )
-
-        return Player(
-            name: profile.name,
-            chips: buyInAmount,
-            isHuman: false,
-            aiProfile: profile,
-            entryIndex: entryIndex
-        )
-    }
-
-    /// 检查现有玩家列表中是否包含指定名称
-    /// 注意：由于是静态方法无法直接访问外部players变量，
-    /// 名称去重主要通过existingNames参数在调用处处理
-    /// 现在已不再需要此方法（使用 entryIndex 区分）
-    @available(*, deprecated, message: "不再需要名称去重，使用 entryIndex 区分玩家")
-    private static func playersContainName(_ name: String, in players: [Player]) -> Bool {
-        return players.contains { $0.name == name }
     }
 }

@@ -121,7 +121,7 @@ struct SpectatorOverlay: View {
                         Text(player.aiProfile?.avatar ?? (player.isHuman ? "🧑" : "🤖"))
                             .font(.system(size: 12))
                         
-                        Text(player.name)
+                        Text(player.displayName)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(player.isHuman ? .yellow : .white.opacity(0.8))
                             .frame(width: 60, alignment: .leading)

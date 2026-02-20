@@ -131,7 +131,7 @@ struct PlayerInfoView: View {
     
     var body: some View {
         VStack(spacing: 1) {
-            Text(player.name)
+            Text(player.displayName)
                 .font(.system(size: compact ? 10 : 11, weight: .medium))
                 .foregroundColor(.white)
                 .lineLimit(1)
@@ -201,7 +201,7 @@ struct ProfilePopover: View {
                     .background(Circle().fill(Color.gray.opacity(0.1)))
                 
                 VStack(alignment: .leading) {
-                    Text(player.name)
+                    Text(player.displayName)
                         .font(.headline)
                     if let aiProfile = player.aiProfile {
                         Text(aiProfile.name)

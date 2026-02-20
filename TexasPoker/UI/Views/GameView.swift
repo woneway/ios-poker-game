@@ -452,8 +452,8 @@ struct GameView: View {
                 // Table Shadow
                 Ellipse()
                     .fill(Color.black.opacity(0.5))
-                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)  // 增加高度到 68%
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45 + 10)
+                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.72)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.48 + 10)
                     .blur(radius: 20)
                 
                 // Table Border (Wood/Leather)
@@ -465,13 +465,13 @@ struct GameView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)  // 增加高度到 68%
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
+                    .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.72)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.48)
                     .overlay(
                         Ellipse()
                             .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                            .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.68)
-                            .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
+                            .frame(width: geo.size.width * 0.90, height: geo.size.height * 0.72)
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.48)
                     )
                 
                 // Table Felt
@@ -487,8 +487,8 @@ struct GameView: View {
                             endRadius: 200
                         )
                     )
-                    .frame(width: geo.size.width * 0.85, height: geo.size.height * 0.64)  // 增加高度到 64%
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.45)
+                    .frame(width: geo.size.width * 0.85, height: geo.size.height * 0.68)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.48)
                     .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
             }
             
@@ -504,12 +504,12 @@ struct GameView: View {
                 
                 // Community cards (center of table)
                 communityCardsView(geo: geo)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.38)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
                     .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 5)
                 
                 // Pot display
                 GamePotDisplay(store: store)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.30)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.34)
             }
             
             // HUD
@@ -525,7 +525,6 @@ struct GameView: View {
                     }
                 )
                 .padding(.horizontal, 12)
-                .padding(.top, 8)
                 
                 // Tournament info bar (below top bar, above table)
                 if store.engine.gameMode == .tournament {
@@ -757,7 +756,7 @@ struct GameView: View {
                         compact: false,
                         gameMode: store.engine.gameMode
                     )
-                    .position(x: x, y: min(y, h - 180))
+                    .position(x: x, y: min(y, h - 120))
                     .zIndex(100)
                 } else {
                     let isActiveInPlay = store.engine.activePlayerIndex == i

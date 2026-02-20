@@ -180,7 +180,7 @@ struct PlayerView: View {
             )
             
             // Statistics HUD
-            PlayerHUD(playerName: player.name, gameMode: gameMode)
+            PlayerHUD(playerName: player.displayName, gameMode: gameMode)
             
             // Current Bet
             PlayerBetView(bet: player.currentBet)

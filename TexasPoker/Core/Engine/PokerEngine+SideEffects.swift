@@ -55,7 +55,7 @@ extension PokerEngine {
             
             // 获取该玩家最近的动作历史用于读牌
             let recentActions = actionLog
-                .filter { $0.playerName == player.name }
+                .filter { $0.playerName == player.displayName }
                 .suffix(5)
                 .map { $0.action }
             
@@ -109,7 +109,7 @@ extension PokerEngine {
         }
         
         let entry = ActionLogEntry(
-            playerName: player.name,
+            playerName: player.displayName,
             avatar: avatar,
             action: action,
             amount: logAmount,
@@ -331,7 +331,7 @@ extension PokerEngine {
         for player in players {
             guard player.isHuman == false else { continue }
             
-            let playerName = player.name
+            let playerName = player.displayName
             let isWinner = winners.contains(player.id)
             
             if isWinner {
@@ -362,7 +362,7 @@ extension PokerEngine {
             for player in players where !player.isHuman && player.status == .folded {
                 AIMemorySystem.shared.rememberOpponentPlay(
                     playerId: "Hero",
-                    opponentId: player.name,
+                    opponentId: player.displayName,
                     action: "fold",
                     result: "弃牌",
                     insight: "对手选择不跟注"
@@ -375,7 +375,7 @@ extension PokerEngine {
         for player in players {
             guard !player.isHuman else { continue }
             
-            let playerId = player.name
+            let playerId = player.displayName
             let isWinner = winners.contains(player.id)
             let profit = player.chips - player.startingChips
             

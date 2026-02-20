@@ -124,8 +124,50 @@ struct LobbyView: View {
                     .frame(height: 80)
                     .offset(y: 50)
                 )
+            } else {
+                bottomPlaceholder
             }
         }
+    }
+    
+    private var bottomPlaceholder: some View {
+        VStack(spacing: 12) {
+            Divider()
+                .background(Color.gray.opacity(0.3))
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+            
+            HStack(spacing: 24) {
+                VStack(spacing: 4) {
+                    Text("\(tableManager.filteredTables().count)")
+                        .font(.title2.bold())
+                        .foregroundColor(.yellow)
+                    Text("可选桌位")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                
+                VStack(spacing: 4) {
+                    Text(tableManager.selectedDifficulty.rawValue)
+                        .font(.title2.bold())
+                        .foregroundColor(.blue)
+                    Text("当前难度")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                
+                VStack(spacing: 4) {
+                    Text(tableManager.selectedGameMode == .cashGame ? "现金" : "锦标赛")
+                        .font(.title2.bold())
+                        .foregroundColor(.green)
+                    Text("游戏模式")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.vertical, 16)
+        }
+        .background(Color(hex: "0f0f23"))
     }
 }
 
