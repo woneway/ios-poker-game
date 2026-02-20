@@ -12,9 +12,11 @@ struct GameView: View {
     init(settings: GameSettings) {
         self.settings = settings
         let config = settings.getTournamentConfig()
+        let cashGameConfig = settings.getCashGameConfig()
         _store = StateObject(wrappedValue: PokerGameStore(
             mode: settings.gameMode,
-            config: config
+            config: config,
+            cashGameConfig: cashGameConfig
         ))
     }
     

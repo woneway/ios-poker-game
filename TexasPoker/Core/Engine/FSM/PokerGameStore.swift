@@ -66,8 +66,8 @@ class PokerGameStore: ObservableObject {
         return engine.players[idx].isHuman && engine.players[idx].status == .active
     }
     
-    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
-        self.engine = PokerEngine(mode: mode, config: config)
+    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil, cashGameConfig: CashGameConfig? = nil) {
+        self.engine = PokerEngine(mode: mode, config: config, cashGameConfig: cashGameConfig)
         // 注册引擎以追踪对手模型
         DecisionEngine.registerEngine(self.engine)
         subscribeToEngine()
@@ -776,18 +776,25 @@ class PokerGameStore: ObservableObject {
         guard engine.gameMode == .cashGame else { return }
         guard var session = currentSession else { return }
         
-        // 先检查是否达到总优先买入限制（于rebuy检查）
-        if session.isBuyInLimitReached {
-            #if DEBUG
-            print("🎯 达到总买入限制 \(session.maxBuyIns)，结束游戏")
-            #endif
-            leaveTable()
-            return
-        }
-        
         // 检查人类玩家是否被淘汰
         if let heroIndex = engine.players.firstIndex(where: { $0.isHuman }),
            engine.players[heroIndex].chips <= 0 {
+            #if DEBUG
+            print("💰 Hero被淘汰，检查是否可以rebuy")
+            #endif
+            
+            // 检查是否达到买入限制
+            if session.isBuyInLimitReached {
+                #if DEBUG
+                print("🎯 达到总买入限制 \(session.maxBuyIns)，无法rebuy，结束游戏")
+                #endif
+                // 标记玩家淘汰
+                engine.players[heroIndex].status = .eliminated
+                // 达到买入限制，结束游戏
+                leaveTable()
+                return
+            }
+            
             #if DEBUG
             print("💰 Hero被淘汰，显示rebuy界面")
             #endif
@@ -795,6 +802,14 @@ class PokerGameStore: ObservableObject {
             engine.players[heroIndex].status = .eliminated
             // 显示rebuy界面
             showBuyIn = true
+            return
+        }
+        
+        // 如果没有玩家被淘汰，检查是否达到买入限制（仅用于统计，不强制结束）
+        if session.isBuyInLimitReached {
+            #if DEBUG
+            print("🎯 达到总买入限制 \(session.maxBuyIns)，游戏将继续直到所有玩家离开")
+            #endif
         }
     }
     

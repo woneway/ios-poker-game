@@ -78,7 +78,7 @@ class PokerEngine: ObservableObject {
     /// 当前异步任务的唯一标识符，用于防止竞态条件
     private var currentTaskId: Int = 0
     
-    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
+    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil, cashGameConfig: CashGameConfig? = nil) {
         self.deck = Deck()
         self.players = []
         self.communityCards = []
@@ -93,7 +93,7 @@ class PokerEngine: ObservableObject {
         self.tournamentConfig = config
         
         if mode == .cashGame {
-            self.cashGameConfig = .default
+            self.cashGameConfig = cashGameConfig ?? .default
         }
         
         if mode == .tournament, let config = config {
