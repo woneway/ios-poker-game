@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import CoreData
 
 struct SettingsView: View {
@@ -69,32 +70,50 @@ struct SettingsView: View {
     
     // MARK: - Tab Picker
     private var tabPicker: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 12) {
             tabButton(icon: "gamecontroller", title: "游戏", tag: 0)
             tabButton(icon: "brain.head.profile", title: "难度", tag: 1)
             tabButton(icon: "chart.bar", title: "统计", tag: 2)
             tabButton(icon: "info.circle", title: "关于", tag: 3)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 12)
         .padding(.vertical, 12)
         .background(Color(hex: "1a1a2e"))
     }
     
+    @State private var selectedTabScale: CGFloat = 1.0
+    
     private func tabButton(icon: String, title: String, tag: Int) -> some View {
-        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { selectedTab = tag } }) {
+        Button(action: {
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                selectedTabScale = 1.1
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    selectedTabScale = 1.0
+                }
+            }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedTab = tag
+            }
+        }) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: 22))
                 Text(title)
                     .font(.caption2)
             }
             .foregroundColor(selectedTab == tag ? .yellow : .gray)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(selectedTab == tag ? Color.yellow.opacity(0.15) : Color.clear)
             )
+            .scaleEffect(selectedTab == tag ? 1.05 : 1.0)
+            .animation(.easeInOut(duration: 0.15), value: selectedTab)
         }
     }
     
@@ -103,7 +122,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(spacing: 20) {
                 speedCard
-                gameModeCard
+                cashGameSettingsCard
                 soundCard
             }
             .padding()
@@ -142,48 +161,30 @@ struct SettingsView: View {
         .cornerRadius(12)
     }
     
-    private var gameModeCard: some View {
+    private var cashGameSettingsCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "suit.spade.fill")
+                Image(systemName: "dollarsign.circle")
                     .foregroundColor(.green)
-                Text("游戏模式")
+                Text("现金局设置")
                     .font(.headline)
             }
             
-            Picker("游戏模式", selection: $settings.gameMode) {
-                Text("现金局").tag(GameMode.cashGame)
-                Text("锦标赛").tag(GameMode.tournament)
-            }
-            .pickerStyle(SegmentedPickerStyle())
-            
-            if settings.gameMode == .tournament, let config = settings.getTournamentConfig() {
-                HStack(spacing: 16) {
-                    infoItem(icon: "dollarsign.circle", title: "起始", value: "\(config.startingChips)")
-                    infoItem(icon: "clock", title: "级别", value: "\(config.handsPerLevel)手")
-                    infoItem(icon: "trophy", title: "奖励", value: "\(config.payoutStructure.count)名")
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("最大买入次数")
+                    Spacer()
+                    Text("\(settings.cashGameMaxBuyIns) 次")
+                        .foregroundColor(.secondary)
                 }
-                .padding(.top, 8)
-            }
-            
-            if settings.gameMode == .cashGame {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("最大买入次数")
-                        Spacer()
-                        Text("\(settings.cashGameMaxBuyIns) 次")
-                            .foregroundColor(.secondary)
-                    }
-                    Slider(
-                        value: Binding(
-                            get: { Double(settings.cashGameMaxBuyIns) },
-                            set: { settings.cashGameMaxBuyIns = Int($0) }
-                        ),
-                        in: 1...10,
-                        step: 1
-                    )
-                }
-                .padding(.top, 8)
+                Slider(
+                    value: Binding(
+                        get: { Double(settings.cashGameMaxBuyIns) },
+                        set: { settings.cashGameMaxBuyIns = Int($0) }
+                    ),
+                    in: 1...10,
+                    step: 1
+                )
             }
         }
         .padding()
@@ -401,6 +402,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(spacing: 20) {
                 versionCard
+                featuresCard
                 contactCard
                 supportCard
                 
@@ -426,23 +428,83 @@ struct SettingsView: View {
         }
     }
     
+    private var featuresCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .foregroundColor(.yellow)
+                Text("功能特点")
+                    .font(.headline)
+            }
+            
+            VStack(spacing: 12) {
+                featureRow(icon: "person.2.fill", title: "多种游戏模式", desc: "现金局与锦标赛")
+                featureRow(icon: "brain.head.profile", title: "智能AI对手", desc: "4种难度可选")
+                featureRow(icon: "chart.bar.fill", title: "详细数据统计", desc: "VPIP/PFR/AF分析")
+                featureRow(icon: "clock.arrow.circlepath", title: "完整游戏历史", desc: "回顾每一局精彩瞬间")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
+    }
+    
+    private func featureRow(icon: String, title: String, desc: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(.blue)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                Text(desc)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+    
     private var versionCard: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             Image(systemName: "suit.spade.fill")
-                .font(.system(size: 40))
+                .font(.system(size: 50))
                 .foregroundColor(.yellow)
             
             Text("德州扑克")
                 .font(.title2.bold())
             
-            Text("版本 1.2.0")
+            Text("版本 1.2.0 (Build 2024)")
                 .font(.caption)
                 .foregroundColor(.gray)
+            
+            Text("最专业的单机德州扑克游戏")
+                .font(.subheadline)
+                .foregroundColor(.yellow.opacity(0.8))
+                .multilineTextAlignment(.center)
+            
+            HStack(spacing: 8) {
+                featureTag("AI对手")
+                featureTag("现金局")
+                featureTag("锦标赛")
+            }
+            .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 30)
+        .padding(.vertical, 25)
         .background(Color.white.opacity(0.05))
         .cornerRadius(12)
+    }
+    
+    private func featureTag(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2)
+            .foregroundColor(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color.blue.opacity(0.3))
+            .cornerRadius(12)
     }
     
     private var contactCard: some View {
@@ -454,9 +516,22 @@ struct SettingsView: View {
                     .font(.headline)
             }
             
-            Text("微信号: VVE_1001")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Image(systemName: "wechat")
+                        .foregroundColor(.green)
+                    Text("微信号: VVE_1001")
+                        .font(.subheadline)
+                }
+                
+                HStack {
+                    Image(systemName: "envelope")
+                        .foregroundColor(.blue)
+                    Text("Email: dev@example.com")
+                        .font(.subheadline)
+                }
+            }
+            .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()

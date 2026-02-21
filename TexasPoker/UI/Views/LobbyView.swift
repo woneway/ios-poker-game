@@ -14,6 +14,7 @@ struct LobbyView: View {
                 
                 VStack(spacing: 0) {
                     gameModeSelector
+                    quickStartButton
                     difficultyFilter
                     tableList
                 }
@@ -52,6 +53,45 @@ struct LobbyView: View {
         .padding(.vertical)
     }
     
+    private var quickStartButton: some View {
+        let tables = tableManager.filteredTables()
+        let isEnabled = !tables.isEmpty
+        
+        return Button(action: {
+            if let firstTable = tables.first {
+                selectedTable = firstTable
+                showGameView = true
+            }
+        }) {
+            HStack {
+                Image(systemName: "bolt.fill")
+                Text("快速开始")
+                if isEnabled {
+                    Text("(\(tableManager.selectedDifficulty.rawValue))")
+                        .opacity(0.8)
+                } else {
+                    Text("(暂无可用桌位)")
+                        .opacity(0.6)
+                }
+            }
+            .font(.headline)
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                LinearGradient(
+                    gradient: Gradient(colors: isEnabled ? [Color.blue, Color.purple] : [Color.gray, Color.gray.opacity(0.8)]),
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .cornerRadius(12)
+        }
+        .disabled(!isEnabled)
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
+    
     private var difficultyFilter: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("难度筛选")
@@ -60,7 +100,7 @@ struct LobbyView: View {
                 .padding(.horizontal)
             
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack(spacing: 8) {
                     ForEach(AIProfile.Difficulty.allCases) { difficulty in
                         DifficultyChip(
                             difficulty: difficulty,
@@ -79,19 +119,23 @@ struct LobbyView: View {
     
     private var tableList: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                LazyVStack(spacing: 16) {
-                    ForEach(tableManager.filteredTables()) { table in
-                        TableCard(
-                            table: table,
-                            isSelected: selectedTable?.id == table.id
-                        ) {
-                            selectedTable = table
+            if tableManager.filteredTables().isEmpty {
+                emptyStateView
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(tableManager.filteredTables()) { table in
+                            TableCard(
+                                table: table,
+                                isSelected: selectedTable?.id == table.id
+                            ) {
+                                selectedTable = table
+                            }
                         }
                     }
+                    .padding(.horizontal)
+                    .padding(.bottom, 100)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 100)
             }
             
             if selectedTable != nil {
@@ -169,6 +213,38 @@ struct LobbyView: View {
         }
         .background(Color(hex: "0f0f23"))
     }
+    
+    private var emptyStateView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "table.furniture")
+                .font(.system(size: 60))
+                .foregroundColor(.gray)
+            
+            Text("暂无符合条件的桌子")
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            Text("试试调整难度或游戏模式")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+            
+            Button(action: {
+                tableManager.selectedDifficulty = .normal
+                tableManager.selectedGameMode = .cashGame
+                tableManager.regenerateWithFilter()
+            }) {
+                Text("重置筛选")
+                    .font(.subheadline)
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(Color.blue.opacity(0.2))
+                    .cornerRadius(8)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 100)
+    }
 }
 
 struct DifficultyChip: View {
@@ -182,6 +258,10 @@ struct DifficultyChip: View {
                 Text(difficulty.rawValue)
                     .font(.system(size: 14, weight: .semibold))
                 
+                Text(difficultyDescription)
+                    .font(.system(size: 10))
+                    .foregroundColor(.gray)
+                
                 HStack(spacing: 2) {
                     ForEach(1...5, id: \.self) { index in
                         Image(systemName: index <= difficultyRating ? "star.fill" : "star")
@@ -190,8 +270,8 @@ struct DifficultyChip: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .background(isSelected ? Color.blue.opacity(0.3) : Color.gray.opacity(0.2))
             .cornerRadius(12)
             .overlay(
@@ -208,6 +288,15 @@ struct DifficultyChip: View {
         case .normal: return 2
         case .hard: return 3
         case .expert: return 5
+        }
+    }
+    
+    private var difficultyDescription: String {
+        switch difficulty {
+        case .easy: return "适合新手"
+        case .normal: return "休闲娱乐"
+        case .hard: return "策略挑战"
+        case .expert: return "高额对抗"
         }
     }
 }
@@ -237,6 +326,12 @@ struct TableCard: View {
                         Text(table.stakesText)
                             .font(.system(size: 18, weight: .bold, design: .rounded))
                             .foregroundColor(.yellow)
+                        
+                        if table.gameMode == .cashGame {
+                            Text("买入: $\(table.buyInRange.lowerBound)-$\(table.buyInRange.upperBound)")
+                                .font(.system(size: 10))
+                                .foregroundColor(.gray)
+                        }
                         
                         Text("\(table.currentPlayers)/\(table.maxPlayers) 人")
                             .font(.caption)
