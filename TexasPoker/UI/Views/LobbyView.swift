@@ -134,6 +134,7 @@ struct LobbyView: View {
                         }
                     }
                     .padding(.horizontal)
+                    .padding(.top, 8)
                     .padding(.bottom, 20)
                 }
             }
