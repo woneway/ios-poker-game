@@ -1,7 +1,6 @@
 import SwiftUI
 import CoreData
 
-// MARK: - Optimized Settings View
 struct SettingsView: View {
     @ObservedObject var settings: GameSettings
     @Binding var isPresented: Bool
@@ -9,78 +8,45 @@ struct SettingsView: View {
     
     @StateObject private var historyManager = GameHistoryManager.shared
     @StateObject private var profiles = ProfileManager.shared
-    @StateObject private var statsManager = TournamentStatsManager.shared
     
-    @State private var showHistory = false
-    @State private var showStatistics = false
-    @State private var showPlayerAnalysis = false
-    @State private var showPlayerList = false
-    @State private var showNewProfileAlert = false
-    @State private var newProfileName = ""
-    @State private var showResetConfirmation = false
-    @State private var showTournamentSetup = false
-    @State private var selectedTab: SettingsTab = .game
-    @State private var showWeChatQR = false
-    @State private var showDonateQR = false
-    @State private var showDeleteProfileAlert = false
-    @State private var profileToDelete: UserProfile?
-    
-    enum SettingsTab {
-        case game, sound, statistics, about
-    }
+    @State private var selectedTab = 0
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
-                Color(hex: "0f0f23").ignoresSafeArea()
+                Color(hex: "0f0f23")
+                    .ignoresSafeArea()
                 
-                Form {
-                    // Profile Section
-                    profileSection
-                    
-                    // Game Settings Section
-                    gameSettingsSection
-                    
-                    // Sound Settings Section
-                    soundSettingsSection
-                    
-                    // AI Difficulty Section
-                    difficultySection
-                    
-                    // Statistics Section
-                    statisticsSection
-                    
-                    // About Section
-                    aboutSection
-                    
-                    // Quit Button
-                    quitSection
+                VStack(spacing: 0) {
+                    tabPicker
+                    TabView(selection: $selectedTab) {
+                        gameSettingsTab
+                            .tag(0)
+                        difficultyTab
+                            .tag(1)
+                        statisticsTab
+                            .tag(2)
+                        aboutTab
+                            .tag(3)
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
                 }
-                .scrollContentBackground(.hidden)
-                .background(Color.clear)
             }
             .preferredColorScheme(.dark)
-            .navigationTitle("游戏设置")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle(navigationTitle)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("完成") {
                         isPresented = false
                     }
+                    .fontWeight(.semibold)
                 }
             }
-            .alert("新建档案", isPresented: $showNewProfileAlert) {
-                TextField("档案名称", text: $newProfileName)
-                Button("取消", role: .cancel) {}
-                Button("创建") {
-                    if !newProfileName.isEmpty {
-                        _ = profiles.createProfile(name: newProfileName)
-                    }
-                }
-            } message: {
-                Text("创建新档案后，游戏数据和统计将独立保存。")
-            }
-            .alert("重置设置", isPresented: $showResetConfirmation) {
+            .alert("重置设置", isPresented: .init(
+                get: { false },
+                set: { if $0 { settings.resetToDefaults() } }
+            )) {
                 Button("取消", role: .cancel) {}
                 Button("重置", role: .destructive) {
                     settings.resetToDefaults()
@@ -88,482 +54,294 @@ struct SettingsView: View {
             } message: {
                 Text("确定要将所有设置恢复为默认值吗？")
             }
-            .alert("删除档案", isPresented: $showDeleteProfileAlert) {
-                Button("取消", role: .cancel) {
-                    profileToDelete = nil
-                }
-                Button("删除", role: .destructive) {
-                    if let profile = profileToDelete {
-                        profiles.deleteProfile(id: profile.id)
-                    }
-                    profileToDelete = nil
-                }
-            } message: {
-                if let profile = profileToDelete {
-                    Text("确定要删除档案「\(profile.name)」吗？\n此操作将永久删除该档案的所有游戏数据和统计数据，且不可恢复。")
-                }
-            }
-            .sheet(isPresented: $showHistory) {
-                HistoryView(isPresented: $showHistory)
-            }
-            .sheet(isPresented: $showStatistics) {
-                EnhancedStatisticsView()
-                    .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
-            }
-            .sheet(isPresented: $showPlayerAnalysis) {
-                PlayerAnalysisView(hideBackButton: true)
-            }
-            .sheet(isPresented: $showPlayerList) {
-                NavigationView {
-                    PlayerListView()
-                }
-            }
-            .sheet(isPresented: $showTournamentSetup) {
-                TournamentSetupView { config, difficulty in
-                    settings.gameMode = .tournament
-                    settings.aiDifficulty = difficulty
-                }
-            }
-            .sheet(isPresented: $showWeChatQR) {
-                QRCodeSheetView(
-                    title: "联系开发者",
-                    subtitle: "微信号: VVE_1001",
-                    imageName: "wechat_qr",
-                    description: "扫一扫添加好友，交流游戏心得",
-                    accentColor: .green
-                )
-            }
-            .sheet(isPresented: $showDonateQR) {
-                QRCodeSheetView(
-                    title: "赞赏支持",
-                    subtitle: nil,
-                    imageName: "donate_qr",
-                    description: "觉得好玩？给开发者 All-in 一杯咖啡吧！\n你的每一份支持，都是下一次更新的筹码。",
-                    accentColor: .pink
-                )
-            }
         }
     }
     
-    // MARK: - Profile Section
-    private var profileSection: some View {
-        Section {
-            Picker("当前档案", selection: $profiles.currentProfileId) {
-                ForEach(profiles.profiles) { profile in
-                    HStack {
-                        Text(profile.name)
-                        if profile.id == ProfileManager.defaultProfileId {
-                            Text("(默认)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .tag(profile.id)
-                }
-            }
-
-            Button(action: {
-                newProfileName = ""
-                showNewProfileAlert = true
-            }) {
-                HStack {
-                    Image(systemName: "person.badge.plus")
-                        .foregroundColor(.blue)
-                    Text("新建档案")
-                        .foregroundColor(.primary)
-                }
-            }
-
-            // Delete profile button (only for non-default profiles)
-            ForEach(profiles.profiles) { profile in
-                if profile.id != ProfileManager.defaultProfileId {
-                    Button(action: {
-                        profileToDelete = profile
-                        showDeleteProfileAlert = true
-                    }) {
-                        HStack {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                            Text("删除「\(profile.name)」")
-                                .foregroundColor(.red)
-                        }
-                    }
-                }
-            }
-        } header: {
-            Text("档案管理")
-        } footer: {
-            Text("不同档案的数据和统计相互独立")
-                .font(.caption)
+    private var navigationTitle: String {
+        switch selectedTab {
+        case 0: return "游戏设置"
+        case 1: return "难度设置"
+        case 2: return "数据统计"
+        case 3: return "关于"
+        default: return "设置"
         }
     }
     
-    // MARK: - Game Settings Section
-    private var gameSettingsSection: some View {
-        Section {
-            // Game Speed
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("游戏速度")
-                    Spacer()
-                    Text(settings.gameSpeedDescription)
-                        .foregroundColor(.secondary)
-                        .font(.subheadline)
-                }
-                
+    // MARK: - Tab Picker
+    private var tabPicker: some View {
+        HStack(spacing: 0) {
+            tabButton(icon: "gamecontroller", title: "游戏", tag: 0)
+            tabButton(icon: "brain.head.profile", title: "难度", tag: 1)
+            tabButton(icon: "chart.bar", title: "统计", tag: 2)
+            tabButton(icon: "info.circle", title: "关于", tag: 3)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 12)
+        .background(Color(hex: "1a1a2e"))
+    }
+    
+    private func tabButton(icon: String, title: String, tag: Int) -> some View {
+        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { selectedTab = tag } }) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                Text(title)
+                    .font(.caption2)
+            }
+            .foregroundColor(selectedTab == tag ? .yellow : .gray)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(selectedTab == tag ? Color.yellow.opacity(0.15) : Color.clear)
+            )
+        }
+    }
+    
+    // MARK: - Game Settings Tab
+    private var gameSettingsTab: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                speedCard
+                gameModeCard
+                soundCard
+            }
+            .padding()
+        }
+    }
+    
+    private var speedCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "speedometer")
+                    .foregroundColor(.blue)
+                Text("游戏速度")
+                    .font(.headline)
+            }
+            
+            HStack {
+                Text("慢")
+                    .font(.caption)
+                    .foregroundColor(.gray)
                 Slider(
                     value: $settings.gameSpeed,
                     in: 0.5...3.0,
                     step: 0.5
-                ) {
-                    Text("游戏速度")
-                } minimumValueLabel: {
-                    Text("慢")
-                        .font(.caption)
-                } maximumValueLabel: {
-                    Text("快")
-                        .font(.caption)
-                }
+                )
+                Text("快")
+                    .font(.caption)
+                    .foregroundColor(.gray)
             }
-            .padding(.vertical, 4)
             
-            // Game Mode
+            Text(settings.gameSpeedDescription)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
+    }
+    
+    private var gameModeCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "suit.spade.fill")
+                    .foregroundColor(.green)
+                Text("游戏模式")
+                    .font(.headline)
+            }
+            
             Picker("游戏模式", selection: $settings.gameMode) {
                 Text("现金局").tag(GameMode.cashGame)
                 Text("锦标赛").tag(GameMode.tournament)
             }
             .pickerStyle(SegmentedPickerStyle())
             
-            // Tournament Settings
-            if settings.gameMode == .tournament {
-                tournamentSettings
+            if settings.gameMode == .tournament, let config = settings.getTournamentConfig() {
+                HStack(spacing: 16) {
+                    infoItem(icon: "dollarsign.circle", title: "起始", value: "\(config.startingChips)")
+                    infoItem(icon: "clock", title: "级别", value: "\(config.handsPerLevel)手")
+                    infoItem(icon: "trophy", title: "奖励", value: "\(config.payoutStructure.count)名")
+                }
+                .padding(.top, 8)
             }
             
-            // Cash Game Settings
             if settings.gameMode == .cashGame {
-                cashGameSettings
-            }
-            
-        } header: {
-            Text("游戏设置")
-        }
-    }
-    
-    // MARK: - Cash Game Settings
-    private var cashGameSettings: some View {
-        Group {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("最大买入次数")
-                    Spacer()
-                    Text("\(settings.cashGameMaxBuyIns) 次")
-                        .foregroundColor(.secondary)
-                }
-                
-                Slider(
-                    value: Binding(
-                        get: { Double(settings.cashGameMaxBuyIns) },
-                        set: { settings.cashGameMaxBuyIns = Int($0) }
-                    ),
-                    in: 1...10,
-                    step: 1
-                )
-                
-                Text("所有玩家合计可买入的总次数，达到后无法继续买入")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.vertical, 4)
-        }
-    }
-    
-    // MARK: - Tournament Settings
-    private var tournamentSettings: some View {
-        Group {
-            Picker("锦标赛类型", selection: $settings.tournamentPreset) {
-                ForEach(GameSettings.TournamentPreset.allCases) { preset in
-                    Text(preset.displayName).tag(preset)
-                }
-            }
-            
-            if let config = settings.getTournamentConfig() {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Label("起始筹码: \(config.startingChips)", systemImage: "dollarsign.circle")
+                        Text("最大买入次数")
                         Spacer()
+                        Text("\(settings.cashGameMaxBuyIns) 次")
+                            .foregroundColor(.secondary)
                     }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    
-                    HStack {
-                        Label("升级间隔: \(config.handsPerLevel) 手", systemImage: "clock")
-                        Spacer()
-                    }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    
-                    HStack {
-                        Label("奖励圈: 前 \(config.payoutStructure.count) 名", systemImage: "trophy")
-                        Spacer()
-                    }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    Slider(
+                        value: Binding(
+                            get: { Double(settings.cashGameMaxBuyIns) },
+                            set: { settings.cashGameMaxBuyIns = Int($0) }
+                        ),
+                        in: 1...10,
+                        step: 1
+                    )
                 }
-                .padding(.vertical, 4)
+                .padding(.top, 8)
             }
         }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
     }
     
-    // MARK: - Sound Settings Section
-    private var soundSettingsSection: some View {
-        Section {
+    private func infoItem(icon: String, title: String, value: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .foregroundColor(.yellow)
+            Text(value)
+                .font(.subheadline.bold())
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private var soundCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
             Toggle(isOn: $settings.soundEnabled) {
                 HStack {
                     Image(systemName: settings.soundEnabled ? "speaker.wave.3" : "speaker.slash")
                         .foregroundColor(settings.soundEnabled ? .blue : .gray)
-                    Text("启用音效")
+                    Text("音效")
+                        .font(.headline)
                 }
             }
+            .tint(.blue)
             
             if settings.soundEnabled {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("音量")
-                        Spacer()
-                        Text(settings.volumePercentage)
-                            .foregroundColor(.secondary)
-                            .font(.subheadline)
-                    }
-                    
-                    Slider(
-                        value: $settings.soundVolume,
-                        in: 0...1,
-                        step: 0.1
-                    ) {
-                        Text("音量")
-                    } minimumValueLabel: {
-                        Image(systemName: "speaker")
-                            .font(.caption)
-                    } maximumValueLabel: {
-                        Image(systemName: "speaker.wave.3")
-                            .font(.caption)
-                    }
+                HStack {
+                    Image(systemName: "speaker")
+                        .foregroundColor(.gray)
+                    Slider(value: $settings.soundVolume, in: 0...1, step: 0.1)
+                    Image(systemName: "speaker.wave.3")
+                        .foregroundColor(.gray)
                 }
-                .padding(.vertical, 4)
             }
-        } header: {
-            Text("音效设置")
+        }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
+    }
+    
+    // MARK: - Difficulty Tab
+    private var difficultyTab: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                difficultySelector
+                quickStats
+            }
+            .padding()
         }
     }
     
-    // MARK: - Difficulty Section
-    private var difficultySection: some View {
-        Section {
-            Picker("AI 难度", selection: $settings.aiDifficulty) {
-                ForEach(AIProfile.Difficulty.allCases) { difficulty in
-                    HStack {
-                        Text(difficulty.rawValue)
-                        Text(difficulty.description)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .tag(difficulty)
-                }
-            }
-            
-            Toggle(isOn: $settings.useRandomOpponents) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("随机对手")
-                    Text("每局随机选择不同类型的 AI 对手")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            if !settings.useRandomOpponents {
-                NavigationLink(destination: OpponentSelectorView(settings: settings)) {
-                    HStack {
-                        Text("自选对手")
-                        Spacer()
-                        Text("7 个对手")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            
-        } header: {
-            Text("难度设置")
-        } footer: {
-            Text(settings.aiDifficulty.recommendedFor)
-                .font(.caption)
-        }
-    }
-    
-    // MARK: - Statistics Section
-    private var statisticsSection: some View {
-        Section {
-            // Game History
-            Button(action: { showHistory = true }) {
-                HStack {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .foregroundColor(.blue)
-                    Text("游戏历史")
-                    Spacer()
-                    
-                    if !historyManager.records.isEmpty {
-                        Text("\(historyManager.records.count) 局")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(.secondary.opacity(0.5))
-                }
-            }
-            
-            // Player Statistics
-            Button(action: { showStatistics = true }) {
-                HStack {
-                    Image(systemName: "chart.bar.fill")
-                        .foregroundColor(.green)
-                    Text("数据统计")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(.secondary.opacity(0.5))
-                }
-            }
-            
-            // Player Analysis
-            Button(action: { showPlayerAnalysis = true }) {
-                HStack {
-                    Image(systemName: "person.2.fill")
-                        .foregroundColor(.purple)
-                    Text("玩家分析")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(.secondary.opacity(0.5))
-                }
-            }
-            
-            // Player List
-            Button(action: { showPlayerList = true }) {
-                HStack {
-                    Image(systemName: "list.bullet")
-                        .foregroundColor(.orange)
-                    Text("对手列表")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(.secondary.opacity(0.5))
-                }
-            }
-            
-            // Quick Stats Summary
-            if !historyManager.records.isEmpty {
-                QuickStatsView(historyManager: historyManager)
-            }
-            
-        } header: {
-            Text("历史与统计")
-        }
-    }
-    
-    // MARK: - About Section
-    private var aboutSection: some View {
-        Section {
+    private var difficultySelector: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("版本")
-                Spacer()
-                Text("1.2.0")
-                    .foregroundColor(.secondary)
+                Image(systemName: "brain.head.profile")
+                    .foregroundColor(.purple)
+                Text("AI 难度")
+                    .font(.headline)
             }
             
-            Button(action: { showWeChatQR = true }) {
-                HStack {
-                    Image(systemName: "message.fill")
-                        .foregroundColor(.green)
-                    Text("联系开发者")
-                        .foregroundColor(.primary)
-                    Spacer()
-                    Text("微信: VVE_1001")
-                        .foregroundColor(.secondary)
-                        .font(.caption)
-                    Image(systemName: "qrcode")
-                        .foregroundColor(.secondary.opacity(0.5))
-                        .font(.caption)
-                }
+            ForEach(AIProfile.Difficulty.allCases) { difficulty in
+                difficultyRow(difficulty)
             }
-            
-            Button(action: { showDonateQR = true }) {
-                HStack {
-                    Image(systemName: "heart.fill")
-                        .foregroundColor(.pink)
-                    Text("赞赏支持")
-                        .foregroundColor(.primary)
-                    Spacer()
-                    Image(systemName: "qrcode")
-                        .foregroundColor(.secondary.opacity(0.5))
-                        .font(.caption)
-                }
-            }
-            
-            Button(action: { showResetConfirmation = true }) {
-                HStack {
-                    Image(systemName: "arrow.counterclockwise")
-                        .foregroundColor(.orange)
-                    Text("恢复默认设置")
-                        .foregroundColor(.orange)
-                }
-            }
-            
-        } header: {
-            Text("关于")
-        } footer: {
-            Text("独立开发不易，你的支持是持续更新的最大动力")
-                .font(.caption)
         }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
     }
     
-    // MARK: - Quit Section
-    private var quitSection: some View {
-        Group {
-            if let onQuit = onQuit {
-                Section {
-                    Button(action: {
-                        onQuit()
-                        isPresented = false
-                    }) {
-                        HStack {
-                            Spacer()
-                            Image(systemName: "xmark.circle")
-                            Text("退出当前游戏")
-                            Spacer()
-                        }
-                        .foregroundColor(.red)
+    private func difficultyRow(_ difficulty: AIProfile.Difficulty) -> some View {
+        Button(action: { settings.aiDifficulty = difficulty }) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(difficulty.rawValue)
+                        .font(.headline)
+                    Text(difficulty.difficultyDescription)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                HStack(spacing: 2) {
+                    ForEach(1...5, id: \.self) { index in
+                        Image(systemName: index <= difficulty.stars ? "star.fill" : "star")
+                            .font(.system(size: 10))
+                            .foregroundColor(index <= difficulty.stars ? .yellow : .gray.opacity(0.3))
                     }
                 }
+                
+                if settings.aiDifficulty == difficulty {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.blue)
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(settings.aiDifficulty == difficulty ? Color.blue.opacity(0.15) : Color.white.opacity(0.03))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(settings.aiDifficulty == difficulty ? Color.blue : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private var quickStats: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "chart.bar.fill")
+                    .foregroundColor(.green)
+                Text("快速统计")
+                    .font(.headline)
+            }
+            
+            if historyManager.records.isEmpty {
+                Text("暂无游戏记录")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+            } else {
+                let stats = calculateStats()
+                HStack(spacing: 12) {
+                    statBox(title: "总局数", value: "\(stats.total)", color: .blue)
+                    statBox(title: "冠军", value: "\(stats.wins)", color: .yellow)
+                    statBox(title: "胜率", value: "\(stats.winRate)%", color: .green)
+                    statBox(title: "均名", value: "#\(stats.avgRank)", color: .purple)
+                }
             }
         }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
     }
-}
-
-// MARK: - Quick Stats View
-struct QuickStatsView: View {
-    @ObservedObject var historyManager: GameHistoryManager
     
-    var body: some View {
-        let stats = calculateStats()
-        
-        HStack(spacing: 12) {
-            QuickStatBadge(title: "总局数", value: "\(stats.total)", color: .blue, icon: "number")
-            QuickStatBadge(title: "冠军", value: "\(stats.wins)", color: .yellow, icon: "crown")
-            QuickStatBadge(title: "胜率", value: "\(stats.winRate)%", color: .green, icon: "percent")
-            QuickStatBadge(title: "均名", value: "#\(stats.avgRank)", color: .purple, icon: "list.number")
+    private func statBox(title: String, value: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(color)
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.gray)
         }
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(color.opacity(0.1))
+        .cornerRadius(8)
     }
     
     private func calculateStats() -> (total: Int, wins: Int, winRate: Int, avgRank: Int) {
@@ -576,212 +354,157 @@ struct QuickStatsView: View {
         
         return (total, wins, winRate, avgRank)
     }
-}
-
-// MARK: - Stat Badge
-struct QuickStatBadge: View {
-    let title: String
-    let value: String
-    let color: Color
-    let icon: String
     
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
+    // MARK: - Statistics Tab
+    private var statisticsTab: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                NavigationLink(destination: HistoryView(isPresented: .constant(true))) {
+                    menuRow(icon: "clock.arrow.circlepath", title: "游戏历史", color: .blue)
+                }
+                
+                NavigationLink(destination: EnhancedStatisticsView().environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)) {
+                    menuRow(icon: "chart.bar.fill", title: "详细统计", color: .green)
+                }
+                
+                NavigationLink(destination: PlayerAnalysisView(hideBackButton: true)) {
+                    menuRow(icon: "person.2.fill", title: "玩家分析", color: .purple)
+                }
+                
+                NavigationLink(destination: PlayerListView()) {
+                    menuRow(icon: "list.bullet", title: "对手列表", color: .orange)
+                }
+            }
+            .padding()
+        }
+    }
+    
+    private func menuRow(icon: String, title: String, color: Color) -> some View {
+        HStack {
+            Image(systemName: icon)
                 .foregroundColor(color)
-            
+                .frame(width: 30)
             Text(title)
-                .font(.system(size: 9))
-                .foregroundColor(.secondary)
+                .foregroundColor(.primary)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.gray)
+        }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
+    }
+    
+    // MARK: - About Tab
+    private var aboutTab: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                versionCard
+                contactCard
+                supportCard
+                
+                if let onQuit = onQuit {
+                    Button(action: {
+                        onQuit()
+                        isPresented = false
+                    }) {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "xmark.circle")
+                            Text("退出当前游戏")
+                            Spacer()
+                        }
+                        .foregroundColor(.red)
+                        .padding()
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+    
+    private var versionCard: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "suit.spade.fill")
+                .font(.system(size: 40))
+                .foregroundColor(.yellow)
+            
+            Text("德州扑克")
+                .font(.title2.bold())
+            
+            Text("版本 1.2.0")
+                .font(.caption)
+                .foregroundColor(.gray)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(color.opacity(0.1))
-        .cornerRadius(8)
+        .padding(.vertical, 30)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
     }
-}
-
-// MARK: - Opponent Selector View
-struct OpponentSelectorView: View {
-    @ObservedObject var settings: GameSettings
-    @Environment(\.dismiss) var dismiss
     
-    @State private var selectedOpponents: [AIProfile] = []
-    
-    var body: some View {
-        List {
-            Section(header: Text("选择对手类型")) {
-                ForEach(AIProfile.allProfiles, id: \.name) { profile in
-                    OpponentRow(
-                        profile: profile,
-                        isSelected: selectedOpponents.contains(where: { $0.name == profile.name })
-                    ) {
-                        toggleOpponent(profile)
-                    }
-                }
+    private var contactCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "message.fill")
+                    .foregroundColor(.green)
+                Text("联系开发者")
+                    .font(.headline)
             }
             
-            Section {
-                Text("已选择 \(selectedOpponents.count)/7 个对手")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+            Text("微信号: VVE_1001")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
         }
-        .navigationTitle("自选对手")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("完成") {
-                    dismiss()
-                }
-                .disabled(selectedOpponents.count != 7)
-            }
-        }
-        .onAppear {
-            // Initialize with random opponents if empty
-            if selectedOpponents.isEmpty {
-                selectedOpponents = settings.aiDifficulty.randomOpponents(count: 7)
-            }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
     }
     
-    private func toggleOpponent(_ profile: AIProfile) {
-        if let index = selectedOpponents.firstIndex(where: { $0.name == profile.name }) {
-            selectedOpponents.remove(at: index)
-        } else if selectedOpponents.count < 7 {
-            selectedOpponents.append(profile)
+    private var supportCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "heart.fill")
+                    .foregroundColor(.pink)
+                Text("赞赏支持")
+                    .font(.headline)
+            }
+            
+            Text("独立开发不易，你的支持是持续更新的最大动力")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
     }
 }
 
-// MARK: - Opponent Row
-struct OpponentRow: View {
-    let profile: AIProfile
-    let isSelected: Bool
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                Text(profile.avatar)
-                    .font(.system(size: 32))
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(profile.name)
-                        .font(.system(size: 16, weight: .semibold))
-                    
-                    Text(profile.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-                
-                Spacer()
-                
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
-                        .font(.system(size: 22))
-                } else {
-                    Image(systemName: "circle")
-                        .foregroundColor(.secondary.opacity(0.3))
-                        .font(.system(size: 22))
-                }
-            }
-            .padding(.vertical, 4)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
-// MARK: - QR Code Sheet View
-struct QRCodeSheetView: View {
-    let title: String
-    let subtitle: String?
-    let imageName: String
-    let description: String
-    let accentColor: Color
-    
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 24) {
-                Spacer()
-                
-                // Title
-                VStack(spacing: 8) {
-                    Text(title)
-                        .font(.title2.bold())
-                    
-                    if let subtitle = subtitle {
-                        Text(subtitle)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                // QR Code Image
-                Image(imageName)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 280, maxHeight: 280)
-                    .cornerRadius(16)
-                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
-                
-                // Description
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                
-                Spacer()
-                
-                // Close Button
-                Button(action: { dismiss() }) {
-                    Text("关闭")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(accentColor)
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal, 40)
-                .padding(.bottom, 20)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - AIProfile Extension for Settings
+// MARK: - AIProfile Difficulty Extension
 extension AIProfile.Difficulty {
-    var recommendedFor: String {
+    var difficultyDescription: String {
         switch self {
-        case .easy:
-            return "推荐：刚接触德州扑克的新手玩家"
-        case .normal:
-            return "推荐：有一定经验的休闲玩家"
-        case .hard:
-            return "推荐：熟悉基本策略的玩家"
-        case .expert:
-            return "推荐：追求挑战的资深玩家"
+        case .easy: return "适合新手，熟悉规则"
+        case .normal: return "休闲难度，适度挑战"
+        case .hard: return "需要策略基础"
+        case .expert: return "高强度对抗"
+        }
+    }
+    
+    var stars: Int {
+        switch self {
+        case .easy: return 1
+        case .normal: return 2
+        case .hard: return 3
+        case .expert: return 5
         }
     }
 }
 
-// MARK: - Preview
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
         SettingsView(
