@@ -70,14 +70,14 @@ struct SettingsView: View {
     
     // MARK: - Tab Picker
     private var tabPicker: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 4) {
             tabButton(icon: "gamecontroller", title: "游戏", tag: 0)
             tabButton(icon: "brain.head.profile", title: "难度", tag: 1)
             tabButton(icon: "chart.bar", title: "统计", tag: 2)
             tabButton(icon: "info.circle", title: "关于", tag: 3)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 10)
         .background(Color(hex: "1a1a2e"))
     }
     
