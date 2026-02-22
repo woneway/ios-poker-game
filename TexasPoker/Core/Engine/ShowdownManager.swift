@@ -19,6 +19,9 @@ enum ShowdownManager {
     ) -> ShowdownResult {
         if let index = players.firstIndex(where: { $0.id == winner.id }) {
             players[index].chips += potTotal
+            if players[index].status == .eliminated && players[index].chips > 0 {
+                players[index].status = .active
+            }
         }
 
         let losers = findLosers(players: players, winnerIDs: [winner.id])
@@ -50,6 +53,9 @@ enum ShowdownManager {
                 let winner = potEligible[0]
                 if let index = players.firstIndex(where: { $0.id == winner.id }) {
                     players[index].chips += portion.amount
+                    if players[index].status == .eliminated && players[index].chips > 0 {
+                        players[index].status = .active
+                    }
                     allWinnerIDSet.insert(winner.id)
                     if !allWinnerIDs.contains(winner.id) { allWinnerIDs.append(winner.id) }
                     let potLabel = potIdx == 0 ? "主池" : "边池\(potIdx)"
@@ -91,6 +97,9 @@ enum ShowdownManager {
                     if let index = players.firstIndex(where: { $0.id == winner.id }) {
                         let bonus = bonusPerWinner + (i < extraBonus ? 1 : 0)
                         players[index].chips += winAmount + bonus
+                        if players[index].status == .eliminated && players[index].chips > 0 {
+                            players[index].status = .active
+                        }
                         allWinnerIDSet.insert(winner.id)
                         if !allWinnerIDs.contains(winner.id) { allWinnerIDs.append(winner.id) }
 
@@ -107,6 +116,9 @@ enum ShowdownManager {
             for winner in potWinners {
                 if let index = players.firstIndex(where: { $0.id == winner.id }) {
                     players[index].chips += winAmount
+                    if players[index].status == .eliminated && players[index].chips > 0 {
+                        players[index].status = .active
+                    }
                     allWinnerIDSet.insert(winner.id)
                     if !allWinnerIDs.contains(winner.id) { allWinnerIDs.append(winner.id) }
                     message += "\(winner.name) 赢得\(potLabel) $\(winAmount)! "
