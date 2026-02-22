@@ -407,14 +407,13 @@ class PokerGameStore: ObservableObject {
                 state = .showdown
             }
             // 2. 如果没有活跃玩家且不在 showdown/idle 状态，尝试恢复
+            // 注意：即使所有玩家都 fold 了，也要先等 showdown 完成才能进入 idle
             let activePlayers = engine.players.filter { $0.status == .active }
             if activePlayers.isEmpty && state != .showdown && state != .idle {
                 if engine.isHandOver {
                     state = .showdown
-                } else {
-                    // 尝试重新开始
-                    state = .idle
                 }
+                // 不要在这里设置为 .idle，让正常的流程处理 showdown
             }
             // 3. 如果 activePlayerIndex 指向无效位置，尝试恢复
             if engine.activePlayerIndex < 0 || engine.activePlayerIndex >= engine.players.count {
