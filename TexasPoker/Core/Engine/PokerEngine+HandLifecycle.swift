@@ -157,8 +157,18 @@ extension PokerEngine {
                 players: &players
             )
         } else {
-            isHandOver = true
-            return
+            // All players folded - find the last remaining player (not eliminated)
+            let remainingPlayers = players.filter { $0.status != .eliminated }
+            if let winner = remainingPlayers.first {
+                result = ShowdownManager.distributeSingleWinner(
+                    winner: winner,
+                    potTotal: pot.total,
+                    players: &players
+                )
+            } else {
+                isHandOver = true
+                return
+            }
         }
         
         winners = result.winnerIDs
