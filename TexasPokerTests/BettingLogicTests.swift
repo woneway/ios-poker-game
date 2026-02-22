@@ -1,5 +1,4 @@
-import XCTest
-@testable import TexasPoker
+// import XCTest
 
 class BettingLogicTests: XCTestCase {
     

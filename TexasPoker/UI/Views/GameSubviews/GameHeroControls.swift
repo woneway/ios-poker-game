@@ -124,8 +124,7 @@ struct GameHeroControls: View {
                         }
                         .padding(.horizontal, 60)
                     }
-                } else if let hero = hero, hero.chips <= 0 {
-                    // Hero eliminated but game continues
+                } else if let hero = hero, hero.status == .eliminated && hero.chips <= 0 {
                     VStack(spacing: 6) {
                         Text("你被淘汰了!")
                             .font(.system(size: 18, weight: .black))
