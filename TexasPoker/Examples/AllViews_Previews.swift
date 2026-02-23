@@ -50,8 +50,8 @@ struct AllViews_Previews: PreviewProvider {
                             maxPlayers: 8,
                             currentPlayers: 6,
                             players: [
-                                TablePlayer(id: UUID(), name: "Hero", avatar: "🎯", aiProfile: nil, chips: 1000, isHero: true),
-                                TablePlayer(id: UUID(), name: "鲨鱼", avatar: "🦈", aiProfile: AIProfile.allProfiles[0], chips: 1500, isHero: false)
+                                TablePlayer(id: UUID(), name: "Hero", avatar: .emoji("🤠"), aiProfile: nil, chips: 1000, isHero: true),
+                                TablePlayer(id: UUID(), name: "鲨鱼", avatar: .emoji("🦈"), aiProfile: AIProfile.allProfiles[0], chips: 1500, isHero: false)
                             ],
                             buyInRange: 400...1000
                         ),

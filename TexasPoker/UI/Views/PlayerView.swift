@@ -107,11 +107,11 @@ struct PlayerView: View {
     }
     
     // MARK: - Computed Properties
-    
-    private var avatar: String {
-        player.aiProfile?.avatar ?? (player.isHuman ? "🤠" : "🤖")
+
+    private var avatar: AvatarType {
+        player.aiProfile?.avatar ?? (player.isHuman ? .emoji("🤠") : .emoji("🤖"))
     }
-    
+
     private var avatarSize: CGFloat {
         let base: CGFloat = compact ? 44 : 56
         return base * DeviceHelper.scaleFactor
@@ -240,7 +240,7 @@ struct PlayerView_Previews: PreviewProvider {
                 aiProfile: AIProfile(
                     id: "test_ai",
                     name: "Test",
-                    avatar: "🤖",
+                    avatar: .emoji("🤖"),
                     description: "Test AI",
                     tightness: 0.5,
                     aggression: 0.5,

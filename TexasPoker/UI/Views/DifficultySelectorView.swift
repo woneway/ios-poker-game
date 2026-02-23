@@ -212,11 +212,10 @@ struct DifficultyRow: View {
 // MARK: - Opponent Badge
 struct OpponentBadge: View {
     let profile: AIProfile
-    
+
     var body: some View {
         HStack(spacing: 4) {
-            Text(profile.avatar)
-                .font(.system(size: 16))
+            profile.avatar.view(size: 16)
             Text(profile.name)
                 .font(.caption)
                 .foregroundColor(.white)

@@ -118,9 +118,8 @@ struct SpectatorOverlay: View {
                 if player.chips > 0 {
                     // 存活玩家显示筹码条
                     HStack(spacing: 6) {
-                        Text(player.aiProfile?.avatar ?? (player.isHuman ? "🧑" : "🤖"))
-                            .font(.system(size: 12))
-                        
+                        (player.aiProfile?.avatar ?? (player.isHuman ? .emoji("🧑") : .emoji("🤖"))).view(size: 12)
+
                         Text(player.displayName)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(player.isHuman ? .yellow : .white.opacity(0.8))

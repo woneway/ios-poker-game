@@ -379,9 +379,8 @@ struct TableCard: View {
             HStack(spacing: 8) {
                 ForEach(table.players.filter { !$0.isHero }) { player in
                     VStack(spacing: 4) {
-                        Text(player.avatar)
-                            .font(.system(size: 24))
-                        
+                        player.avatar.view(size: 24)
+
                         Text(player.name)
                             .font(.caption2)
                             .foregroundColor(.white)

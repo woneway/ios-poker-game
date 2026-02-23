@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 struct GameTable: Identifiable {
     let id: UUID
@@ -33,7 +34,7 @@ struct GameTable: Identifiable {
 struct TablePlayer: Identifiable {
     let id: UUID
     let name: String
-    let avatar: String
+    let avatar: AvatarType
     let aiProfile: AIProfile?
     let chips: Int
     let isHero: Bool
@@ -236,7 +237,7 @@ class TableManager: ObservableObject {
         tablePlayers.append(TablePlayer(
             id: UUID(),
             name: "Hero",
-            avatar: "🎯",
+            avatar: .emoji("🤠"),
             aiProfile: nil,
             chips: 1000,
             isHero: true

@@ -12,8 +12,7 @@ struct TournamentEntryNotification: View {
     var body: some View {
         HStack(spacing: 12) {
             // Avatar
-            Text(player.aiProfile?.avatar ?? "🤖")
-                .font(.system(size: 32))
+            player.aiProfile?.avatar.view(size: 32)
                 .frame(width: 50, height: 50)
                 .background(
                     Circle()

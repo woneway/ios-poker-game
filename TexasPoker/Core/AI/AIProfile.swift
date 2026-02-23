@@ -1,4 +1,18 @@
 import Foundation
+import SwiftUI
+
+/// 头像类型：emoji或图片
+enum AvatarType: Equatable {
+    case emoji(String)           // Emoji头像
+    case image(String)          // 图片资源名称
+
+    var displayValue: String {
+        switch self {
+        case .emoji(let value): return value
+        case .image(let name): return name
+        }
+    }
+}
 
 struct AIProfile: Equatable {
 
@@ -52,7 +66,7 @@ struct AIProfile: Equatable {
     let id: String
     
     let name: String
-    let avatar: String           // Emoji avatar
+    let avatar: AvatarType       // 头像：emoji或图片
     let description: String
 
     // Core parameters (0.0 - 1.0)
@@ -168,7 +182,7 @@ struct AIProfile: Equatable {
     static let rock = AIProfile(
         id: "rock",
         name: "石头",
-        avatar: "🪨",
+        avatar: .emoji("🪨"),
         description: "只玩顶级牌，一旦入池就加注",
         tightness: 0.90,
         aggression: 0.82,      // High! Rocks raise when they play
@@ -190,7 +204,7 @@ struct AIProfile: Equatable {
     static let maniac = AIProfile(
         id: "maniac",
         name: "疯子麦克",
-        avatar: "🤪",
+        avatar: .emoji("🤪"),
         description: "疯狂加注，什么牌都玩",
         tightness: 0.15,       // Plays ~85% of hands
         aggression: 0.90,      // Always raising
@@ -213,7 +227,7 @@ struct AIProfile: Equatable {
     static let callingStation = AIProfile(
         id: "calling_station",
         name: "安娜",
-        avatar: "👩",
+        avatar: .emoji("👩"),
         description: "喜欢跟注，舍不得弃牌",
         tightness: 0.30,       // Plays ~70% of hands
         aggression: 0.12,      // Almost never raises
@@ -235,7 +249,7 @@ struct AIProfile: Equatable {
     static let fox = AIProfile(
         id: "fox",
         name: "老狐狸",
-        avatar: "🦊",
+        avatar: .emoji("🦊"),
         description: "平衡型高手，难以读牌",
         tightness: 0.55,       // ~45% VPIP (adjusts with position)
         aggression: 0.68,      // Raises more than calls
@@ -257,7 +271,7 @@ struct AIProfile: Equatable {
     static let shark = AIProfile(
         id: "shark",
         name: "鲨鱼汤姆",
-        avatar: "🦈",
+        avatar: .emoji("🦈"),
         description: "位置意识极强，后位杀手",
         tightness: 0.48,       // Base ~52% VPIP, much wider IP
         aggression: 0.78,      // Very aggressive
@@ -280,7 +294,7 @@ struct AIProfile: Equatable {
     static let academic = AIProfile(
         id: "academic",
         name: "艾米",
-        avatar: "🎓",
+        avatar: .emoji("🎓"),
         description: "严格GTO，数学驱动，不可利用",
         tightness: 0.52,       // Slightly tight of average
         aggression: 0.62,      // Moderately aggressive
@@ -302,7 +316,7 @@ struct AIProfile: Equatable {
     static let tiltDavid = AIProfile(
         id: "tilt_david",
         name: "大卫",
-        avatar: "😤",
+        avatar: .emoji("😤"),
         description: "输钱后情绪化，容易上头",
         tightness: 0.55,       // Normal: decent TAG
         aggression: 0.55,      // Normal: moderate

@@ -194,10 +194,10 @@ struct PlayerRankRow: View {
         HStack(spacing: 12) {
             // Rank badge
             RankBadge(rank: rank, isActive: isActive)
-            
+
             // Avatar
-            Text(player.aiProfile?.avatar ?? (isHero ? "🤠" : "🤖"))
-                .font(.system(size: 28))
+            let displayAvatar = player.aiProfile?.avatar ?? (isHero ? .emoji("🤠") : .emoji("🤖"))
+            displayAvatar.view(size: 28)
                 .frame(width: 44, height: 44)
                 .background(
                     Circle()

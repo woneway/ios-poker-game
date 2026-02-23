@@ -1,5 +1,29 @@
 import SwiftUI
 
+// MARK: - Optional AvatarType Extension
+
+extension Optional where Wrapped == AvatarType {
+    /// 获取头像或默认值
+    var orDefault: AvatarType {
+        switch self {
+        case .some(let avatar): return avatar
+        case .none: return .emoji("🤖")
+        }
+    }
+
+    /// 渲染头像视图
+    @ViewBuilder
+    func view(size: CGFloat, defaultEmoji: String = "🤖") -> some View {
+        switch self {
+        case .some(let avatar):
+            avatar.view(size: size)
+        case .none:
+            Text(defaultEmoji)
+                .font(.system(size: size * 0.55))
+        }
+    }
+}
+
 // MARK: - Player Card View
 
 struct PlayerCardsView: View {
@@ -35,17 +59,78 @@ struct PlayerCardsView: View {
     }
 }
 
+// MARK: - AvatarType View Extension
+
+extension AvatarType {
+    /// 渲染头像视图（带后备方案）
+    @ViewBuilder
+    func view(size: CGFloat, fallbackEmoji: String = "") -> some View {
+        switch self {
+        case .emoji(let emoji):
+            Text(emoji)
+                .font(.system(size: size * 0.55))
+                .shadow(color: .black.opacity(0.2), radius: 2)
+        case .image(let name):
+            // 使用ondemand加载图片，如果失败则显示后备emoji
+            Image(name)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+                .shadow(color: .black.opacity(0.2), radius: 2)
+                .overlay(
+                    Circle()
+                        .fill(Color.clear)
+                        .background(
+                            Text(fallbackEmoji)
+                                .font(.system(size: size * 0.55))
+                                .opacity(0)
+                        )
+                )
+                .onAppear {
+                    // 图片加载失败时SwiftUI会自动显示空白，这里不做额外处理
+                }
+        }
+    }
+
+    /// 获取显示值（用于Text）
+    var displayString: String {
+        switch self {
+        case .emoji(let value): return value
+        case .image: return ""
+        }
+    }
+
+    /// 是否是图片类型
+    var isImage: Bool {
+        if case .image = self { return true }
+        return false
+    }
+
+    /// 获取图片名称（如果是图片类型）
+    var imageName: String? {
+        if case .image(let name) = self { return name }
+        return nil
+    }
+
+    /// 获取emoji值
+    var emojiValue: String? {
+        if case .emoji(let value) = self { return value }
+        return nil
+    }
+}
+
 // MARK: - Player Avatar View
 
 struct PlayerAvatarView: View {
-    let avatar: String
+    let avatar: AvatarType
     let isActive: Bool
     let isDealer: Bool
     let playerStatus: PlayerStatus
     let playerStats: PlayerStats?
     let avatarSize: CGFloat
     let onTap: () -> Void
-    
+
     var body: some View {
         ZStack {
             // Active Glow
@@ -57,7 +142,7 @@ struct PlayerAvatarView: View {
                     .scaleEffect(1.1)
                     .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isActive)
             }
-            
+
             // Avatar Background & Border
             Circle()
                 .fill(Material.ultraThin)
@@ -74,11 +159,9 @@ struct PlayerAvatarView: View {
                         )
                 )
                 .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 2)
-            
-            // Avatar Character
-            Text(avatar)
-                .font(.system(size: avatarSize * 0.55))
-                .shadow(color: .black.opacity(0.2), radius: 2)
+
+            // Avatar Character or Image
+            avatar.view(size: avatarSize)
             
             // Dealer Button
             if isDealer {
@@ -195,11 +278,10 @@ struct ProfilePopover: View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             HStack {
-                Text(player.aiProfile?.avatar ?? (player.isHuman ? "🤠" : "🤖"))
-                    .font(.system(size: 40))
+                (player.aiProfile?.avatar ?? (player.isHuman ? .emoji("🤠") : .emoji("🤖"))).view(size: 40)
                     .padding(4)
                     .background(Circle().fill(Color.gray.opacity(0.1)))
-                
+
                 VStack(alignment: .leading) {
                     Text(player.displayName)
                         .font(.headline)
