@@ -135,10 +135,23 @@ class TableManager: ObservableObject {
     
     func generateTables() {
         var newTables: [GameTable] = []
+        let difficulties = AIProfile.Difficulty.allCases
+        var usedDifficulties: Set<AIProfile.Difficulty> = []
         
         for i in 1...tableCount {
             let mode: GameMode = i % 2 == 0 ? .tournament : .cashGame
-            let difficulty = AIProfile.Difficulty.allCases.randomElement() ?? .normal
+            
+            let availableDifficulties = difficulties.filter { !usedDifficulties.contains($0) || usedDifficulties.count >= difficulties.count }
+            let difficulty: AIProfile.Difficulty
+            if availableDifficulties.isEmpty {
+                difficulty = difficulties.randomElement() ?? .normal
+            } else {
+                difficulty = availableDifficulties.randomElement() ?? .normal
+                usedDifficulties.insert(difficulty)
+                if usedDifficulties.count >= difficulties.count {
+                    usedDifficulties.removeAll()
+                }
+            }
             
             let (smallBlind, bigBlind) = generateBlinds(for: difficulty)
             let players = generatePlayers(for: difficulty, mode: mode)
@@ -158,7 +171,7 @@ class TableManager: ObservableObject {
             newTables.append(table)
         }
         
-        tables = newTables
+        tables = newTables.shuffled()
     }
     
     func regenerateWithFilter() {
@@ -205,21 +218,11 @@ class TableManager: ObservableObject {
     private func generatePlayers(for difficulty: AIProfile.Difficulty, mode: GameMode) -> [TablePlayer] {
         var tablePlayers: [TablePlayer] = []
         
-        tablePlayers.append(TablePlayer(
-            id: UUID(),
-            name: "Hero",
-            avatar: "🎯",
-            aiProfile: nil,
-            chips: 1000,
-            isHero: true
-        ))
+        let aiPlayerCount = 7
         
-        let availableProfiles = difficulty.availableProfiles
-        let playerCount = Int.random(in: 5...7)
+        let selectedProfiles = difficulty.randomOpponents(count: aiPlayerCount)
         
-        let shuffled = availableProfiles.shuffled()
-        for i in 0..<min(playerCount, shuffled.count) {
-            let profile = shuffled[i]
+        for profile in selectedProfiles {
             tablePlayers.append(TablePlayer(
                 id: UUID(),
                 name: profile.name,
@@ -230,7 +233,16 @@ class TableManager: ObservableObject {
             ))
         }
         
-        return tablePlayers
+        tablePlayers.append(TablePlayer(
+            id: UUID(),
+            name: "Hero",
+            avatar: "🎯",
+            aiProfile: nil,
+            chips: 1000,
+            isHero: true
+        ))
+        
+        return tablePlayers.shuffled()
     }
     
     func filteredTables() -> [GameTable] {

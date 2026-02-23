@@ -558,7 +558,9 @@ struct GameView: View {
                 .frame(height: geo.size.height * 0.35)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.top, geo.size.height * 0.28)
+                .padding(.trailing, 8)
                 .frame(maxHeight: .infinity, alignment: .top)
+                .ignoresSafeArea(.container, edges: .top)
                 .transition(.move(edge: .trailing))
             }
             

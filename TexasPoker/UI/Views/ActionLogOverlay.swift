@@ -53,6 +53,7 @@ struct ActionLogOverlay: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
+        .padding(.trailing, 2)
         .background(Color.black.opacity(0.5))
     }
     

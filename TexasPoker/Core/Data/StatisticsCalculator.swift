@@ -1,5 +1,8 @@
 import Foundation
 import CoreData
+import os.log
+
+private let statisticsLogger = Logger(subsystem: "smartegg.TexasPoker", category: "Statistics")
 
 // MARK: - Statistics Cache
 
@@ -192,8 +195,12 @@ class StatisticsCalculator {
     ) -> [String: PlayerStats?] {
         let pid = normalizeProfileId(profileId ?? profileIdProvider?() ?? ProfileManager.shared.currentProfileIdForData)
 
+        statisticsLogger.info("calculateBatchStats: gameMode=\(String(describing: gameMode)), profileId=\(pid), playerNames=\(playerNames))")
+
         // Fetch all hands and actions for this game mode in ONE query
         let hands = fetchHands(gameMode: gameMode, profileId: pid)
+
+        statisticsLogger.info("fetchHands count: \(hands.count)")
 
         guard !hands.isEmpty else {
             // No hands at all - return nil for all players
@@ -207,27 +214,69 @@ class StatisticsCalculator {
         // Fetch all actions for all players in this game mode
         let allActions = fetchAllActionsForGameMode(gameMode: gameMode, profileId: pid)
 
+        statisticsLogger.info("fetchAllActionsForGameMode count: \(allActions.count)")
+
         // Build result dictionary
         var result: [String: PlayerStats?] = [:]
 
         for playerName in playerNames {
-            // Filter actions for this player
+            // Filter actions for this player - support both exact match on playerName and prefix match on playerUniqueId
             let playerActions = allActions.filter { action in
-                let uniqueId = action.value(forKey: "playerUniqueId") as? String
                 let name = action.value(forKey: "playerName") as? String ?? ""
-                // 前缀匹配：playerName + "#" 能匹配到 "playerName#1", "playerName#2" 等
-                let uniqueIdMatches = uniqueId != nil && (uniqueId?.hasPrefix(playerName + "#") ?? false)
-                return uniqueIdMatches || name == playerName
+                let uniqueId = action.value(forKey: "playerUniqueId") as? String ?? ""
+                // Exact match on playerName
+                if name == playerName {
+                    return true
+                }
+                // Prefix match on playerUniqueId (e.g., "石头#1" matches query "石头")
+                if !uniqueId.isEmpty && uniqueId.hasPrefix(playerName + "#") {
+                    return true
+                }
+                return false
+            }
+
+            if playerName == "Hero" {
+                statisticsLogger.info("Hero actions count: \(playerActions.count)")
+                // Debug: Check if handHistory relationship is loaded
+                if let firstAction = playerActions.first {
+                    let handHistory = firstAction.value(forKey: "handHistory")
+                    statisticsLogger.info("First action handHistory: \(String(describing: handHistory))")
+                }
             }
 
             // Find hands where this player participated
-            let handIDs = Set(playerActions.compactMap { ($0.value(forKey: "handHistory") as? NSManagedObject)?.value(forKey: "id") as? UUID })
-            let playerHands = hands.filter { hand in
-                guard let handID = hand.value(forKey: "id") as? UUID else { return false }
-                return handIDs.contains(handID)
+            var handIDs: Set<UUID> = []
+            for action in playerActions {
+                if let handHistory = action.value(forKey: "handHistory") as? NSManagedObject {
+                    statisticsLogger.info("handHistory found for Hero action")
+                    if let handID = handHistory.value(forKey: "id") as? UUID {
+                        handIDs.insert(handID)
+                    }
+                } else {
+                    statisticsLogger.error("handHistory is nil for Hero action!")
+                }
+            }
+            
+            if playerName == "Hero" {
+                statisticsLogger.info("Hero handIDs count: \(handIDs.count)")
+            }
+
+            var playerHands: [NSManagedObject] = []
+            for hand in hands {
+                if let handID = hand.value(forKey: "id") as? UUID,
+                   handIDs.contains(handID) {
+                    playerHands.append(hand)
+                }
+            }
+            
+            if playerName == "Hero" {
+                statisticsLogger.info("Hero playerHands count: \(playerHands.count)")
             }
 
             let totalHands = playerHands.count
+            
+            statisticsLogger.info("calculateBatchStats result: playerName=\(playerName), totalHands=\(totalHands)")
+            
             guard totalHands > 0 else {
                 result[playerName] = nil
                 continue
@@ -480,30 +529,39 @@ class StatisticsCalculator {
             guard let handID = hand.value(forKey: "id") as? UUID,
                   showdownHandIDs.contains(handID),
                   let winners = hand.value(forKey: "winnerNames") as? String else { return false }
-            return winners.components(separatedBy: ",")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .contains(playerName)
+            let winnerList = winners.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            return winnerList.contains { winner in checkIsWinner(winner, matches: playerName) }
         }.count
         
         return Double(showdownWins) / Double(showdownHandIDs.count) * 100.0
     }
     
     // MARK: - Hands Won & Winnings
-    
+
+    private func checkIsWinner(_ winnerName: String, matches playerName: String) -> Bool {
+        if winnerName == playerName {
+            return true
+        }
+        if winnerName.hasPrefix(playerName + "#") {
+            return true
+        }
+        return false
+    }
+
     private func countHandsWon(playerName: String, playerHands: [NSManagedObject]) -> Int {
         return playerHands.filter { hand in
             guard let winners = hand.value(forKey: "winnerNames") as? String else { return false }
-            return winners.components(separatedBy: ",")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .contains(playerName)
+            let winnerList = winners.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            return winnerList.contains { winner in checkIsWinner(winner, matches: playerName) }
         }.count
     }
-    
+
     private func calculateWinnings(playerName: String, playerHands: [NSManagedObject]) -> Int {
         return playerHands.reduce(0) { total, hand in
             guard let winners = hand.value(forKey: "winnerNames") as? String else { return total }
             let winnerList = winners.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-            if winnerList.contains(playerName) {
+            let didWin = winnerList.contains { winner in checkIsWinner(winner, matches: playerName) }
+            if didWin {
                 // 修复：只计算玩家实际赢得的份额，而不是整个底池
                 let pot = hand.value(forKey: "finalPot") as? Int32 ?? 0
                 let winnerCount = winnerList.count
@@ -983,7 +1041,7 @@ class StatisticsCalculator {
         let pid = normalizeProfileId(profileId ?? ProfileManager.shared.currentProfileIdForData)
 
         var predicates: [NSPredicate] = [
-            NSPredicate(format: "playerName == %@", playerName),
+            NSPredicate(format: "playerName == %@ OR playerUniqueId BEGINSWITH %@", playerName, playerName + "#"),
             NSPredicate(format: "handHistory.gameMode == %@", gameMode.rawValue),
             predicateForProfileId(pid)
         ]
@@ -1018,9 +1076,11 @@ class StatisticsCalculator {
             // Only count each hand once per position
             if positionHandIds[position]!.insert(handId).inserted {
                 // Check if this hand was won
-                if let winnerNames = handHistory.value(forKey: "winnerNames") as? String,
-                   winnerNames.components(separatedBy: ",").map({ $0.trimmingCharacters(in: .whitespaces) }).contains(playerName) {
-                    positionWins[position]!.insert(handId)
+                if let winnerNames = handHistory.value(forKey: "winnerNames") as? String {
+                    let winnerList = winnerNames.components(separatedBy: ",").map({ $0.trimmingCharacters(in: .whitespaces) })
+                    if winnerList.contains(where: { winner in checkIsWinner(winner, matches: playerName) }) {
+                        positionWins[position]!.insert(handId)
+                    }
                 }
             }
         }

@@ -1,5 +1,8 @@
 import SwiftUI
 import CoreData
+import os.log
+
+private let viewLogger = Logger(subsystem: "smartegg.TexasPoker", category: "View")
 
 // MARK: - Enhanced Statistics View
 /// Enhanced statistics view with charts and detailed analytics
@@ -75,6 +78,9 @@ struct EnhancedStatisticsView: View {
                 }
             }
             .onAppear {
+                // Force recalculate stats by resetting cache
+                lastStatsCalculationTime = Date.distantPast
+                cachedBatchStats = [:]
                 loadHandHistory()
             }
             .onChange(of: selectedMode) { _, _ in
@@ -366,14 +372,13 @@ struct EnhancedStatisticsView: View {
 
     /// Get batch stats using optimized single-query approach
     private func getBatchStats() -> [String: PlayerStats?] {
-        // Return cached stats if still valid
-        if Date().timeIntervalSince(lastStatsCalculationTime) < statsCacheValidityInterval,
-           !cachedBatchStats.isEmpty {
-            return cachedBatchStats
-        }
-
+        // Always recalculate for now to debug
+        viewLogger.info("getBatchStats: calculating fresh stats, selectedMode=\(String(describing: selectedMode))")
+        
         let profileId = profiles.currentProfileIdForData
+        viewLogger.info("getBatchStats: profileId=\(profileId)")
         let allPlayers = ["Hero"] + aiNames
+        viewLogger.info("getBatchStats: allPlayers=\(allPlayers)")
 
         // Use batch calculation - much more efficient than individual queries
         cachedBatchStats = StatisticsCalculator.shared.calculateBatchStats(
@@ -382,6 +387,8 @@ struct EnhancedStatisticsView: View {
             profileId: profileId
         )
         lastStatsCalculationTime = Date()
+        
+        viewLogger.info("getBatchStats: result keys=\(Array(cachedBatchStats.keys))")
 
         return cachedBatchStats
     }
@@ -408,6 +415,8 @@ struct EnhancedStatisticsView: View {
     private func getHeroStats() -> HeroStatsSummary {
         // Use batch stats for better performance
         let batchStats = getBatchStats()
+        
+        viewLogger.info("getHeroStats: batchStats keys = \(batchStats.keys), Hero = \(String(describing: batchStats["Hero"]))")
 
         if let outer = batchStats["Hero"], let stats = outer {
             let bb = 20 // Default big blind

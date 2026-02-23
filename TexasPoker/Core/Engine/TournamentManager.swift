@@ -146,7 +146,8 @@ struct TournamentManager {
             name: finalName,
             chips: newPlayer.chips,
             isHuman: false,
-            aiProfile: newPlayer.aiProfile
+            aiProfile: newPlayer.aiProfile,
+            entryIndex: newPlayer.entryIndex > 0 ? newPlayer.entryIndex : 1
         )
 
         players.append(playerToAdd)

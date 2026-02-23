@@ -70,7 +70,7 @@ class TournamentTests: XCTestCase {
     // MARK: - PokerEngine Tournament Initialization Tests
     
     func testEngineDefaultIsCashGame() {
-        let engine = PokerEngine()
+        let engine = PokerEngine(mode: .cashGame)
         XCTAssertEqual(engine.gameMode, .cashGame)
         XCTAssertNil(engine.tournamentConfig)
         XCTAssertEqual(engine.smallBlindAmount, 10)

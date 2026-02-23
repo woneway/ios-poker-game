@@ -266,7 +266,8 @@ extension AIProfile {
             name: profile.name,
             chips: startingChips,
             isHuman: false,
-            aiProfile: profile
+            aiProfile: profile,
+            entryIndex: 1
         )
     }
     
@@ -295,7 +296,8 @@ extension AIProfile {
             name: profile.name,
             chips: max(1000, startingChips),
             isHuman: false,
-            aiProfile: profile
+            aiProfile: profile,
+            entryIndex: 1
         )
     }
 }

@@ -38,12 +38,9 @@ struct Player: Identifiable, Equatable {
     }
     
     /// 显示名称
-    /// AI 玩家返回 playerUniqueId，人类玩家返回原始 name
+    /// 始终返回原始 name，entryIndex 仅用于内部跟踪
     var displayName: String {
-        if isHuman || aiProfile == nil {
-            return name
-        }
-        return playerUniqueId
+        return name
     }
     
     init(name: String, chips: Int, isHuman: Bool = false, aiProfile: AIProfile? = nil, entryIndex: Int = 0) {

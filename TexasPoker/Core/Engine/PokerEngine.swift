@@ -77,7 +77,7 @@ class PokerEngine: ObservableObject {
     
     /// 当前异步任务的唯一标识符，用于防止竞态条件
     private var currentTaskId: Int = 0
-    
+
     init(mode: GameMode = .cashGame, config: TournamentConfig? = nil, cashGameConfig: CashGameConfig? = nil, difficulty: AIProfile.Difficulty? = nil, playerCount: Int = 8) {
         self.deck = Deck()
         self.players = []
@@ -153,13 +153,13 @@ class PokerEngine: ObservableObject {
         
         players = [
             Player(name: "Hero", chips: defaultStartingChips, isHuman: true),
-            Player(name: "石头", chips: defaultStartingChips, isHuman: false, aiProfile: .rock),
-            Player(name: "疯子麦克", chips: defaultStartingChips, isHuman: false, aiProfile: .maniac),
-            Player(name: "安娜", chips: defaultStartingChips, isHuman: false, aiProfile: .callingStation),
-            Player(name: "老狐狸", chips: defaultStartingChips, isHuman: false, aiProfile: .fox),
-            Player(name: "鲨鱼汤姆", chips: defaultStartingChips, isHuman: false, aiProfile: .shark),
-            Player(name: "艾米", chips: defaultStartingChips, isHuman: false, aiProfile: .academic),
-            Player(name: "大卫", chips: defaultStartingChips, isHuman: false, aiProfile: .tiltDavid),
+            Player(name: "石头", chips: defaultStartingChips, isHuman: false, aiProfile: .rock, entryIndex: 1),
+            Player(name: "疯子麦克", chips: defaultStartingChips, isHuman: false, aiProfile: .maniac, entryIndex: 1),
+            Player(name: "安娜", chips: defaultStartingChips, isHuman: false, aiProfile: .callingStation, entryIndex: 1),
+            Player(name: "老狐狸", chips: defaultStartingChips, isHuman: false, aiProfile: .fox, entryIndex: 1),
+            Player(name: "鲨鱼汤姆", chips: defaultStartingChips, isHuman: false, aiProfile: .shark, entryIndex: 1),
+            Player(name: "艾米", chips: defaultStartingChips, isHuman: false, aiProfile: .academic, entryIndex: 1),
+            Player(name: "大卫", chips: defaultStartingChips, isHuman: false, aiProfile: .tiltDavid, entryIndex: 1),
         ]
         
         // Use cashGameConfig blind values if in cash game mode
