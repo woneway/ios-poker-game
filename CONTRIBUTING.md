@@ -50,6 +50,9 @@ By participating in this project, you are expected to uphold our [Code of Conduc
 git clone https://github.com/yourusername/ios-poker-game.git
 cd ios-poker-game
 
+# Generate Xcode project (after modifying project.yml)
+xcodegen generate
+
 # Open in Xcode
 open TexasPoker.xcodeproj
 
@@ -58,6 +61,13 @@ xcodebuild -project TexasPoker.xcodeproj \
            -scheme TexasPoker \
            -destination 'platform=iOS Simulator,name=iPhone 15' \
            build
+```
+
+### Linting
+
+```bash
+# Run SwiftLint
+swiftlint
 ```
 
 ### Running Tests
