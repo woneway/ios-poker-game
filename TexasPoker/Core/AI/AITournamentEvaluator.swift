@@ -153,6 +153,7 @@ final class AITournamentEvaluator {
         let engine = PokerEngine(mode: .cashGame, cashGameConfig: .default)
         engine.aiDecisionDelay = 0
         engine.useSyncAIDecision = true
+        engine.disableSideEffects = true  // 禁用 Core Data 记录，避免崩溃
         engine.players = profiles.map { profile in
             Player(
                 name: profile.name,

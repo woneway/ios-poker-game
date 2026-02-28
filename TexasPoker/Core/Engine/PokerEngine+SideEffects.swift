@@ -150,6 +150,9 @@ extension PokerEngine {
     }
     
     func recordActionStats(action: PlayerAction, originalPlayer: Player, updatedPlayer: Player, potAddition: Int) {
+        // 验证模式下跳过 Core Data 记录
+        if disableSideEffects { return }
+
         let isVoluntary = determineIfVoluntary(action: action, player: originalPlayer)
         let position = getPosition(playerIndex: activePlayerIndex)
         ActionRecorder.shared.recordAction(
@@ -163,8 +166,11 @@ extension PokerEngine {
             isHuman: originalPlayer.isHuman
         )
     }
-    
+
     func recordHandEnd() {
+        // 验证模式下跳过 Core Data 记录
+        if disableSideEffects { return }
+
         let heroCards = players.first { $0.isHuman }?.holeCards ?? []
         let winnerNames = winners.compactMap { id in
             players.first { $0.id == id }?.name

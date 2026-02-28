@@ -24,6 +24,7 @@ class PokerEngine: ObservableObject {
     
     var aiDecisionDelay: Double = 0.6
     var useSyncAIDecision: Bool = false
+    var disableSideEffects: Bool = false  // 禁用副作用（Core Data 记录等）
     
     // MARK: - Computed Properties
     
