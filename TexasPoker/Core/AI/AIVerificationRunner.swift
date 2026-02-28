@@ -99,20 +99,23 @@ class AIVerificationRunner {
             for profile in self.selectedProfiles {
                 evaluator.profilesMap[profile.name] = profile
             }
-            
+
+            // 初始化累积结果
+            evaluator.resetCumulativeResults(for: self.selectedProfiles)
+
             for i in 1...config.tournamentCount {
-                if self.isCancelled { 
-                    break 
-                }
-                
-                do {
-                    _ = evaluator.runSingleGameForProgress(profiles: self.selectedProfiles)
-                } catch {
-                    print("Error running game: \(error)")
+                if self.isCancelled {
                     break
                 }
-                
-                let partialResults = evaluator.runEvaluationWithProfiles(self.selectedProfiles)
+
+                // 运行单场比赛
+                let gameResults = evaluator.runSingleGameForProgress(profiles: self.selectedProfiles)
+
+                // 更新累积结果
+                evaluator.updateCumulativeResults(with: gameResults)
+
+                // 获取累积结果（不重新计算）
+                let partialResults = evaluator.getCumulativeResults()
                 let totalPlayers = self.selectedProfiles.count
                 
                 var partialFinalResults: [AIVerificationResult] = []
@@ -142,7 +145,8 @@ class AIVerificationRunner {
             }
             
             if !self.isCancelled {
-                let evaluatorResults = evaluator.runEvaluationWithProfiles(self.selectedProfiles)
+                // 使用累积结果作为最终结果
+                let evaluatorResults = evaluator.getCumulativeResults()
                 let totalPlayers = self.selectedProfiles.count
                 
                 var finalResults: [AIVerificationResult] = []

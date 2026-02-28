@@ -27,6 +27,9 @@ final class AITournamentEvaluator {
     private let config: TournamentConfig
     var profilesMap: [String: AIProfile] = [:]
 
+    // 累积结果，用于进度更新
+    private var cumulativeResults: [String: PlayerResult] = [:]
+
     init(config: TournamentConfig = TournamentConfig(
         playerCount: 52,
         games: 10,
@@ -34,6 +37,34 @@ final class AITournamentEvaluator {
         maxHandsPerGame: 100
     )) {
         self.config = config
+    }
+
+    // 初始化累积结果
+    func resetCumulativeResults(for profiles: [AIProfile]) {
+        cumulativeResults = [:]
+        for profile in profiles {
+            cumulativeResults[profile.id] = PlayerResult(profile: profile)
+        }
+    }
+
+    // 更新累积结果（单场比赛）
+    func updateCumulativeResults(with gameResults: [GameResult]) {
+        for result in gameResults {
+            if var playerResult = cumulativeResults[result.profile.id] {
+                playerResult.totalPoints += result.position
+                playerResult.gamesPlayed += 1
+                playerResult.totalChips += result.chips
+                if result.position == 1 {
+                    playerResult.wins += 1
+                }
+                cumulativeResults[result.profile.id] = playerResult
+            }
+        }
+    }
+
+    // 获取当前累积结果（排序后）
+    func getCumulativeResults() -> [PlayerResult] {
+        return Array(cumulativeResults.values).sorted { $0.avgRank < $1.avgRank }
     }
 
     func runEvaluation() -> [PlayerResult] {
@@ -84,9 +115,8 @@ final class AITournamentEvaluator {
         return results.sorted { $0.avgRank < $1.avgRank }
     }
     
-    func runSingleGameForProgress(profiles: [AIProfile]) -> Bool {
-        _ = runSingleGame(profiles: profiles)
-        return true
+    func runSingleGameForProgress(profiles: [AIProfile]) -> [GameResult] {
+        return runSingleGame(profiles: profiles)
     }
 
     private func runSingleGame(profiles: [AIProfile]) -> [GameResult] {
