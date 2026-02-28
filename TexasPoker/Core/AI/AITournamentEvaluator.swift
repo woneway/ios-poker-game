@@ -291,6 +291,7 @@ final class AITournamentEvaluator {
         engine.pot = Pot()
         engine.currentBet = 0
         engine.minRaise = 0
+        engine.deck.reset()  // 重置牌堆
 
         engine.dealerIndex = (engine.dealerIndex + 1) % engine.players.count
     }
