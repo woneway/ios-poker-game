@@ -136,12 +136,13 @@ final class AITournamentEvaluator {
         }
 
         let finalPlayers = engine.players
-            .filter { $0.chips > 0 }
+            .filter { $0.chips > 0 && $0.aiProfile != nil }
             .sorted { $0.chips > $1.chips }
 
-        return finalPlayers.enumerated().map { index, player in
-            GameResult(
-                profile: player.aiProfile!,
+        return finalPlayers.enumerated().compactMap { index, player in
+            guard let profile = player.aiProfile else { return nil }
+            return GameResult(
+                profile: profile,
                 position: index + 1,
                 chips: player.chips
             )
@@ -183,10 +184,14 @@ final class AITournamentEvaluator {
 
         postBlinds(engine: &engine)
 
-        while !engine.isHandOver && engine.activePlayerCount > 1 {
+        var loopGuard = 0
+        while !engine.isHandOver && engine.activePlayerCount > 1 && loopGuard < 100 {
+            loopGuard += 1
+
             let player = engine.players[engine.activePlayerIndex]
 
-            if player.isHuman || player.status != .active {
+            // 安全检查：跳过无效玩家
+            if player.isHuman || player.status != .active || player.aiProfile == nil {
                 engine.activePlayerIndex = (engine.activePlayerIndex + 1) % engine.players.count
                 continue
             }
