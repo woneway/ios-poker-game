@@ -103,6 +103,9 @@ class AIVerificationRunner {
             // 初始化累积结果
             evaluator.resetCumulativeResults(for: self.selectedProfiles)
 
+            // 每隔N场更新一次UI，减少UI更新频率
+            let updateInterval = max(1, config.tournamentCount / 5)
+
             for i in 1...config.tournamentCount {
                 if self.isCancelled {
                     break
@@ -114,33 +117,36 @@ class AIVerificationRunner {
                 // 更新累积结果
                 evaluator.updateCumulativeResults(with: gameResults)
 
-                // 获取累积结果（不重新计算）
-                let partialResults = evaluator.getCumulativeResults()
-                let totalPlayers = self.selectedProfiles.count
-                
-                var partialFinalResults: [AIVerificationResult] = []
-                for result in partialResults {
-                    let expectedRank = self.calculateExpectedRank(for: result.profile, in: totalPlayers)
-                    let deviation = expectedRank - Int(result.avgRank)
-                    let status: AIVerificationResult.VerificationStatus
-                    if deviation <= -5 { status = .ahead }
-                    else if deviation >= 5 { status = .behind }
-                    else { status = .onTrack }
-                    
-                    partialFinalResults.append(AIVerificationResult(
-                        profileName: result.profile.name,
-                        expectedRank: expectedRank,
-                        actualRank: result.avgRank,
-                        deviation: deviation,
-                        status: status
-                    ))
-                }
-                partialFinalResults.sort { $0.actualRank < $1.actualRank }
-                
-                DispatchQueue.main.async {
-                    self.currentGame = i
-                    self.progress = Double(i) / Double(config.tournamentCount)
-                    self.results = partialFinalResults
+                // 每隔N场或最后一场才更新UI
+                if i % updateInterval == 0 || i == config.tournamentCount {
+                    // 获取累积结果（不重新计算）
+                    let partialResults = evaluator.getCumulativeResults()
+                    let totalPlayers = self.selectedProfiles.count
+
+                    var partialFinalResults: [AIVerificationResult] = []
+                    for result in partialResults {
+                        let expectedRank = self.calculateExpectedRank(for: result.profile, in: totalPlayers)
+                        let deviation = expectedRank - Int(result.avgRank)
+                        let status: AIVerificationResult.VerificationStatus
+                        if deviation <= -5 { status = .ahead }
+                        else if deviation >= 5 { status = .behind }
+                        else { status = .onTrack }
+
+                        partialFinalResults.append(AIVerificationResult(
+                            profileName: result.profile.name,
+                            expectedRank: expectedRank,
+                            actualRank: result.avgRank,
+                            deviation: deviation,
+                            status: status
+                        ))
+                    }
+                    partialFinalResults.sort { $0.actualRank < $1.actualRank }
+
+                    DispatchQueue.main.async {
+                        self.currentGame = i
+                        self.progress = Double(i) / Double(config.tournamentCount)
+                        self.results = partialFinalResults
+                    }
                 }
             }
             
