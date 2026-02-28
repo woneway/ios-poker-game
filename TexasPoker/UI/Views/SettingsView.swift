@@ -326,7 +326,8 @@ struct SettingsView: View {
                 featuresCard
                 contactCard
                 supportCard
-                
+                logExportCard
+
                 if let onQuit = onQuit {
                     Button(action: {
                         onQuit()
@@ -468,7 +469,7 @@ struct SettingsView: View {
                 Text("赞赏支持")
                     .font(.headline)
             }
-            
+
             Text("独立开发不易，你的支持是持续更新的最大动力")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -477,6 +478,70 @@ struct SettingsView: View {
         .padding()
         .background(Color.white.opacity(0.05))
         .cornerRadius(12)
+    }
+
+    private var logExportCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "doc.text")
+                    .foregroundColor(.blue)
+                Text("日志导出")
+                    .font(.headline)
+            }
+
+            let logCount = LogCollector.shared.logCount()
+            Text("当前收集 \(logCount) 条日志")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            HStack(spacing: 12) {
+                Button(action: exportLogs) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("导出日志")
+                    }
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.blue)
+                    .cornerRadius(8)
+                }
+                .disabled(logCount == 0)
+
+                Button(action: clearLogs) {
+                    HStack {
+                        Image(systemName: "trash")
+                        Text("清空")
+                    }
+                    .font(.subheadline)
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.red.opacity(0.2))
+                    .cornerRadius(8)
+                }
+                .disabled(logCount == 0)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
+    }
+
+    private func exportLogs() {
+        if let url = LogCollector.shared.exportToFile() {
+            let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first?.rootViewController {
+                rootVC.present(activityVC, animated: true)
+            }
+        }
+    }
+
+    private func clearLogs() {
+        LogCollector.shared.clearLogs()
     }
 }
 

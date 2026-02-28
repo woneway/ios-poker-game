@@ -11,26 +11,33 @@ final class AppLogger {
     private lazy var analyticsLog = OSLog(subsystem: subsystem, category: "Analytics")
     private lazy var gameLog = OSLog(subsystem: subsystem, category: "Game")
 
+    private let logCollector = LogCollector.shared
+
     private init() {}
 
     func debug(_ message: String, category: LogCategory = .general) {
         os_log(.debug, log: log(for: category), "%{public}@", message)
+        logCollector.log(level: "DEBUG", category: category.rawValue, message: message)
     }
 
     func info(_ message: String, category: LogCategory = .general) {
         os_log(.info, log: log(for: category), "%{public}@", message)
+        logCollector.log(level: "INFO", category: category.rawValue, message: message)
     }
 
     func warning(_ message: String, category: LogCategory = .general) {
         os_log(.default, log: log(for: category), "⚠️ %{public}@", message)
+        logCollector.log(level: "WARNING", category: category.rawValue, message: message)
     }
 
     func error(_ message: String, category: LogCategory = .general) {
         os_log(.error, log: log(for: category), "❌ %{public}@", message)
+        logCollector.log(level: "ERROR", category: category.rawValue, message: message)
     }
 
     func error(_ error: Error, category: LogCategory = .general) {
         os_log(.error, log: log(for: category), "❌ %{public}@", error.localizedDescription)
+        logCollector.log(level: "ERROR", category: category.rawValue, message: error.localizedDescription)
     }
 
     private func log(for category: LogCategory) -> OSLog {
@@ -46,7 +53,7 @@ final class AppLogger {
         }
     }
 
-    enum LogCategory {
+    enum LogCategory: String {
         case general
         case network
         case analytics
