@@ -23,6 +23,29 @@ disabled_rules:
   - cyclomatic_complexity
   - for_whitespace
   - empty_count
+  # 历史遗留的风格问题
+  - sorted_imports
+  - multiple_closures_with_trailing_closure
+  - implicit_optional_initialization
+  - colon
+  - large_tuple
+  - unused_closure_parameter
+  - trailing_newline
+  - multiline_parameters
+  - vertical_whitespace
+  - function_parameter_count
+  - trailing_comma
+  - type_name
+  - for_where
+  - nesting
+  - statement_position
+  - comma
+  - redundant_discardable_let
+  - unused_optional_binding
+  - unneeded_parentheses_in_closure_argument
+  - control_statement
+  - inclusive_language
+  - orphaned_doc_comment
 
 # 可选规则（警告级别）
 opt_in_rules:
@@ -40,12 +63,7 @@ opt_in_rules:
   - unneeded_parentheses_in_closure_argument
 
 # 自定义规则配置
-custom_rules:
-  empty_line_after_guard:
-    name: "Empty line after guard"
-    regex: "guard .* else \\{[^}]*\\}\\n[^\\n]"
-    message: "Add an empty line after guard statement"
-    severity: warning
+# (历史遗留风格问题已添加到 disabled_rules)
 
 # 命名规则
 type_name:

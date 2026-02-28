@@ -772,7 +772,35 @@ class DecisionEngine {
         let facing3Bet = callAmount > engine.bigBlindAmount * 3
         
         // GTO AI uses a separate decision path
-        if profile.name == "艾米" {
+        if profile.useGTOStrategy {
+            // Use GTO Tournament ICM strategy in tournament mode
+            if engine.gameMode == .tournament, let tournamentConfig = engine.tournamentConfig {
+                let situation = ICMCalculator.analyze(
+                    myChips: player.chips,
+                    allChips: engine.players.map { $0.chips },
+                    payoutStructure: tournamentConfig.payoutStructure
+                )
+                
+                // If in bubble or final table, use ICM strategy
+                if situation.isBubble || situation.playersRemaining <= 6 {
+                    let equity = MonteCarloSimulator.calculateEquity(
+                        holeCards: holeCards,
+                        communityCards: [],
+                        playerCount: activePlayers,
+                        iterations: 200
+                    )
+                    
+                    return gtoTournamentICMStrategy(
+                        holeCards: holeCards,
+                        equity: equity,
+                        situation: situation,
+                        potSize: potSize,
+                        betToFace: callAmount,
+                        bb: engine.bigBlindAmount
+                    )
+                }
+            }
+            
             return gtoPreflopDecision(
                 holeCards: holeCards, engine: engine,
                 callAmount: callAmount, seatOffset: seatOffset,
@@ -885,27 +913,19 @@ class DecisionEngine {
     // MARK: - GTO PreFlop Decision
     
     /// Academic AI uses position-based opening ranges and balanced 3-bet construction
-    /// Modified to use deterministic decisions based on hand strength thresholds
+    /// Now integrated with GTOStrategy for enhanced gameplay
     private static func gtoPreflopDecision(
         holeCards: [Card], engine: PokerEngine,
         callAmount: Int, seatOffset: Int,
         activePlayers: Int, chenScore: Double
     ) -> PlayerAction {
         
-        // GTO opening ranges by position (minimum Chen score to open)
-        // Based on standard 8-max GTO solver outputs
-        let openThreshold: Double
-        switch seatOffset {
-        case 3: openThreshold = 7.0   // UTG: ~14% of hands (88+, ATs+, KQs, AJo+)
-        case 4: openThreshold = 6.5   // UTG+1: ~17%
-        case 5: openThreshold = 6.0   // MP: ~20%
-        case 6: openThreshold = 5.0   // HJ: ~25%
-        case 7: openThreshold = 4.0   // CO: ~30%
-        case 0: openThreshold = 3.0   // BTN: ~42%
-        case 1: openThreshold = 4.5   // SB: ~30% (3-bet or fold preferred)
-        case 2: openThreshold = 2.0   // BB: defend ~45% vs BTN open
-        default: openThreshold = 5.0
-        }
+        // Get position from seat offset
+        let position = Position.from(seatOffset: seatOffset)
+        
+        // Use GTO opening ranges from GTOStrategy
+        let gtoRange = RangeAnalyzer.gtoOpeningRange(position: position, tableSize: activePlayers)
+        let openThreshold = gtoRange.rangeWidth * 20  // Convert width to Chen threshold approximation
         
         let facing3Bet = callAmount > engine.bigBlindAmount * 3
         let facingRaise = callAmount > engine.bigBlindAmount
@@ -913,23 +933,24 @@ class DecisionEngine {
         // Use hand strength hash for deterministic but varied decisions
         let handHash = abs(holeCards.reduce(0) { $0 &+ $1.hashValue })
         
-        // Facing 3-bet: only continue with top ~15% of opening range
+        // Use GTO 4-bet pot strategy when facing 3-bet
         if facing3Bet {
-            if chenScore >= 10 {
-                // 4-bet value range: AA, KK, QQ, AKs
-                return .raise(engine.currentBet * 2 + engine.currentBet / 2)
-            }
-            if chenScore >= 7 {
-                // Call range: JJ, TT, AQs, AKo
-                // Use hash for deterministic mixed strategy
-                return handHash % 100 < 55 ? .call : .fold
-            }
-            // Add bluff 4-bets with ~appropriate ratio (1 bluff per 2 value)
-            // Use hash for deterministic decision
-            if chenScore >= 5 && handHash % 100 < 12 {
-                return .raise(engine.currentBet * 2 + engine.currentBet / 2)
-            }
-            return .fold
+            // Use GTO equity calculation for 4-bet decisions
+            let equity = MonteCarloSimulator.calculateEquity(
+                holeCards: holeCards,
+                communityCards: [],
+                playerCount: 2,
+                iterations: 200
+            )
+            
+            return gto4BetPotStrategy(
+                holeCards: holeCards,
+                communityCards: [],
+                equity: equity,
+                potSize: engine.pot.total,
+                stackSize: engine.players.first?.chips ?? 1000,
+                bb: engine.bigBlindAmount
+            )
         }
         
         // Facing 2-bet: 3-bet or call based on GTO ranges
@@ -938,14 +959,24 @@ class DecisionEngine {
                 // 3-bet for value
                 return .raise(engine.currentBet * 3)
             }
-            if chenScore >= 7 {
-                // Mixed strategy: use hash for deterministic distribution
+            
+            // Use GTO 3-bet range
+            let isIP = seatOffset > 4  // Being in position
+            let gto3BetRange = RangeAnalyzer.gto3BetRange(position: position, isIP: isIP)
+            
+            // Check if hand is in 3-bet range
+            let in3BetRange = chenScore >= gto3BetRange.rangeWidth * 15
+            if in3BetRange || chenScore >= 7 {
                 return handHash % 100 < 35 ? .raise(engine.currentBet * 3) : .call
             }
-            if chenScore >= openThreshold - 1 {
-                // Call with playable hands that have good implied odds
+            
+            // Check GTO call 3-bet range
+            let gtoCallRange = RangeAnalyzer.gtoCall3BetRange(position: position, isIP: isIP)
+            let inCallRange = chenScore >= gtoCallRange.rangeWidth * 15
+            if inCallRange {
                 return handHash % 100 < 60 ? .call : .fold
             }
+            
             // Bluff 3-bet with appropriate blocker hands (~8% of fold range)
             if handHash % 100 < 8 {
                 return .raise(engine.currentBet * 3)
@@ -1079,7 +1110,7 @@ class DecisionEngine {
         print("🧠 \(player.name)[\(profile.name)] \(street.rawValue): eq=\(String(format:"%.2f",equity)) potOdds=\(String(format:"%.2f",potOdds)) hand=\(category) draws=\(draws.totalOuts)outs wet=\(String(format:"%.1f",board.wetness)) pfr=\(isPFR)")
         
         // GTO AI uses separate postflop path
-        if profile.name == "艾米" {
+        if profile.useGTOStrategy {
             return gtoPostflopDecision(
                 player: player, holeCards: holeCards,
                 community: community, engine: engine,
@@ -1369,6 +1400,7 @@ class DecisionEngine {
     // MARK: - GTO PostFlop Decision
     
     /// Academic AI: uses balanced value/bluff ratios based on bet sizing
+    /// Now integrated with GTOStrategy for stronger gameplay
     private static func gtoPostflopDecision(
         player: Player, holeCards: [Card],
         community: [Card], engine: PokerEngine,
@@ -1381,76 +1413,123 @@ class DecisionEngine {
         
         let bb = engine.bigBlindAmount
         
-        // Use hand hash for deterministic mixed strategy decisions
+        // Determine pot type for GTO strategy selection
+        let is3BetPot = detect3BetPot(engine: engine)
+        
+        // Use GTO strategies based on street and situation
+        switch street {
+        case .river:
+            // Use dedicated river GTO strategy
+            return gtoRiverStrategy(
+                holeCards: holeCards,
+                communityCards: community,
+                equity: equity,
+                potSize: potSize,
+                betToFace: callAmount,
+                opponentRange: nil,
+                bb: bb
+            )
+            
+        case .flop, .turn:
+            // Use pot-type specific GTO strategies
+            if is3BetPot {
+                return gto3BetPotStrategy(
+                    holeCards: holeCards,
+                    communityCards: community,
+                    equity: equity,
+                    potSize: potSize,
+                    betToFace: callAmount,
+                    street: street,
+                    boardTexture: board,
+                    bb: bb
+                )
+            } else {
+                return gtoSingleRaisedPotStrategy(
+                    holeCards: holeCards,
+                    communityCards: community,
+                    equity: equity,
+                    potSize: potSize,
+                    betToFace: callAmount,
+                    isPFR: isPFR,
+                    boardTexture: board,
+                    street: street,
+                    bb: bb
+                )
+            }
+            
+        default:
+            break
+        }
+        
+        // Fallback: original GTO logic for any remaining cases
         let handHash = abs(holeCards.reduce(0) { $0 &+ $1.hashValue })
         
         // No bet to face (check or bet)
         if callAmount == 0 {
-            // GTO bet sizing depends on hand polarization
-            // Value range: strong made hands + best draws
-            // Bluff range: weakest hands with some equity (blockers)
-            
             let isValueHand = category >= 2 || (category >= 1 && equity > 0.60)
             let isSemiBluff = draws.hasAnyDraw && equity > 0.35
             let isPureBluff = !isValueHand && !isSemiBluff && equity < 0.30
             
-            // GTO c-bet frequency depends on board texture
             if isPFR {
                 let cbetFreq: Double
                 if board.wetness < 0.3 {
-                    cbetFreq = 0.70  // Bet often on dry boards with range advantage
+                    cbetFreq = 0.70
                 } else if board.wetness < 0.6 {
-                    cbetFreq = 0.50  // Mixed on medium boards
+                    cbetFreq = 0.50
                 } else {
-                    cbetFreq = 0.30  // Check more on wet boards
+                    cbetFreq = 0.30
                 }
                 
                 if isValueHand || isSemiBluff {
-                    // Use hash for deterministic decision
                     if handHash % 100 < Int(cbetFreq * 100) {
-                        // Bet size: small on dry (1/3 pot), medium on wet (2/3 pot)
-                        let size = board.wetness < 0.4 ? potSize / 3 : potSize * 2 / 3
+                        let optimalSize = gtoOptimalBetSize(
+                            handStrength: equity,
+                            boardTexture: board,
+                            isIP: true,
+                            potSize: potSize,
+                            bb: bb
+                        )
+                        let size = optimalSize.calculate(potSize: potSize, bb: bb)
                         return .raise(max(bb, size))
                     }
                 }
                 
-                // GTO bluff frequency: maintain ~value:bluff ratio based on bet size
                 if isPureBluff {
                     let bluffProb: Double = board.wetness < 0.4 ? 0.15 : 0.10
                     if handHash % 100 < Int(bluffProb * 100) {
-                        let size = board.wetness < 0.4 ? potSize / 3 : potSize * 2 / 3
+                        let optimalSize = gtoOptimalBetSize(
+                            handStrength: equity,
+                            boardTexture: board,
+                            isIP: true,
+                            potSize: potSize,
+                            bb: bb
+                        )
+                        let size = optimalSize.calculate(potSize: potSize, bb: bb)
                         return .raise(max(bb, size))
                     }
                 }
             }
             
-            // Not the PFR: check-raise with traps, otherwise check
             if category >= 4 && handHash % 100 < 30 {
-                // Set trap (check, plan to raise)
                 return .check
             }
             
             return .check
         }
         
-        // Facing a bet: use Minimum Defense Frequency (MDF)
-        // MDF = 1 - bet_size / (pot + bet_size)
-        let mdf = 1.0 - Double(callAmount) / Double(potSize + callAmount)
+        // Facing a bet: use MDF from GTOStrategy
+        let mdf = calculateMDF(betSize: callAmount, potSize: potSize)
         
-        // Must defend at least MDF% of range to prevent opponent from profiting with any bluff
-        // Defending = calling + raising
-        
-        // Raise range: ~10-15% of defending range (strong value + bluffs)
+        // Raise range: strong value + bluffs
         if category >= 4 || (category >= 3 && equity > 0.75) {
-            // Value raise
             if spr < 3 || player.chips <= callAmount * 2 {
                 return .allIn
             }
-            let raiseAmount = engine.currentBet + max(engine.minRaise, Int(Double(potSize) * 0.75))
+            let raiseAmount = engine.currentBet + max(engine.minRaise, potSize * 2 / 3)
             return .raise(raiseAmount)
         }
         
-        // Bluff raise (balanced: ~1 bluff raise per 2 value raises)
+        // Bluff raise with combo draws
         if draws.hasComboDraws && handHash % 100 < 25 {
             let raiseAmount = engine.currentBet + engine.minRaise
             return .raise(raiseAmount)
@@ -1470,13 +1549,24 @@ class DecisionEngine {
             }
         }
         
-        // MDF defense: call with marginal hands to prevent exploitation
-        // Use hash for deterministic mixed strategy
+        // MDF defense
         if equity > potOdds * 0.8 && handHash % 100 < Int(mdf * 50) {
             return .call
         }
         
         return .fold
+    }
+    
+    /// Detect if we're in a 3-bet pot
+    private static func detect3BetPot(engine: PokerEngine) -> Bool {
+        let preflopActions = engine.bettingHistory[.preFlop] ?? []
+        var raiseCount = 0
+        for action in preflopActions {
+            if action.type == .raise {
+                raiseCount += 1
+            }
+        }
+        return raiseCount >= 2
     }
     
     // MARK: - Chen Formula (Standard Preflop Hand Strength)

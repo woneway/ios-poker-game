@@ -165,7 +165,7 @@ class GameViewLayoutTests: XCTestCase {
                 aiProfile: AIProfile(
                     id: name.lowercased().replacingOccurrences(of: " ", with: "_"),
                     name: name,
-                    avatar: "🤖",
+                    avatar: .emoji("🤖"),
                     description: "AI Player",
                     tightness: 0.5,
                     aggression: 0.5,

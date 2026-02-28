@@ -67,7 +67,7 @@ struct LobbyView: View {
                 Image(systemName: "bolt.fill")
                 Text("快速开始")
                 if isEnabled {
-                    Text("(\(tableManager.selectedDifficulty.rawValue))")
+                    Text("(\(tableManager.selectedDifficulty.description))")
                         .opacity(0.8)
                 } else {
                     Text("(暂无可用桌位)")
@@ -193,7 +193,7 @@ struct LobbyView: View {
                 }
                 
                 VStack(spacing: 4) {
-                    Text(tableManager.selectedDifficulty.rawValue)
+                    Text(tableManager.selectedDifficulty.description)
                         .font(.title2.bold())
                         .foregroundColor(.blue)
                     Text("当前难度")
@@ -256,7 +256,7 @@ struct DifficultyChip: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
-                Text(difficulty.rawValue)
+                Text(difficulty.description)
                     .font(.system(size: 14, weight: .semibold))
                 
                 Text(difficultyDescription)
@@ -396,7 +396,7 @@ struct TableCard: View {
         let stars = table.difficulty == .easy ? "★" :
                    table.difficulty == .normal ? "★★" :
                    table.difficulty == .hard ? "★★★" : "★★★★★"
-        return "\(stars) \(table.difficulty.rawValue)"
+        return "\(stars) \(table.difficulty.description)"
     }
 }
 

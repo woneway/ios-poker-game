@@ -7,8 +7,7 @@ struct SettingsView: View {
     @Binding var isPresented: Bool
     var onQuit: (() -> Void)? = nil
     
-    @StateObject private var historyManager = GameHistoryManager.shared
-    @StateObject private var profiles = ProfileManager.shared
+    @StateObject private var viewModel = SettingsViewModel()
     
     @State private var selectedTab = 0
     
@@ -23,9 +22,9 @@ struct SettingsView: View {
                     TabView(selection: $selectedTab) {
                         gameSettingsTab
                             .tag(0)
-                        difficultyTab
-                            .tag(1)
                         statisticsTab
+                            .tag(1)
+                        AIVerificationView()
                             .tag(2)
                         aboutTab
                             .tag(3)
@@ -61,8 +60,8 @@ struct SettingsView: View {
     private var navigationTitle: String {
         switch selectedTab {
         case 0: return "游戏设置"
-        case 1: return "难度设置"
-        case 2: return "数据统计"
+        case 1: return "数据统计"
+        case 2: return "AI验证"
         case 3: return "关于"
         default: return "设置"
         }
@@ -72,8 +71,8 @@ struct SettingsView: View {
     private var tabPicker: some View {
         HStack(spacing: 4) {
             tabButton(icon: "gamecontroller", title: "游戏", tag: 0)
-            tabButton(icon: "brain.head.profile", title: "难度", tag: 1)
-            tabButton(icon: "chart.bar", title: "统计", tag: 2)
+            tabButton(icon: "chart.bar", title: "统计", tag: 1)
+            tabButton(icon: "checkmark.shield", title: "验证", tag: 2)
             tabButton(icon: "info.circle", title: "关于", tag: 3)
         }
         .padding(.horizontal, 8)
@@ -124,6 +123,7 @@ struct SettingsView: View {
                 speedCard
                 cashGameSettingsCard
                 soundCard
+                quickStats
             }
             .padding()
         }
@@ -232,74 +232,7 @@ struct SettingsView: View {
         .cornerRadius(12)
     }
     
-    // MARK: - Difficulty Tab
-    private var difficultyTab: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                difficultySelector
-                quickStats
-            }
-            .padding()
-        }
-    }
-    
-    private var difficultySelector: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "brain.head.profile")
-                    .foregroundColor(.purple)
-                Text("AI 难度")
-                    .font(.headline)
-            }
-            
-            ForEach(AIProfile.Difficulty.allCases) { difficulty in
-                difficultyRow(difficulty)
-            }
-        }
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(12)
-    }
-    
-    private func difficultyRow(_ difficulty: AIProfile.Difficulty) -> some View {
-        Button(action: { settings.aiDifficulty = difficulty }) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(difficulty.rawValue)
-                        .font(.headline)
-                    Text(difficulty.difficultyDescription)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                HStack(spacing: 2) {
-                    ForEach(1...5, id: \.self) { index in
-                        Image(systemName: index <= difficulty.stars ? "star.fill" : "star")
-                            .font(.system(size: 10))
-                            .foregroundColor(index <= difficulty.stars ? .yellow : .gray.opacity(0.3))
-                    }
-                }
-                
-                if settings.aiDifficulty == difficulty {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
-                }
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(settings.aiDifficulty == difficulty ? Color.blue.opacity(0.15) : Color.white.opacity(0.03))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(settings.aiDifficulty == difficulty ? Color.blue : Color.clear, lineWidth: 1)
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-    
+    // MARK: - Quick Stats
     private var quickStats: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -309,19 +242,18 @@ struct SettingsView: View {
                     .font(.headline)
             }
             
-            if historyManager.records.isEmpty {
+            if viewModel.quickStats.totalGames == 0 {
                 Text("暂无游戏记录")
                     .font(.subheadline)
                     .foregroundColor(.gray)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else {
-                let stats = calculateStats()
                 HStack(spacing: 12) {
-                    statBox(title: "总局数", value: "\(stats.total)", color: .blue)
-                    statBox(title: "冠军", value: "\(stats.wins)", color: .yellow)
-                    statBox(title: "胜率", value: "\(stats.winRate)%", color: .green)
-                    statBox(title: "均名", value: "#\(stats.avgRank)", color: .purple)
+                    statBox(title: "总局数", value: "\(viewModel.quickStats.totalGames)", color: .blue)
+                    statBox(title: "冠军", value: "\(viewModel.quickStats.wins)", color: .yellow)
+                    statBox(title: "胜率", value: "\(viewModel.quickStats.winRate)%", color: .green)
+                    statBox(title: "均名", value: "#\(viewModel.quickStats.avgRank)", color: .purple)
                 }
             }
         }
@@ -344,18 +276,7 @@ struct SettingsView: View {
         .background(color.opacity(0.1))
         .cornerRadius(8)
     }
-    
-    private func calculateStats() -> (total: Int, wins: Int, winRate: Int, avgRank: Int) {
-        let total = historyManager.records.count
-        guard total > 0 else { return (0, 0, 0, 0) }
-        
-        let wins = historyManager.records.filter { $0.heroRank == 1 }.count
-        let winRate = Int(round(Double(wins) * 100.0 / Double(total)))
-        let avgRank = Int(round(Double(historyManager.records.map { $0.heroRank }.reduce(0, +)) / Double(total)))
-        
-        return (total, wins, winRate, avgRank)
-    }
-    
+
     // MARK: - Statistics Tab
     private var statisticsTab: some View {
         ScrollView {
@@ -364,11 +285,11 @@ struct SettingsView: View {
                     menuRow(icon: "clock.arrow.circlepath", title: "游戏历史", color: .blue)
                 }
                 
-                NavigationLink(destination: EnhancedStatisticsView().environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)) {
+                NavigationLink(destination: EnhancedStatisticsView().environment(\.managedObjectContext, PersistenceController.shared.container.viewContext).environmentObject(settings)) {
                     menuRow(icon: "chart.bar.fill", title: "详细统计", color: .green)
                 }
                 
-                NavigationLink(destination: PlayerAnalysisView(hideBackButton: true)) {
+                NavigationLink(destination: PlayerListView().navigationTitle("玩家分析")) {
                     menuRow(icon: "person.2.fill", title: "玩家分析", color: .purple)
                 }
                 

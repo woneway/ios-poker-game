@@ -114,13 +114,20 @@ struct TournamentManager {
     ) -> Player? {
         let stage = TournamentStage.from(handNumber: handNumber, totalPlayers: config.totalEntrants)
         
-        // 计算当前平均筹码
-        let averageStack = config.startingChips // 简化计算
-        
-        return AIProfile.randomTournamentEntry(
+        let profiles = AIProfile.randomTournamentEntry(
             difficulty: difficulty,
             stage: stage,
-            averageStack: averageStack
+            averageStack: config.startingChips
+        )
+        
+        guard let profile = profiles.randomElement() else { return nil }
+        
+        return Player(
+            name: profile.name,
+            chips: config.startingChips,
+            isHuman: false,
+            aiProfile: profile,
+            entryIndex: 1
         )
     }
     

@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 // MARK: - Animation Modifier
@@ -95,7 +96,34 @@ struct PlayerView: View {
     @State private var playerStats: PlayerStats? = nil
     @State private var isWinner = false
     @ObservedObject private var animationManager = PlayerAnimationManager.shared
-    
+
+    private let getPlayerStatsUseCase: GetPlayerStatsForViewUseCase
+
+    init(player: Player, isActive: Bool, isDealer: Bool) {
+        self.player = player
+        self.isActive = isActive
+        self.isDealer = isDealer
+        self.getPlayerStatsUseCase = GetPlayerStatsForViewUseCase()
+    }
+
+    init(player: Player, isActive: Bool, isDealer: Bool, isHero: Bool, showCards: Bool, compact: Bool, gameMode: GameMode) {
+        self.player = player
+        self.isActive = isActive
+        self.isDealer = isDealer
+        self.isHero = isHero
+        self.showCards = showCards
+        self.compact = compact
+        self.gameMode = gameMode
+        self.getPlayerStatsUseCase = GetPlayerStatsForViewUseCase()
+    }
+
+    init(player: Player, isActive: Bool, isDealer: Bool, useCase: GetPlayerStatsForViewUseCase) {
+        self.player = player
+        self.isActive = isActive
+        self.isDealer = isDealer
+        self.getPlayerStatsUseCase = useCase
+    }
+
     private var playerId: String { player.id.uuidString }
     
     private var currentAnimation: PlayerAnimationType? {
@@ -155,7 +183,7 @@ struct PlayerView: View {
             .onReceiveWinnerNotification(for: player)
             
             // Stats Badge (VPIP/PFR) - between avatar and name so it occupies layout space
-            if let stats = playerStats, stats.totalHands >= 20, player.status != .folded {
+            if let stats = playerStats, stats.totalHands >= Constants.Statistics.minHandsForStyleAnalysis, player.status != .folded {
                 HStack(spacing: 2) {
                     Text("\(Int(stats.vpip))")
                         .foregroundColor(.green)
@@ -198,12 +226,9 @@ struct PlayerView: View {
     }
     
     // MARK: - Private Methods
-    
+
     private func loadPlayerStats() {
-        playerStats = StatisticsCalculator.shared.calculateStats(
-            playerName: player.name,
-            gameMode: gameMode
-        )
+        playerStats = getPlayerStatsUseCase.execute(playerName: player.name, gameMode: gameMode)
     }
 }
 

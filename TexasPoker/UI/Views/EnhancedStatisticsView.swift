@@ -1,15 +1,15 @@
-import SwiftUI
 import CoreData
 import os.log
+import SwiftUI
 
 private let viewLogger = Logger(subsystem: "smartegg.TexasPoker", category: "View")
 
-// MARK: - Enhanced Statistics View
-/// Enhanced statistics view with charts and detailed analytics
 struct EnhancedStatisticsView: View {
     @Environment(\.managedObjectContext) private var viewContext
+    @EnvironmentObject private var settings: GameSettings
     @ObservedObject private var profiles = ProfileManager.shared
 
+    @StateObject private var viewModel = StatisticsViewModel()
     @State private var selectedMode: GameMode = .cashGame
     @State private var selectedTimeRange: StatisticsCalculator.TimeRange = .all
     @State private var showExportSheet = false
@@ -17,15 +17,15 @@ struct EnhancedStatisticsView: View {
     @State private var handHistoryData: [StatisticsCalculator.HandHistorySummary] = []
     @State private var positionStats: [StatisticsCalculator.PositionStat] = []
 
-    // AI opponent names for batch stats calculation
-    private let aiNames = ["石头", "疯子麦克", "安娜", "老狐狸", "鲨鱼汤姆", "艾米", "大卫"]
+    private let getAIAnalysisUseCase = GetAIAnalysisUseCase()
 
-    // Use TimeRange from StatisticsCalculator
-    
+    private var aiNames: [String] {
+        PlayerDataProvider.allAINames
+    }
+
     var body: some View {
         NavigationView {
             ZStack {
-                // Premium background
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color(hex: "0f0f23"),
@@ -39,25 +39,12 @@ struct EnhancedStatisticsView: View {
                 
                 ScrollView {
                     VStack(spacing: 16) {
-                        // Mode and time range selectors
                         selectorHeader
-                        
-                        // Hero overview card
                         heroOverviewCard
-                        
-                        // Win rate chart
                         chartSection
-                        
-                        // Position stats
                         positionSection
-                        
-                        // Detailed stats
                         detailedStatsSection
-                        
-                        // AI opponents
                         opponentsSection
-                        
-                        // AI Analysis Insights
                         aiAnalysisSection
                     }
                     .padding()
@@ -67,7 +54,13 @@ struct EnhancedStatisticsView: View {
             .navigationTitle("数据统计")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: exportStatistics) {
+                    Button(action: {
+                        viewModel.exportStatistics()
+                        if let url = viewModel.exportURL {
+                            exportURL = url
+                            showExportSheet = true
+                        }
+                    }) {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
@@ -78,21 +71,23 @@ struct EnhancedStatisticsView: View {
                 }
             }
             .onAppear {
-                // Force recalculate stats by resetting cache
-                lastStatsCalculationTime = Date.distantPast
-                cachedBatchStats = [:]
-                loadHandHistory()
+                Task {
+                    await viewModel.loadData(gameMode: selectedMode)
+                }
             }
             .onChange(of: selectedMode) { _, _ in
-                loadHandHistory()
+                Task {
+                    await viewModel.loadData(gameMode: selectedMode, timeRange: selectedTimeRange)
+                }
             }
             .onChange(of: selectedTimeRange) { _, _ in
-                loadHandHistory()
+                Task {
+                    await viewModel.loadData(gameMode: selectedMode, timeRange: selectedTimeRange)
+                }
             }
         }
     }
-    
-    // MARK: - Selector Header
+
     private var selectorHeader: some View {
         VStack(spacing: 16) {
             Picker("模式", selection: $selectedMode) {
@@ -112,12 +107,23 @@ struct EnhancedStatisticsView: View {
         }
         .padding(.horizontal, 4)
     }
-    
-    // MARK: - Hero Overview Card
+
     private var heroOverviewCard: some View {
-        let heroStats = getHeroStats()
+        let stats = viewModel.heroStats
+        let heroStats = HeroStatsSummary(
+            profit: stats?.totalWinnings ?? 0,
+            hands: stats?.totalHands ?? 0,
+            winRate: (stats?.totalHands ?? 0) > 0 ? Double(stats?.handsWon ?? 0) / Double(stats?.totalHands ?? 1) * 100 : 0,
+            bbPer100: calculateBBPer100(stats: stats),
+            vpip: stats?.vpip ?? 0,
+            pfr: stats?.pfr ?? 0,
+            af: stats?.af ?? 0,
+            wtsd: stats?.wtsd ?? 0,
+            wsd: stats?.wsd ?? 0,
+            threeBet: stats?.threeBet ?? 0,
+            showdownRate: stats?.wtsd ?? 0
+        )
         
-        // Calculate confidence based on sample size
         let confidence = StatisticsConfidence(
             value: heroStats.winRate / 100,
             sampleSize: heroStats.hands,
@@ -137,7 +143,6 @@ struct EnhancedStatisticsView: View {
                 
                 Spacer()
                 
-                // BB/100 metric
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("BB/100")
                         .font(.caption)
@@ -156,7 +161,6 @@ struct EnhancedStatisticsView: View {
                 OverviewStatItem(title: "Showdown", value: String(format: "%.1f%%", heroStats.showdownRate), icon: "eye")
             }
             
-            // Confidence indicator
             HStack {
                 Image(systemName: confidenceIcon(for: confidence.reliabilityLevel))
                     .foregroundColor(confidenceColor(for: confidence.reliabilityLevel))
@@ -187,6 +191,12 @@ struct EnhancedStatisticsView: View {
         )
         .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
     }
+
+    private func calculateBBPer100(stats: PlayerStats?) -> Double {
+        guard let stats = stats, stats.totalHands > 0 else { return 0 }
+        let bb = settings.getCashGameConfig().bigBlind
+        return Double(stats.totalWinnings) / Double(bb) / Double(stats.totalHands) * 100
+    }
     
     private func confidenceIcon(for level: ReliabilityLevel) -> String {
         switch level {
@@ -214,14 +224,13 @@ struct EnhancedStatisticsView: View {
         case .insufficient: return "需要更多数据"
         }
     }
-    
-    // MARK: - Chart Section
+
     private var chartSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("盈亏走势")
                 .font(.headline)
             
-            let chartData = calculateProfitTrend()
+            let chartData = viewModel.profitTrend.map { Double($0.cumulativeProfit) }
             WinRateChartView(
                 dataPoints: chartData,
                 labels: chartData.isEmpty ? [] : (1...chartData.count).map { "\($0)" }
@@ -229,21 +238,19 @@ struct EnhancedStatisticsView: View {
             .frame(height: 150)
         }
     }
-    
-    // MARK: - Position Section
+
     private var positionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("位置胜率")
                 .font(.headline)
             
-            let positionData = calculatePositionStats()
+            let positionData = viewModel.positionStats.map { ($0.position, $0.winRate, $0.handsPlayed) }
             PositionWinRateChart(positionData: positionData)
         }
     }
-    
-    // MARK: - Detailed Stats Section
+
     private var detailedStatsSection: some View {
-        let heroStats = getHeroStats()
+        let stats = viewModel.heroStats
         
         return VStack(alignment: .leading, spacing: 12) {
             Text("详细数据")
@@ -252,42 +259,42 @@ struct EnhancedStatisticsView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 12) {
                 EnhancedStatBadge(
                     label: "VPIP",
-                    value: "\(Int(heroStats.vpip))%",
+                    value: "\(Int(stats?.vpip ?? 0))%",
                     subValue: "入池率",
                     color: .blue,
                     icon: "arrow.down.circle"
                 )
                 EnhancedStatBadge(
                     label: "PFR",
-                    value: "\(Int(heroStats.pfr))%",
+                    value: "\(Int(stats?.pfr ?? 0))%",
                     subValue: "加注率",
                     color: .orange,
                     icon: "arrow.up.circle"
                 )
                 EnhancedStatBadge(
                     label: "AF",
-                    value: String(format: "%.1f", heroStats.af),
+                    value: String(format: "%.1f", stats?.af ?? 0),
                     subValue: "攻击性",
                     color: .red,
                     icon: "flame"
                 )
                 EnhancedStatBadge(
                     label: "WTSD",
-                    value: "\(Int(heroStats.wtsd))%",
+                    value: "\(Int(stats?.wtsd ?? 0))%",
                     subValue: "看牌率",
                     color: .green,
                     icon: "eye"
                 )
                 EnhancedStatBadge(
                     label: "W$SD",
-                    value: "\(Int(heroStats.wsd))%",
+                    value: "\(Int(stats?.wsd ?? 0))%",
                     subValue: " showdown胜率",
                     color: .purple,
                     icon: "crown"
                 )
                 EnhancedStatBadge(
                     label: "3Bet",
-                    value: "\(Int(heroStats.threeBet))%",
+                    value: "\(Int(stats?.threeBet ?? 0))%",
                     subValue: "3Bet率",
                     color: .yellow,
                     icon: "arrow.2.circlepath"
@@ -295,22 +302,20 @@ struct EnhancedStatisticsView: View {
             }
         }
     }
-    
-    // MARK: - Opponents Section
+
     private var opponentsSection: some View {
-        let aiStats = getAIStats()
+        let aiStats = viewModel.aiStats
         
         return VStack(alignment: .leading, spacing: 12) {
             Text("AI 对手数据")
                 .font(.headline)
             
             ForEach(aiStats, id: \.name) { stats in
-                StatsOpponentRow(stats: stats)
+                StatsOpponentRow(stats: AIOpponentStats(from: stats))
             }
         }
     }
-    
-    // MARK: - AI Analysis Section
+
     private var aiAnalysisSection: some View {
         let analysis = getAIAnalysis()
         
@@ -331,159 +336,7 @@ struct EnhancedStatisticsView: View {
     }
     
     private func getAIAnalysis() -> [String] {
-        let analysisEngine = DataAnalysisEngine.shared
-        
-        var insights: [String] = []
-        
-        // Position analysis
-        let positionAnalysis = analysisEngine.analyzeProfitByPosition()
-        if let heroPosition = positionAnalysis[0] {
-            if heroPosition.totalProfit < 0 {
-                insights.append("📍 早期位置盈利较差，建议收紧入池范围")
-            }
-        }
-        
-        // Time analysis
-        let timeAnalysis = analysisEngine.analyzeProfitByTime()
-        let totalHands = timeAnalysis.daily.values.reduce(0, +)
-        if totalHands > 10 {
-            let recentProfit = timeAnalysis.daily.values.suffix(7).reduce(0, +)
-            if recentProfit < 0 {
-                insights.append("📈 最近盈利下滑，建议调整状态")
-            }
-        }
-        
-        return insights
-    }
-    
-    // MARK: - Data Loading
-    private func loadHandHistory() {
-        // This would fetch from Core Data based on selected filters
-        // For now, we'll use mock data structure
-        handHistoryData = fetchHandHistory()
-        positionStats = calculatePositionStatsFromHistory()
-    }
-
-    // MARK: - Batch Stats Calculation (Performance Optimization)
-    // Cache for batch stats to avoid repeated queries
-    @State private var cachedBatchStats: [String: PlayerStats?] = [:]
-    @State private var lastStatsCalculationTime: Date = Date.distantPast
-    private let statsCacheValidityInterval: TimeInterval = 5.0 // Cache for 5 seconds
-
-    /// Get batch stats using optimized single-query approach
-    private func getBatchStats() -> [String: PlayerStats?] {
-        // Always recalculate for now to debug
-        viewLogger.info("getBatchStats: calculating fresh stats, selectedMode=\(String(describing: selectedMode))")
-        
-        let profileId = profiles.currentProfileIdForData
-        viewLogger.info("getBatchStats: profileId=\(profileId)")
-        let allPlayers = ["Hero"] + aiNames
-        viewLogger.info("getBatchStats: allPlayers=\(allPlayers)")
-
-        // Use batch calculation - much more efficient than individual queries
-        cachedBatchStats = StatisticsCalculator.shared.calculateBatchStats(
-            playerNames: allPlayers,
-            gameMode: selectedMode,
-            profileId: profileId
-        )
-        lastStatsCalculationTime = Date()
-        
-        viewLogger.info("getBatchStats: result keys=\(Array(cachedBatchStats.keys))")
-
-        return cachedBatchStats
-    }
-
-    private func fetchHandHistory() -> [StatisticsCalculator.HandHistorySummary] {
-        // Fetch from Core Data via StatisticsCalculator
-        return StatisticsCalculator.shared.fetchHandHistorySummaries(
-            gameMode: selectedMode,
-            timeRange: selectedTimeRange,
-            profileId: profiles.currentProfileIdForData
-        )
-    }
-
-    private func calculatePositionStatsFromHistory() -> [StatisticsCalculator.PositionStat] {
-        // Calculate from hand history via StatisticsCalculator
-        return StatisticsCalculator.shared.calculatePositionStats(
-            gameMode: selectedMode,
-            timeRange: selectedTimeRange,
-            profileId: profiles.currentProfileIdForData
-        )
-    }
-    
-    // MARK: - Data Calculation Helpers
-    private func getHeroStats() -> HeroStatsSummary {
-        // Use batch stats for better performance
-        let batchStats = getBatchStats()
-        
-        viewLogger.info("getHeroStats: batchStats keys = \(batchStats.keys), Hero = \(String(describing: batchStats["Hero"]))")
-
-        if let outer = batchStats["Hero"], let stats = outer {
-            let bb = 20 // Default big blind
-            let bbPer100 = stats.totalHands > 0 ? Double(stats.totalWinnings) / Double(bb) / Double(stats.totalHands) * 100 : 0
-
-            return HeroStatsSummary(
-                profit: stats.totalWinnings,
-                hands: stats.totalHands,
-                winRate: stats.totalHands > 0 ? Double(stats.handsWon) / Double(stats.totalHands) * 100 : 0,
-                bbPer100: bbPer100,
-                vpip: stats.vpip,
-                pfr: stats.pfr,
-                af: stats.af,
-                wtsd: stats.wtsd,
-                wsd: stats.wsd,
-                threeBet: stats.threeBet,
-                showdownRate: stats.wtsd
-            )
-        }
-
-        return HeroStatsSummary()
-    }
-
-    private func getAIStats() -> [AIOpponentStats] {
-        // Use batch stats for better performance
-        let batchStats = getBatchStats()
-
-        return aiNames.compactMap { name in
-            if let outer = batchStats[name], let stats = outer {
-                return AIOpponentStats(
-                    name: name,
-                    hands: stats.totalHands,
-                    vpip: stats.vpip,
-                    pfr: stats.pfr,
-                    winnings: stats.totalWinnings
-                )
-            }
-            return nil
-        }
-    }
-    
-    private func calculateProfitTrend() -> [Double] {
-        // Calculate cumulative profit from hand history
-        let profitData = StatisticsCalculator.shared.calculateProfitTrend(
-            gameMode: selectedMode,
-            timeRange: selectedTimeRange,
-            profileId: profiles.currentProfileIdForData
-        )
-        return profitData.map { Double($0.cumulativeProfit) }
-    }
-
-    private func calculatePositionStats() -> [(position: String, winRate: Double, hands: Int)] {
-        // Calculate win rate by position from hand history
-        let stats = StatisticsCalculator.shared.calculatePositionStats(
-            gameMode: selectedMode,
-            timeRange: selectedTimeRange,
-            profileId: profiles.currentProfileIdForData
-        )
-        return stats.map { ($0.position, $0.winRate, $0.handsPlayed) }
-    }
-    
-    // MARK: - Export
-    private func exportStatistics() {
-        if let url = DataExporter.exportStatistics(gameMode: selectedMode) {
-            exportURL = url
-            showExportSheet = true
-        }
+        getAIAnalysisUseCase.execute()
     }
 }
 
@@ -508,6 +361,14 @@ struct AIOpponentStats {
     let vpip: Double
     let pfr: Double
     let winnings: Int
+    
+    init(from aiStats: AIPlayerStats) {
+        self.name = aiStats.name
+        self.hands = aiStats.totalHands
+        self.vpip = aiStats.vpip
+        self.pfr = aiStats.pfr
+        self.winnings = aiStats.totalProfit
+    }
 }
 
 // MARK: - Overview Stat Item

@@ -217,7 +217,7 @@ struct TournamentSetupView: View {
         Section(header: Text("锦标赛设置")) {
             Picker("难度", selection: $selectedDifficulty) {
                 ForEach(AIProfile.Difficulty.allCases) { difficulty in
-                    Text(difficulty.rawValue).tag(difficulty)
+                    Text(difficulty.description).tag(difficulty)
                 }
             }
             
@@ -288,7 +288,7 @@ struct DifficultyInfoRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(difficulty.rawValue)
+            Text(difficulty.description)
                 .font(.system(size: 14, weight: .semibold))
             
             Text("对手: \(opponents)")

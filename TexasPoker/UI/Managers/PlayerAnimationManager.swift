@@ -1,5 +1,5 @@
-import SwiftUI
 import Combine
+import SwiftUI
 
 enum PlayerAnimationType {
     case idle

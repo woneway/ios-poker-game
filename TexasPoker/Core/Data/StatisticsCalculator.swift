@@ -1,5 +1,5 @@
-import Foundation
 import CoreData
+import Foundation
 import os.log
 
 private let statisticsLogger = Logger(subsystem: "smartegg.TexasPoker", category: "Statistics")
@@ -21,6 +21,7 @@ final class StatisticsCache {
     func getStats(for key: String) -> PlayerStats? {
         queue.sync {
             guard let cached = cache[key] else { return nil }
+
             if Date().timeIntervalSince(cached.timestamp) > maxAge {
                 cache.removeValue(forKey: key)
                 return nil
@@ -96,7 +97,11 @@ class StatisticsCalculator {
     }
     
     private init() {}
-    
+
+    func invalidateCache() {
+        StatisticsCache.shared.clear()
+    }
+
     // MARK: - Incremental Statistics Update
     
     /// 增量更新统计（不重新计算全部数据）
@@ -120,9 +125,9 @@ class StatisticsCalculator {
                 amount: amount
             )
             StatisticsCache.shared.setStats(updated, for: key)
+        } else {
+            StatisticsCache.shared.invalidate(key: key)
         }
-        
-        StatisticsCache.shared.invalidate(key: key)
     }
     
     private func applyActionToStats(
@@ -1158,10 +1163,10 @@ class StatisticsCalculator {
     /// Determine player style based on statistics
     /// - Parameter stats: PlayerStats containing the player's statistics
     /// - Returns: PlayerTendency enum value
-    /// - Note: Requires at least 20 hands of data to determine style
+    /// - Note: Requires at least minHandsForStyleAnalysis hands of data to determine style
     static func determinePlayerStyle(stats: PlayerStats) -> PlayerTendency {
-        // Need at least 20 hands to determine style
-        guard stats.totalHands >= 20 else {
+        // Need at least minHandsForStyleAnalysis hands to determine style
+        guard stats.totalHands >= Constants.Statistics.minHandsForStyleAnalysis else {
             return .unknown
         }
 

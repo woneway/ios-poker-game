@@ -22,6 +22,9 @@ class PokerEngine: ObservableObject {
     @Published var actionLog: [ActionLogEntry] = []
     let maxLogEntries = 30
     
+    var aiDecisionDelay: Double = 0.6
+    var useSyncAIDecision: Bool = false
+    
     // MARK: - Computed Properties
     
     var activePlayers: [Player] {
@@ -454,6 +457,11 @@ class PokerEngine: ObservableObject {
         guard !isHandOver else { return }
         guard !isTaskCancelled else { return }
         
+        if useSyncAIDecision {
+            executeAIDecision()
+            return
+        }
+        
         // 生成新的任务标识符
         let taskId = currentTaskId + 1
         currentTaskId = taskId
@@ -461,7 +469,7 @@ class PokerEngine: ObservableObject {
         // 捕获执行决策时的索引，防止竞态条件
         let capturedIndex = activePlayerIndex
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + self.aiDecisionDelay) { [weak self] in
             guard let self = self else { return }
             // 检查任务是否已被取消
             guard !self.isTaskCancelled else { return }
@@ -471,25 +479,35 @@ class PokerEngine: ObservableObject {
             // 使用捕获的索引而不是当前的 activePlayerIndex
             let currentPlayer = self.players[capturedIndex]
             guard currentPlayer.status == .active && !currentPlayer.isHuman else { return }
-            let action = DecisionEngine.makeDecision(player: currentPlayer, engine: self)
-            
-            // Publish AI decision for UI display
-            let equity = MonteCarloSimulator.calculateEquity(
-                holeCards: currentPlayer.holeCards,
-                communityCards: self.communityCards,
-                playerCount: 2,
-                iterations: 100
-            )
-            let potOdds = self.currentBet > 0 ? Double(self.currentBet - currentPlayer.currentBet) / Double(self.pot.total) : 0
-            DecisionEngine.publishDecision(
-                player: currentPlayer,
-                action: action,
-                equity: equity,
-                potOdds: potOdds
-            )
-            
-            self.processAction(action)
+            self.executeAIDecisionForPlayer(currentPlayer, capturedIndex: capturedIndex)
         }
+    }
+    
+    private func executeAIDecision() {
+        guard activePlayerIndex >= 0 && activePlayerIndex < players.count else { return }
+        let currentPlayer = players[activePlayerIndex]
+        guard currentPlayer.status == .active && !currentPlayer.isHuman else { return }
+        executeAIDecisionForPlayer(currentPlayer, capturedIndex: activePlayerIndex)
+    }
+    
+    private func executeAIDecisionForPlayer(_ currentPlayer: Player, capturedIndex: Int) {
+        let action = DecisionEngine.makeDecision(player: currentPlayer, engine: self)
+        
+        let equity = MonteCarloSimulator.calculateEquity(
+            holeCards: currentPlayer.holeCards,
+            communityCards: self.communityCards,
+            playerCount: 2,
+            iterations: 100
+        )
+        let potOdds = self.currentBet > 0 ? Double(self.currentBet - currentPlayer.currentBet) / Double(self.pot.total) : 0
+        DecisionEngine.publishDecision(
+            player: currentPlayer,
+            action: action,
+            equity: equity,
+            potOdds: potOdds
+        )
+        
+        self.processAction(action)
     }
     
     // MARK: - Final Rankings

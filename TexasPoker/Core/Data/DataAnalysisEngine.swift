@@ -1,4 +1,8 @@
+import CoreData
 import Foundation
+import os.log
+
+private let analysisLogger = Logger(subsystem: "smartegg.TexasPoker", category: "DataAnalysis")
 
 class DataAnalysisEngine {
     static let shared = DataAnalysisEngine()
@@ -6,8 +10,83 @@ class DataAnalysisEngine {
     private var handHistory: [HandRecord] = []
     private var playerActions: [String: [ActionRecord]] = [:]
     private let queue = DispatchQueue(label: "com.poker.analysis", attributes: .concurrent)
+    private var isLoaded = false
+    
+    private var context: NSManagedObjectContext {
+        PersistenceController.shared.container.viewContext
+    }
     
     private init() {}
+    
+    func loadHistoryFromCoreData(gameMode: GameMode? = nil, profileId: String? = nil) {
+        guard !isLoaded else {
+            analysisLogger.info("Data already loaded, skipping...")
+            return
+        }
+
+        let pid = profileId ?? ProfileManager.shared.currentProfileIdForData
+
+        analysisLogger.info("Loading history from Core Data, gameMode=\(String(describing: gameMode)), profileId=\(pid)")
+        
+        let request = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
+        
+        var predicates: [NSPredicate] = []
+        if let mode = gameMode {
+            predicates.append(NSPredicate(format: "gameMode == %@", mode.rawValue))
+        }
+        
+        if pid == ProfileManager.defaultProfileId {
+            predicates.append(NSPredicate(format: "(profileId == %@ OR profileId == nil)", pid))
+        } else {
+            predicates.append(NSPredicate(format: "profileId == %@", pid))
+        }
+        
+        if !predicates.isEmpty {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        }
+        
+        request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+        request.fetchLimit = 1000
+        
+        do {
+            let hands = try context.fetch(request)
+            analysisLogger.info("Loaded \(hands.count) hands from Core Data")
+            
+            for hand in hands {
+                guard let handId = hand.value(forKey: "id") as? UUID,
+                      let date = hand.value(forKey: "date") as? Date else {
+                    continue
+                }
+                
+                let winnerNames = (hand.value(forKey: "winnerNames") as? String ?? "").components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                
+                let handRecord = HandRecord(
+                    id: handId,
+                    timestamp: date,
+                    players: [],
+                    holeCards: [:],
+                    communityCards: [],
+                    actions: [],
+                    potSize: Int(hand.value(forKey: "finalPot") as? Int32 ?? 0),
+                    winner: winnerNames.first,
+                    profit: [:]
+                )
+                
+                handHistory.append(handRecord)
+            }
+            
+            isLoaded = true
+            analysisLogger.info("Successfully loaded \(self.handHistory.count) hand records")
+        } catch {
+            analysisLogger.error("Failed to load history from Core Data: \(error.localizedDescription)")
+        }
+    }
+    
+    func ensureDataLoaded() {
+        if !isLoaded {
+            loadHistoryFromCoreData()
+        }
+    }
     
     struct HandRecord {
         let id: UUID
@@ -144,15 +223,13 @@ class DataAnalysisEngine {
             
             let positionAnalysis = analyzeProfitByPosition()
             
-            for (position, profit) in positionAnalysis {
-                if profit.avgProfit < -5 {
-                    leaks.append(LeakReport(
-                        category: "位置",
-                        severity: profit.avgProfit < -20 ? .high : .medium,
-                        description: "位置 \(position) 平均亏损 \(Int(abs(profit.avgProfit)))",
-                        recommendation: "在不利位置收紧范围"
-                    ))
-                }
+            for (position, profit) in positionAnalysis where profit.avgProfit < -5 {
+                leaks.append(LeakReport(
+                    category: "位置",
+                    severity: profit.avgProfit < -20 ? .high : .medium,
+                    description: "位置 \(position) 平均亏损 \(Int(abs(profit.avgProfit)))",
+                    recommendation: "在不利位置收紧范围"
+                ))
             }
             
             let patternAnalysis = analyzeActionPatterns(playerId: playerId)

@@ -9,7 +9,7 @@ import XCTest
 /// 模拟决策场景
 struct DecisionScenario {
     let description: String
-    let profile: AIProfile
+    var profile: AIProfile
     let holeCards: [Card]
     let communityCards: [Card]
     let street: Street
@@ -17,7 +17,7 @@ struct DecisionScenario {
     let betToFace: Int
     let stackSize: Int
     let isPFR: Bool
-    let seatOffset: Int
+    var seatOffset: Int
 
     /// 期望的决策类型 (用于验证)
     var expectedActionType: ActionType?
@@ -63,7 +63,7 @@ final class AIDecisionSimulator {
         return decision
     }
 
-    /// 估算手牌强度 (简化版，实际应该用MonteCarlo)
+    /// 估算手牌强度 - 使用真实HandEvaluator
     private static func estimateHandStrength(
         holeCards: [Card],
         communityCards: [Card],
@@ -71,49 +71,66 @@ final class AIDecisionSimulator {
     ) -> Double {
         guard holeCards.count == 2 else { return 0.5 }
 
-        // 简化：基于牌面和手牌计算
-        // 实际应该用 HandEvaluator 和 MonteCarlo
-
-        // Flop 前：基于Chen公式
+        // Flop前：使用Chen公式
         if communityCards.isEmpty {
             let chen = DecisionEngine.chenFormula(holeCards)
             return DecisionEngine.chenToNormalized(chen)
         }
 
-        // 翻牌后：简化计算
-        let hasPair = checkPair(holeCards: holeCards, community: communityCards)
-        let hasFlush = checkFlush(holeCards: holeCards, community: communityCards)
-        let hasStraight = checkStraight(holeCards: holeCards, community: communityCards)
+        // 翻牌后：使用真实HandEvaluator
+        let (category, kickers) = HandEvaluator.evaluate(holeCards: holeCards, communityCards: communityCards)
 
-        if hasFlush || hasStraight {
-            return 0.85
-        } else if hasPair {
-            return 0.70
+        // 将牌型category转换为0-1的手牌强度
+        // category: 8=StraightFlush, 7=Quads, 6=FullHouse, 5=Flush, 4=Straight,
+        //           3=Trips, 2=TwoPair, 1=Pair, 0=HighCard
+        var strength = Double(category) / 8.0
+
+        // 考虑kickers
+        if let highestKicker = kickers.first {
+            strength += Double(highestKicker) / 130.0
         }
 
-        return 0.40
-    }
-
-    private static func checkPair(holeCards: [Card], community: [Card]) -> Bool {
-        let allCards = holeCards + community
-        var counts: [Rank: Int] = [:]
-        for card in allCards {
-            counts[card.rank, default: 0] += 1
+        // 听牌加成（翻牌后）
+        if communityCards.count >= 3 {
+            if checkFlushDraw(holeCards: holeCards, community: communityCards) {
+                strength += 0.15
+            }
+            if checkStraightDraw(holeCards: holeCards, community: communityCards) {
+                strength += 0.12
+            }
         }
-        return counts.values.contains(2) || counts.values.contains(3) || counts.values.contains(4)
+
+        return min(1.0, max(0.0, strength))
     }
 
-    private static func checkFlush(holeCards: [Card], community: [Card]) -> Bool {
+    /// 检查同花听牌
+    private static func checkFlushDraw(holeCards: [Card], community: [Card]) -> Bool {
         let allCards = holeCards + community
         var suitCounts: [Suit: Int] = [:]
         for card in allCards {
             suitCounts[card.suit, default: 0] += 1
         }
-        return suitCounts.values.contains(4) || suitCounts.values.contains(5)
+        return suitCounts.values.contains(4)
     }
 
-    private static func checkStraight(holeCards: [Card], community: [Card]) -> Bool {
-        // 简化实现
+    /// 检查顺子听牌
+    private static func checkStraightDraw(holeCards: [Card], community: [Card]) -> Bool {
+        let allRanks = (holeCards + community).map { Int($0.rank.rawValue) }.sorted()
+        var uniqueRanks = Array(Set(allRanks)).sorted()
+
+        // 检查是否有4张连续的牌
+        var consecutive = 1
+        for i in 1..<uniqueRanks.count {
+            if uniqueRanks[i] == uniqueRanks[i-1] + 1 {
+                consecutive += 1
+                if consecutive >= 4 {
+                    return true
+                }
+            } else {
+                consecutive = 1
+            }
+        }
+
         return false
     }
 
@@ -239,7 +256,7 @@ final class AIDecisionSimulationTests: XCTestCase {
             profile: AIProfile.shark, // 高位置意识
             holeCards: [Card(rank: .seven, suit: .spades), Card(rank: .eight, suit: .hearts)],
             communityCards: [],
-            street: .preflop,
+            street: .preFlop,
             potSize: 3,
             betToFace: 0,
             stackSize: 100,

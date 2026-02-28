@@ -40,22 +40,24 @@ class OpponentModel {
     // MARK: - 置信度配置
 
     /// 置信度计算常量
-    /// 达到此手数时置信度为 1.0
-    private static let minHandsForFullConfidence = 100
+    /// 达到此手数时置信度为 1.0 (使用 Constants.Statistics.minHandsForFullConfidence)
+    private var minHandsForFullConfidence: Int {
+        Constants.Statistics.minHandsForFullConfidence
+    }
 
     /// 可信阈值（达到此比例的置信度则认为数据可用）
-    private static let reliabilityThreshold: Double = 0.5
+    private var reliabilityThreshold: Double { 0.5 }
 
     var confidence: Double {
         guard totalHands > 0 else { return 0.0 }
-        // 置信度从0到1，100手达到1.0
-        return min(1.0, Double(totalHands) / Double(Self.minHandsForFullConfidence))
+        // 置信度从0到1，达到 minHandsForFullConfidence 手时达到1.0
+        return min(1.0, Double(totalHands) / Double(minHandsForFullConfidence))
     }
 
     /// 是否可信（置信度高于阈值）
     var isReliable: Bool {
         // 使用统一的阈值常量，与置信度计算保持一致
-        return confidence >= Self.reliabilityThreshold
+        return confidence >= reliabilityThreshold
     }
 
     /// 获取用于显示的置信度百分比
@@ -115,11 +117,11 @@ class OpponentModel {
     
     /// 更新风格分类
     func updateStyle() {
-        guard totalHands >= 20 else {
+        guard totalHands >= Constants.Statistics.minHandsForStyleAnalysis else {
             style = .unknown
             return
         }
-        
+
         style = OpponentModeler.classifyStyle(vpip: vpip, pfr: pfr, af: af)
     }
 }

@@ -122,7 +122,7 @@ class TournamentStatsManager: ObservableObject {
             newRankings.append(PlayerRanking(
                 playerId: player.id,
                 name: player.name,
-                avatar: player.aiProfile?.avatar ?? (player.isHuman ? "🤠" : "🤖"),
+                avatar: player.aiProfile?.avatar.displayValue ?? (player.isHuman ? "🤠" : "🤖"),
                 chips: player.chips,
                 rank: currentRank,
                 change: rankChange,

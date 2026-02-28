@@ -178,6 +178,7 @@ extension DecisionEngine {
         // 无人下注
         if betToFace == 0 {
             return gtoCheckOrBet(
+                holeCards: holeCards,
                 equity: equity,
                 isPFR: isPFR,
                 boardTexture: boardTexture,
@@ -219,6 +220,7 @@ extension DecisionEngine {
 
     /// GTO过牌或下注决策
     private static func gtoCheckOrBet(
+        holeCards: [Card],
         equity: Double,
         isPFR: Bool,
         boardTexture: BoardTexture,
@@ -324,8 +326,8 @@ extension DecisionEngine {
             }
         }
 
-        // 决赛桌：考虑排名
-        if situation.isFinalTable {
+        // 决赛桌（剩余6人）：考虑排名
+        if situation.playersRemaining <= 6 {
             // 短码可以更激进
             if situation.stackRatio < 0.15 {
                 if equity > 0.40 {
@@ -342,7 +344,7 @@ extension DecisionEngine {
         }
 
         // 常规ICM调整
-        let icmMultiplier = situation.icmFactor
+        let icmMultiplier = situation.pressure
 
         // 调整后的 equity threshold
         let adjustedThreshold = 0.5 * icmMultiplier
@@ -420,39 +422,37 @@ extension RangeAnalyzer {
     static func gtoOpeningRange(position: Position, tableSize: Int = 8) -> HandRange {
         switch position {
         case .utg:
-            return HandRange(chrome: "88+,ATs+,KQs,AJo+", suitedPercent: 0.14)
-        case .utg1:
-            return HandRange(chrome: "77+,A9s+,KQs,QJs,JTs,ATo,KJo+", suitedPercent: 0.17)
+            return HandRange(position: position, action: .raise, street: .preFlop, rangeWidth: 0.14, description: "88+,ATs+,KQs,AJo+")
+        case .utgPlus1:
+            return HandRange(position: position, action: .raise, street: .preFlop, rangeWidth: 0.17, description: "77+,A9s+,KQs,QJs,JTs,ATo,KJo+")
         case .mp:
-            return HandRange(chrome: "66+,A8s+,K9s+,Q9s+,J9s+,T9s,ATo,KTo+", suitedPercent: 0.20)
+            return HandRange(position: position, action: .raise, street: .preFlop, rangeWidth: 0.20, description: "66+,A8s+,K9s+,Q9s+,J9s+,T9s,ATo,KTo+")
         case .hj:
-            return HandRange(chrome: "55+,A7s+,K8s+,Q8s+,J8s+,T8s+,97s+,ATo,KTo+,QJo", suitedPercent: 0.25)
+            return HandRange(position: position, action: .raise, street: .preFlop, rangeWidth: 0.25, description: "55+,A7s+,K8s+,Q8s+,J8s+,T8s+,97s+,ATo,KTo+,QJo")
         case .co:
-            return HandRange(chrome: "44+,A5s+,K7s+,Q7s+,J7s+,T7s+,87s,ATo,KTo+,QJo,JTo", suitedPercent: 0.30)
+            return HandRange(position: position, action: .raise, street: .preFlop, rangeWidth: 0.30, description: "44+,A5s+,K7s+,Q7s+,J7s+,T7s+,87s,ATo,KTo+,QJo,JTo")
         case .btn:
-            return HandRange(chrome: "22+,A2s+,K2s+,Q2s+,J2s+,T2s+,82s+,72s+,A2o+,K2o+,Q2o+,J2o+,T2o+", suitedPercent: 0.42)
+            return HandRange(position: position, action: .raise, street: .preFlop, rangeWidth: 0.42, description: "22+,A2s+,K2s+,Q2s+,J2s+,T2s+,82s+,72s+,A2o+,K2o+,Q2o+,J2o+,T2o+")
         case .sb:
-            return HandRange(chrome: "55+,A2s+,K6s+,Q6s+,J7s+,T7s+,87s,ATo,KTo+,QJo", suitedPercent: 0.30)
+            return HandRange(position: position, action: .raise, street: .preFlop, rangeWidth: 0.30, description: "55+,A2s+,K6s+,Q6s+,J7s+,T7s+,87s,ATo,KTo+,QJo")
         case .bb:
-            return HandRange(chrome: "BB防守范围", suitedPercent: 0.45)
+            return HandRange(position: position, action: .raise, street: .preFlop, rangeWidth: 0.45, description: "BB防守范围")
         }
     }
 
     /// 获取GTO 3-bet范围
     static func gto3BetRange(position: Position, isIP: Bool) -> HandRange {
-        // 按钮位3-bet最宽，SB次之
         if isIP {
-            return HandRange(chrome: "88+,A9s+,KQs,QJs,JTs,T9s,ATo,KJo+,QJo", suitedPercent: 0.12)
+            return HandRange(position: position, action: .threebet, street: .preFlop, rangeWidth: 0.12, description: "88+,A9s+,KQs,QJs,JTs,T9s,ATo,KJo+,QJo")
         }
-        // OOP 3-bet范围更紧
-        return HandRange(chrome: "TT+,AQs+,KQs,QJs,ATo,KJo+", suitedPercent: 0.08)
+        return HandRange(position: position, action: .threebet, street: .preFlop, rangeWidth: 0.08, description: "TT+,AQs+,KQs,QJs,ATo,KJo+")
     }
 
     /// 获取GTO跟注3-bet范围
     static func gtoCall3BetRange(position: Position, isIP: Bool) -> HandRange {
         if isIP {
-            return HandRange(chrome: "77+,A9s+,K9s+,Q9s+,J9s+,T9s,ATo,KJo+", suitedPercent: 0.15)
+            return HandRange(position: position, action: .call, street: .preFlop, rangeWidth: 0.15, description: "77+,A9s+,K9s+,Q9s+,J9s+,T9s,ATo,KJo+")
         }
-        return HandRange(chrome: "88+,A9s+,KQs,ATo,KJo+", suitedPercent: 0.10)
+        return HandRange(position: position, action: .call, street: .preFlop, rangeWidth: 0.10, description: "88+,A9s+,KQs,ATo,KJo+")
     }
 }

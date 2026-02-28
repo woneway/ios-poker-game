@@ -40,7 +40,7 @@ extension PokerEngine {
             default:             return nil
             }
         }()
-        let avatar = player.aiProfile?.avatar ?? (player.isHuman ? "🤠" : "🤖")
+        let avatar = player.aiProfile?.avatar.displayValue ?? (player.isHuman ? "🤠" : "🤖")
         
         // 记录AI玩家的下注模式
         if !player.isHuman {

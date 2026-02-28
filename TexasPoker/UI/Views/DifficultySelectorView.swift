@@ -171,11 +171,11 @@ struct DifficultyRow: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(difficulty.rawValue)
+                    Text(difficulty.description)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.white)
                     
-                    Text(difficulty.description)
+                    Text(difficulty.difficultyDescription)
                         .font(.caption)
                         .foregroundColor(.gray)
                 }

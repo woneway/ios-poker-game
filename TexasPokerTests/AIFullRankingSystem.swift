@@ -431,10 +431,10 @@ final class AIRankingSystem {
         let expertProfileIds = Set(AIProfile.Difficulty.expert.availableProfiles.map { $0.id })
 
         let easyRatings = ratings.filter { easyProfileIds.contains($0.profile.id) }
-        let expertRatings = ratings.filter { expertProfileIds.contains($0.profile.id) }
+        let expertRatingsForComparison = ratings.filter { expertProfileIds.contains($0.profile.id) }
 
         let easyAvg = easyRatings.isEmpty ? 0 : easyRatings.map { $0.elo }.reduce(0, +) / Double(easyRatings.count)
-        let expertAvg = expertRatings.isEmpty ? 0 : expertRatings.map { $0.elo }.reduce(0, +) / Double(expertRatings.count)
+        let expertAvg = expertRatingsForComparison.isEmpty ? 0 : expertRatingsForComparison.map { $0.elo }.reduce(0, +) / Double(expertRatingsForComparison.count)
 
         let gap = expertAvg - easyAvg
         let isValid = gap > 50

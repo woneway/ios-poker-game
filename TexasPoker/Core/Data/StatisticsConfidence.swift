@@ -4,31 +4,31 @@ struct StatisticsConfidence {
     let value: Double
     let sampleSize: Int
     let confidenceLevel: Double
-    
+
     static let zScore95 = 1.96
     static let zScore90 = 1.645
-    
+
     var marginOfError: Double {
         guard sampleSize > 0 else { return 1.0 }
         let p = value
         return Self.zScore95 * sqrt(p * (1 - p) / Double(sampleSize))
     }
-    
+
     var confidenceInterval: (lower: Double, upper: Double) {
         let moe = marginOfError
         return (max(0, value - moe), min(1, value + moe))
     }
-    
+
     var isReliable: Bool {
-        return sampleSize >= 100 && marginOfError < 0.1
+        sampleSize >= Constants.Statistics.minSampleSizeForConfidence && marginOfError < 0.1
     }
-    
+
     var reliabilityLevel: ReliabilityLevel {
         if sampleSize >= 500 && marginOfError < 0.05 {
             return .high
-        } else if sampleSize >= 100 && marginOfError < 0.1 {
+        } else if sampleSize >= Constants.Statistics.minSampleSizeForConfidence && marginOfError < 0.1 {
             return .medium
-        } else if sampleSize >= 30 {
+        } else if sampleSize >= Constants.Statistics.minHandsForStyleAnalysis {
             return .low
         } else {
             return .insufficient

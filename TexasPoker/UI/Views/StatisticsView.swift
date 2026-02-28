@@ -1,5 +1,6 @@
-import SwiftUI
+import Combine
 import CoreData
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct StatisticsView: View {

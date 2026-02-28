@@ -114,53 +114,52 @@ struct HistoryView: View {
     }
     
     // MARK: - Detail
-    
+
     private func historyDetail(_ record: GameRecord) -> some View {
-        NavigationView {
-            ZStack {
-                Color(hex: "0f0f23").ignoresSafeArea()
-                List {
-                    Section(header: Text("游戏信息")) {
-                        HStack {
-                            Text("日期")
-                                .foregroundColor(.white)
-                            Spacer()
-                            Text(dateFormatted(record.date))
-                                .foregroundColor(.gray)
-                        }
-                        .listRowBackground(Color(hex: "1a1a2e"))
-                        HStack {
-                            Text("总局数")
-                                .foregroundColor(.white)
-                            Spacer()
-                            Text("\(record.totalHands)")
-                                .foregroundColor(.gray)
-                        }
-                        .listRowBackground(Color(hex: "1a1a2e"))
-                        HStack {
-                            Text("玩家数")
-                                .foregroundColor(.white)
-                            Spacer()
-                            Text("\(record.totalPlayers)")
-                                .foregroundColor(.gray)
-                        }
-                        .listRowBackground(Color(hex: "1a1a2e"))
-                        HStack {
-                            Text("你的排名")
-                                .foregroundColor(.white)
-                            Spacer()
-                            Text("#\(record.heroRank) / \(record.totalPlayers)")
-                                .foregroundColor(record.heroRank == 1 ? .green : .orange)
-                                .fontWeight(.bold)
-                        }
-                        .listRowBackground(Color(hex: "1a1a2e"))
+        ZStack {
+            Color(hex: "0f0f23").ignoresSafeArea()
+            List {
+                Section(header: Text("游戏信息")) {
+                    HStack {
+                        Text("日期")
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text(dateFormatted(record.date))
+                            .foregroundColor(.gray)
                     }
-                    
-                    Section(header: Text("最终排名")) {
-                        ForEach(record.results) { result in
-                            HStack(spacing: 10) {
-                                Text(rankEmoji(result.rank))
-                                    .font(.system(size: 20))
+                    .listRowBackground(Color(hex: "1a1a2e"))
+                    HStack {
+                        Text("总局数")
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text("\(record.totalHands)")
+                            .foregroundColor(.gray)
+                    }
+                    .listRowBackground(Color(hex: "1a1a2e"))
+                    HStack {
+                        Text("玩家数")
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text("\(record.totalPlayers)")
+                            .foregroundColor(.gray)
+                    }
+                    .listRowBackground(Color(hex: "1a1a2e"))
+                    HStack {
+                        Text("你的排名")
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text("#\(record.heroRank) / \(record.totalPlayers)")
+                            .foregroundColor(record.heroRank == 1 ? .green : .orange)
+                            .fontWeight(.bold)
+                    }
+                    .listRowBackground(Color(hex: "1a1a2e"))
+                }
+
+                Section(header: Text("最终排名")) {
+                    ForEach(record.results) { result in
+                        HStack(spacing: 10) {
+                            Text(rankEmoji(result.rank))
+                                .font(.system(size: 20))
                                 
                                 Text(result.avatar)
                                     .font(.system(size: 18))
@@ -205,7 +204,6 @@ struct HistoryView: View {
                     }
                 }
             }
-        }
         .preferredColorScheme(.dark)
     }
     

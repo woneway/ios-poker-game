@@ -3,30 +3,12 @@ import SwiftUI
 /// Row view for displaying a player in the list
 struct PlayerListRowView: View {
     let playerStats: PlayerStats
-    
-    private let playerAvatarMap: [String: String] = [
-        "石头": "🪨",
-        "疯子麦克": "🤪",
-        "安娜": "👩",
-        "老狐狸": "🦊",
-        "鲨鱼汤姆": "🦈",
-        "艾米": "🎓",
-        "大卫": "😤",
-        "新手鲍勃": "🐟",
-        "玛丽": "🐢",
-        "史蒂夫": "🥶",
-        "杰克": "🎭",
-        "山姆": "💰",
-        "托尼": "🕸️",
-        "皮特": "🧠",
-        "维克多": "🎖️"
-    ]
-    
+
     private var playerAvatar: String {
-        if let avatar = playerAvatarMap[playerStats.playerName] {
-            return avatar
+        if playerStats.isHuman {
+            return "👤"
         }
-        return playerStats.isHuman ? "👤" : "🤖"
+        return PlayerDataProvider.aiEmoji(for: playerStats.playerName)
     }
     
     private var winRate: Double {

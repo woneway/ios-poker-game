@@ -4,11 +4,25 @@ import SwiftUI
 struct PlayerHandHistoryView: View {
     let playerName: String
     let gameMode: GameMode
-    
+
     @Environment(\.dismiss) private var dismiss
     @State private var handHistories: [StatisticsCalculator.HandHistorySummary] = []
     @State private var isLoading: Bool = true
-    
+
+    private let getHandHistoryUseCase: GetHandHistoryUseCase
+
+    init(playerName: String, gameMode: GameMode) {
+        self.playerName = playerName
+        self.gameMode = gameMode
+        self.getHandHistoryUseCase = GetHandHistoryUseCase()
+    }
+
+    init(playerName: String, gameMode: GameMode, useCase: GetHandHistoryUseCase) {
+        self.playerName = playerName
+        self.gameMode = gameMode
+        self.getHandHistoryUseCase = useCase
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -51,13 +65,10 @@ struct PlayerHandHistoryView: View {
             }
         }
     }
-    
+
     private func loadHandHistories() {
         isLoading = true
-        handHistories = StatisticsCalculator.shared.fetchHandHistoriesForPlayer(
-            playerName: playerName,
-            gameMode: gameMode
-        )
+        handHistories = getHandHistoryUseCase.execute(playerName: playerName, gameMode: gameMode)
         isLoading = false
     }
 }

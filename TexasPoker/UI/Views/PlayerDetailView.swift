@@ -3,32 +3,14 @@ import SwiftUI
 /// Detailed view for a single player's statistics
 struct PlayerDetailView: View {
     let playerStats: PlayerStats
-    
+
     @State private var showHandHistory: Bool = false
-    
-    private let playerAvatarMap: [String: String] = [
-        "石头": "🪨",
-        "疯子麦克": "🤪",
-        "安娜": "👩",
-        "老狐狸": "🦊",
-        "鲨鱼汤姆": "🦈",
-        "艾米": "🎓",
-        "大卫": "😤",
-        "新手鲍勃": "🐟",
-        "玛丽": "🐢",
-        "史蒂夫": "🥶",
-        "杰克": "🎭",
-        "山姆": "💰",
-        "托尼": "🕸️",
-        "皮特": "🧠",
-        "维克多": "🎖️"
-    ]
-    
+
     private var playerAvatar: String {
-        if let avatar = playerAvatarMap[playerStats.playerName] {
-            return avatar
+        if playerStats.isHuman {
+            return "👤"
         }
-        return playerStats.isHuman ? "👤" : "🤖"
+        return PlayerDataProvider.aiEmoji(for: playerStats.playerName)
     }
     
     private var winRate: Double {
@@ -41,7 +23,7 @@ struct PlayerDetailView: View {
     }
     
     private var hasEnoughData: Bool {
-        playerStats.totalHands >= 20
+        playerStats.totalHands >= Constants.Statistics.minHandsForStyleAnalysis
     }
     
     var body: some View {

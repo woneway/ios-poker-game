@@ -768,6 +768,7 @@ struct GameView: View {
                         player: store.engine.players[i],
                         isActive: isActiveInPlay,
                         isDealer: store.engine.dealerIndex == i,
+                        isHero: false,
                         showCards: isShowdown,
                         compact: true,
                         gameMode: store.engine.gameMode

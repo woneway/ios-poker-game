@@ -12,9 +12,9 @@ class HandEvaluator {
     
     /// 缓存键生成
     private static func cacheKey(holeCards: [Card], communityCards: [Card]) -> String {
-        let holeRanks = holeCards.map { $0.rank.rawValue }.sorted()
+        let holeRanks = holeCards.map { Int($0.rank.rawValue) }.sorted()
         let holeSuits = holeCards.map { $0.suit.rawValue }.sorted()
-        let communityRanks = communityCards.map { $0.rank.rawValue }.sorted()
+        let communityRanks = communityCards.map { Int($0.rank.rawValue) }.sorted()
         let communitySuits = communityCards.map { $0.suit.rawValue }.sorted()
         return "\(holeRanks)-\(holeSuits)-\(communityRanks)-\(communitySuits)"
     }
@@ -25,6 +25,11 @@ class HandEvaluator {
     }
     
     static func evaluate(holeCards: [Card], communityCards: [Card]) -> (Int, [Int]) {
+        // 处理边界情况：牌数不足
+        guard holeCards.count >= 2 else {
+            return (0, [])
+        }
+        
         // 检查缓存
         let key = cacheKey(holeCards: holeCards, communityCards: communityCards)
         if let cached = evaluationCache[key] {
@@ -72,8 +77,12 @@ class HandEvaluator {
     
     private static func eval5(cards: [Card]) -> (Int, [Int]) {
         // Sort by rank descending
-        let sorted = cards.sorted { $0.rank.rawValue > $1.rank.rawValue }
-        let ranks = sorted.map { $0.rank.rawValue }
+        guard cards.count == 5 else {
+            return (0, [])
+        }
+        
+        let sorted = cards.sorted { Int($0.rank.rawValue) > Int($1.rank.rawValue) }
+        let ranks = sorted.map { Int($0.rank.rawValue) }
         let suits = sorted.map { $0.suit }
         
         let isFlush = suits.allSatisfy { $0 == suits[0] }

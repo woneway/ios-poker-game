@@ -16,7 +16,7 @@ struct GameResultsManager {
         for player in players {
             // O(1) 查找
             if player.chips <= 0 && !existingNames.contains(player.name) {
-                let avatar = player.aiProfile?.avatar ?? (player.isHuman ? "🎯" : "🤖")
+                let avatar = player.aiProfile?.avatar.displayValue ?? (player.isHuman ? "🎯" : "🤖")
                 eliminationOrder.append((
                     name: player.name,
                     avatar: avatar,
@@ -38,7 +38,7 @@ struct GameResultsManager {
         // Winner(s) - players still with chips
         let alive = players.filter { $0.chips > 0 }
         for (i, p) in alive.enumerated() {
-            let avatar = p.aiProfile?.avatar ?? (p.isHuman ? "🎯" : "🤖")
+            let avatar = p.aiProfile?.avatar.displayValue ?? (p.isHuman ? "🎯" : "🤖")
             results.append(PlayerResult(
                 name: p.name,
                 avatar: avatar,
