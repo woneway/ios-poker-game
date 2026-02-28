@@ -120,9 +120,15 @@ final class AITournamentEvaluator {
     }
 
     private func runSingleGame(profiles: [AIProfile]) -> [GameResult] {
+        // 安全检查：确保有足够的 profile
+        guard profiles.count >= 2 else { return [] }
+
         var engine = createEngine(profiles: profiles)
 
         for _ in 0..<config.maxHandsPerGame {
+            // 安全检查：每轮开始前验证状态
+            if engine.players.isEmpty { break }
+
             let activePlayers = engine.players.filter { $0.chips > 0 }
             if activePlayers.count <= 1 {
                 break
@@ -166,7 +172,14 @@ final class AITournamentEvaluator {
     }
 
     private func playHand(engine: inout PokerEngine) {
+        // 安全检查：确保有足够玩家
+        let activePlayers = engine.players.filter { $0.chips > 0 }
+        guard activePlayers.count >= 2 else { return }
+
         engine.deck.reset()
+
+        // 检查牌是否足够
+        guard engine.deck.remainingCount >= activePlayers.count * 2 else { return }
 
         for i in 0..<engine.players.count {
             if engine.players[i].chips > 0 {
@@ -189,11 +202,17 @@ final class AITournamentEvaluator {
         while !engine.isHandOver && engine.activePlayerCount > 1 && loopGuard < 100 {
             loopGuard += 1
 
+            // 安全检查：确保索引有效
+            guard engine.activePlayerIndex < engine.players.count else {
+                engine.activePlayerIndex = 0
+                continue
+            }
+
             let player = engine.players[engine.activePlayerIndex]
 
             // 安全检查：跳过无效玩家
             if player.isHuman || player.status != .active || player.aiProfile == nil {
-                engine.activePlayerIndex = (engine.activePlayerIndex + 1) % engine.players.count
+                engine.activePlayerIndex = (engine.activePlayerIndex + 1) % max(1, engine.players.count)
                 continue
             }
 
@@ -206,8 +225,11 @@ final class AITournamentEvaluator {
             }
         }
 
+        // 安全检查：确保 currentStreet 有效
         if !engine.isHandOver && engine.activePlayerCount > 0 {
-            while engine.currentStreet != .river {
+            while engine.currentStreet != .river && engine.currentStreet != .preFlop {
+                // 检查牌是否足够
+                guard engine.deck.remainingCount >= 1 else { break }
                 engine.dealNextStreet()
             }
             engine.endHand()
@@ -215,8 +237,12 @@ final class AITournamentEvaluator {
     }
 
     private func postBlinds(engine: inout PokerEngine) {
-        let sbIndex = (engine.dealerIndex + 1) % engine.players.count
-        let bbIndex = (engine.dealerIndex + 2) % engine.players.count
+        guard !engine.players.isEmpty else { return }
+
+        let sbIndex = (engine.dealerIndex + 1) % max(1, engine.players.count)
+        let bbIndex = (engine.dealerIndex + 2) % max(1, engine.players.count)
+
+        guard sbIndex < engine.players.count && bbIndex < engine.players.count else { return }
 
         if engine.players[sbIndex].chips >= engine.smallBlindAmount {
             engine.players[sbIndex].chips -= engine.smallBlindAmount
@@ -229,7 +255,7 @@ final class AITournamentEvaluator {
         }
 
         engine.currentBet = engine.bigBlindAmount
-        engine.activePlayerIndex = (bbIndex + 1) % engine.players.count
+        engine.activePlayerIndex = (bbIndex + 1) % max(1, engine.players.count)
     }
 
     private func getAIAction(player: Player, engine: PokerEngine) -> PlayerAction? {
@@ -285,6 +311,9 @@ final class AITournamentEvaluator {
     }
 
     private func resetForNextHand(engine: inout PokerEngine) {
+        // 安全检查
+        guard !engine.players.isEmpty else { return }
+
         engine.isHandOver = false
         engine.winners = []
         engine.communityCards = []
@@ -293,7 +322,7 @@ final class AITournamentEvaluator {
         engine.minRaise = 0
         engine.deck.reset()  // 重置牌堆
 
-        engine.dealerIndex = (engine.dealerIndex + 1) % engine.players.count
+        engine.dealerIndex = (engine.dealerIndex + 1) % max(1, engine.players.count)
     }
 
     func generateReport(results: [PlayerResult]) -> String {
