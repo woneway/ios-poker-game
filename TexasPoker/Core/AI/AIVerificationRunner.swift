@@ -104,8 +104,10 @@ class AIVerificationRunner {
             // 初始化累积结果
             evaluator.resetCumulativeResults(for: self.selectedProfiles)
 
-            // 每隔N场更新一次UI，减少UI更新频率
-            let updateInterval = max(1, config.tournamentCount / 5)
+            // 每隔N场更新一次UI，减少UI更新频率和内存占用
+            // 至少每5场更新一次，避免频繁UI刷新导致内存问题
+            // 如果比赛场次少于5场，则只在最后更新一次
+            let updateInterval = config.tournamentCount >= 5 ? max(5, config.tournamentCount / 5) : config.tournamentCount
 
             for i in 1...config.tournamentCount {
                 if self.isCancelled {
