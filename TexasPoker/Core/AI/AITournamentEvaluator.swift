@@ -125,12 +125,20 @@ final class AITournamentEvaluator {
 
         var engine = createEngine(profiles: profiles)
 
-        for _ in 0..<config.maxHandsPerGame {
+        for handNum in 0..<config.maxHandsPerGame {
             // 安全检查：每轮开始前验证状态
-            if engine.players.isEmpty { break }
+            if engine.players.isEmpty {
+                #if DEBUG
+                print("🎯 runSingleGame 第\(handNum+1)手: 玩家为空，提前结束")
+                #endif
+                break
+            }
 
             let activePlayers = engine.players.filter { $0.chips > 0 }
             if activePlayers.count <= 1 {
+                #if DEBUG
+                print("🎯 runSingleGame 第\(handNum+1)手: 活跃玩家不足 \(activePlayers.count)，提前结束")
+                #endif
                 break
             }
 
@@ -174,12 +182,22 @@ final class AITournamentEvaluator {
     private func playHand(engine: inout PokerEngine) {
         // 安全检查：确保有足够玩家
         let activePlayers = engine.players.filter { $0.chips > 0 }
-        guard activePlayers.count >= 2 else { return }
+        guard activePlayers.count >= 2 else {
+            #if DEBUG
+            print("🎯 playHand 提前结束: 活跃玩家不足 \(activePlayers.count)")
+            #endif
+            return
+        }
 
         engine.deck.reset()
 
         // 检查牌是否足够
-        guard engine.deck.remainingCount >= activePlayers.count * 2 else { return }
+        guard engine.deck.remainingCount >= activePlayers.count * 2 else {
+            #if DEBUG
+            print("🎯 playHand 提前结束: 牌数不足，需要 \(activePlayers.count * 2)，剩余 \(engine.deck.remainingCount)")
+            #endif
+            return
+        }
 
         for i in 0..<engine.players.count {
             if engine.players[i].chips > 0 {
@@ -190,6 +208,10 @@ final class AITournamentEvaluator {
                 }
             }
         }
+
+        #if DEBUG
+        print("🎯 playHand 开始: 玩家数=\(engine.players.count), 牌堆剩余=\(engine.deck.remainingCount)")
+        #endif
 
         engine.currentStreet = .preFlop
         engine.dealerIndex = 0

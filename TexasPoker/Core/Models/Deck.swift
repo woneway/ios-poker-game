@@ -25,8 +25,19 @@ class Deck: ObservableObject {
     }
     
     func deal() -> Card? {
-        guard !cards.isEmpty else { return nil }
-        return cards.removeLast()
+        guard !cards.isEmpty else {
+            #if DEBUG
+            print("🃏 Deck.deal() 警告: 牌堆已空！")
+            #endif
+            return nil
+        }
+        let card = cards.removeLast()
+        #if DEBUG
+        if cards.count < 10 {
+            print("🃏 Deck.deal() 警告: 剩余 \(cards.count) 张牌")
+        }
+        #endif
+        return card
     }
     
     func deal(count: Int) -> [Card] {
