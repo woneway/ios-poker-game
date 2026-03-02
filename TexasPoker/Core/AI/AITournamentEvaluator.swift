@@ -278,7 +278,7 @@ final class AITournamentEvaluator {
             return .check
         } else {
             let equity = estimateEquity(profile: profile, street: engine.currentStreet)
-            let potOdds = Double(callAmount) / Double(potSize + callAmount)
+        let potOdds = potSize + callAmount > 0 ? Double(callAmount) / Double(potSize + callAmount) : 0
 
             if equity > potOdds + 0.1 {
                 if stackSize <= callAmount * 3 {
