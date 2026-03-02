@@ -22,6 +22,9 @@ extension PokerEngine {
     }
     
     func playSoundForAction(_ action: PlayerAction) {
+        // 验证模式下（无依赖注入）跳过音效
+        guard soundManager != nil else { return }
+
         let sound: SoundType? = {
             switch action {
             case .fold:  return .fold
@@ -32,7 +35,7 @@ extension PokerEngine {
             }
         }()
         if let sound = sound {
-            soundManager?.playSound(sound) ?? SoundManager.shared.playSound(sound)
+            soundManager?.playSound(sound)
         }
     }
     
@@ -132,6 +135,9 @@ extension PokerEngine {
     }
     
     private func triggerPlayerAnimation(player: Player, action: PlayerAction) {
+        // 验证模式下（无依赖注入）跳过动画
+        guard animationManager != nil else { return }
+
         let playerId = player.id.uuidString
 
         let animationType: PlayerAnimationType = {
@@ -145,16 +151,12 @@ extension PokerEngine {
         }()
 
         animationManager?.startAnimation(for: playerId, type: animationType)
-            ?? PlayerAnimationManager.shared.startAnimation(for: playerId, type: animationType)
 
         // Publish action event for UI
         eventPublisher?.publishPlayerAction(
             playerID: player.id,
             action: String(describing: action),
             isThinking: false
-        ) ?? GameEventPublisher.shared.publishPlayerAction(
-            playerID: player.id,
-            action: String(describing: action)
         )
     }
     
@@ -165,15 +167,6 @@ extension PokerEngine {
         let isVoluntary = determineIfVoluntary(action: action, player: originalPlayer)
         let position = getPosition(playerIndex: activePlayerIndex)
         actionRecorder?.recordAction(
-            playerName: updatedPlayer.name,
-            playerUniqueId: updatedPlayer.playerUniqueId,
-            action: action,
-            amount: potAddition,
-            street: currentStreet,
-            isVoluntary: isVoluntary,
-            position: position,
-            isHuman: originalPlayer.isHuman
-        ) ?? ActionRecorder.shared.recordAction(
             playerName: updatedPlayer.name,
             playerUniqueId: updatedPlayer.playerUniqueId,
             action: action,
@@ -194,11 +187,6 @@ extension PokerEngine {
             players.first { $0.id == id }?.name
         }
         actionRecorder?.endHand(
-            finalPot: lastPotSize,
-            communityCards: communityCards,
-            heroCards: heroCards,
-            winners: winnerNames
-        ) ?? ActionRecorder.shared.endHand(
             finalPot: lastPotSize,
             communityCards: communityCards,
             heroCards: heroCards,
