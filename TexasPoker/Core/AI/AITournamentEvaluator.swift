@@ -362,6 +362,11 @@ final class AITournamentEvaluator {
         report += "\n" + String(repeating: "═", count: 80) + "\n"
         report += "\n📊 统计分析:\n\n"
 
+        guard !results.isEmpty else {
+            report += "  无统计数据\n"
+            return report
+        }
+
         let avgAggression = results.map { $0.profile.aggression }.reduce(0, +) / Double(results.count)
         let avgTightness = results.map { $0.profile.tightness }.reduce(0, +) / Double(results.count)
         let avgPosition = results.map { $0.profile.positionAwareness }.reduce(0, +) / Double(results.count)
@@ -370,11 +375,12 @@ final class AITournamentEvaluator {
         report += "  平均紧度: \(String(format: "%.2f", avgTightness))\n"
         report += "  平均位置意识: \(String(format: "%.2f", avgPosition))\n"
 
-        let topAggression = results.prefix(10).map { $0.profile.aggression }.reduce(0, +) / 10.0
-        let bottomAggression = results.suffix(10).map { $0.profile.aggression }.reduce(0, +) / 10.0
+        let count = min(10, results.count)
+        let topAggression = results.prefix(count).map { $0.profile.aggression }.reduce(0, +) / Double(count)
+        let bottomAggression = results.suffix(count).map { $0.profile.aggression }.reduce(0, +) / Double(count)
 
-        report += "\n  前10名平均侵略性: \(String(format: "%.2f", topAggression))\n"
-        report += "  后10名平均侵略性: \(String(format: "%.2f", bottomAggression))\n"
+        report += "\n  前\(count)名平均侵略性: \(String(format: "%.2f", topAggression))\n"
+        report += "  后\(count)名平均侵略性: \(String(format: "%.2f", bottomAggression))\n"
 
         report += "\n" + String(repeating: "═", count: 80) + "\n"
         report += "\n🏅 冠军榜:\n\n"
