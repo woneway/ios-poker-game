@@ -86,8 +86,8 @@ class AIVerificationRunner {
         results = []
         isCancelled = false
 
-        // 验证功能在主线程运行，避免 ObservableObject 多线程访问崩溃
-        DispatchQueue.main.async { [weak self] in
+        // 验证功能使用后台线程（PokerEngineLite线程安全）
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
             let evaluator = AITournamentEvaluator(config: AITournamentEvaluator.TournamentConfig(
