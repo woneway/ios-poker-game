@@ -123,35 +123,24 @@ final class AITournamentEvaluator {
         // 安全检查：确保有足够的 profile
         guard profiles.count >= 2 else { return [] }
 
-        var engine = createEngine(profiles: profiles)
+        // 使用轻量级引擎（线程安全）
+        let engine = createEngine(profiles: profiles)
 
         for handNum in 0..<config.maxHandsPerGame {
             // 安全检查：每轮开始前验证状态
-            if engine.players.isEmpty {
+            let rankings = engine.getRankings()
+            if rankings.count <= 1 {
                 #if DEBUG
-                print("🎯 runSingleGame 第\(handNum+1)手: 玩家为空，提前结束")
+                print("🎯 runSingleGame 第\(handNum+1)手: 活跃玩家不足 \(rankings.count)，提前结束")
                 #endif
                 break
             }
 
-            let activePlayers = engine.players.filter { $0.chips > 0 }
-            if activePlayers.count <= 1 {
-                #if DEBUG
-                print("🎯 runSingleGame 第\(handNum+1)手: 活跃玩家不足 \(activePlayers.count)，提前结束")
-                #endif
-                break
-            }
-
-            playHand(engine: &engine)
-
-            if engine.isHandOver {
-                resetForNextHand(engine: &engine)
-            }
+            // 运行一手牌（AI自动决策）
+            engine.runHand()
         }
 
-        let finalPlayers = engine.players
-            .filter { $0.chips > 0 && $0.aiProfile != nil }
-            .sorted { $0.chips > $1.chips }
+        let finalPlayers = engine.getRankings()
 
         return finalPlayers.enumerated().compactMap { index, player in
             guard let profile = player.aiProfile else { return nil }
@@ -163,20 +152,13 @@ final class AITournamentEvaluator {
         }
     }
 
-    private func createEngine(profiles: [AIProfile]) -> PokerEngine {
-        let engine = PokerEngine(mode: .cashGame, cashGameConfig: .default)
-        engine.aiDecisionDelay = 0
-        engine.useSyncAIDecision = true
-        // 引擎默认不注入任何依赖，所有协议属性为 nil，无副作用
-        engine.players = profiles.map { profile in
-            Player(
-                name: profile.name,
-                chips: config.startingChips,
-                isHuman: false,
-                aiProfile: profile
-            )
-        }
-        return engine
+    private func createEngine(profiles: [AIProfile]) -> PokerEngineLite {
+        return PokerEngineLite(
+            profiles: profiles,
+            startingChips: config.startingChips,
+            smallBlind: 10,
+            bigBlind: 20
+        )
     }
 
     private func playHand(engine: inout PokerEngine) {

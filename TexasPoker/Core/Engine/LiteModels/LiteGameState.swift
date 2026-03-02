@@ -1,0 +1,242 @@
+import Foundation
+
+/// 轻量级游戏状态 - 纯数据结构，可在任意线程运行
+struct LiteGameState: Equatable {
+    var players: [LitePlayer]
+    var deck: [Card]
+    var communityCards: [Card] = []
+    var pot: LitePot = LitePot()
+
+    var dealerIndex: Int = -1
+    var activePlayerIndex: Int = 0
+
+    var currentStreet: Street = .preFlop
+
+    var currentBet: Int = 0
+    var minRaise: Int = 0
+
+    var hasActed: [UUID: Bool] = [:]
+    var lastRaiserID: UUID?
+    var preflopAggressorID: UUID?
+
+    var smallBlindIndex: Int = 0
+    var bigBlindIndex: Int = 0
+
+    var smallBlindAmount: Int = 10
+    var bigBlindAmount: Int = 20
+
+    var handNumber: Int = 0
+    var isHandOver: Bool = false
+    var winners: [UUID] = []
+
+    /// 当前活跃玩家数量
+    var activePlayerCount: Int {
+        players.filter { $0.status == .active || $0.status == .allIn }.count
+    }
+
+    /// 获取活跃玩家列表
+    var activePlayers: [LitePlayer] {
+        players.filter { $0.status == .active || $0.status == .allIn }
+    }
+
+    /// 获取未弃牌玩家列表
+    var nonFoldedPlayers: [LitePlayer] {
+        players.filter { $0.status != .folded && $0.status != .eliminated }
+    }
+
+    /// 初始化
+    init(players: [LitePlayer], smallBlind: Int = 10, bigBlind: Int = 20) {
+        self.players = players
+        self.deck = Self.createStandardDeck()
+        self.smallBlindAmount = smallBlind
+        self.bigBlindAmount = bigBlind
+    }
+
+    /// 创建标准52张牌
+    private static func createStandardDeck() -> [Card] {
+        var cards: [Card] = []
+        for suit in Suit.allCases {
+            for rank in Rank.allCases {
+                cards.append(Card(rank: rank, suit: suit))
+            }
+        }
+        return cards.shuffled()
+    }
+
+    /// 重置牌堆
+    mutating func resetDeck() {
+        deck = Self.createStandardDeck()
+    }
+
+    /// 发一张牌
+    mutating func dealCard() -> Card? {
+        guard !deck.isEmpty else { return nil }
+        return deck.removeLast()
+    }
+
+    /// 发底牌给所有活跃玩家
+    mutating func dealHoleCards() {
+        for i in 0..<players.count {
+            guard players[i].chips > 0 else { continue }
+            guard let card1 = dealCard(), let card2 = dealCard() else { break }
+            players[i].holeCards = [card1, card2]
+            players[i].status = .active
+            players[i].currentBet = 0
+            players[i].totalBetThisHand = 0
+        }
+    }
+
+    /// 发下一条街公共牌
+    mutating func dealNextStreet() {
+        let needed: Int
+        switch currentStreet {
+        case .preFlop:
+            currentStreet = .flop
+            needed = 3
+        case .flop:
+            currentStreet = .turn
+            needed = 1
+        case .turn:
+            currentStreet = .river
+            needed = 1
+        case .river:
+            return
+        }
+
+        for _ in 0..<needed {
+            if let card = dealCard() {
+                communityCards.append(card)
+            }
+        }
+    }
+
+    /// 重置手牌状态
+    mutating func resetForNewHand() {
+        // 重置牌堆
+        resetDeck()
+
+        // 重置玩家状态
+        for i in 0..<players.count {
+            players[i].holeCards = []
+            players[i].status = players[i].chips > 0 ? .active : .eliminated
+            players[i].currentBet = 0
+            players[i].totalBetThisHand = 0
+        }
+
+        // 重置公共牌和奖池
+        communityCards = []
+        pot = LitePot()
+
+        // 重置下注状态
+        currentBet = 0
+        minRaise = 0
+        hasActed = [:]
+        lastRaiserID = nil
+        preflopAggressorID = nil
+
+        // 移动庄家位
+        dealerIndex = (dealerIndex + 1) % max(1, players.count)
+
+        // 设置大小盲位置
+        smallBlindIndex = (dealerIndex + 1) % max(1, players.count)
+        bigBlindIndex = (dealerIndex + 2) % max(1, players.count)
+
+        // 发底牌
+        dealHoleCards()
+
+        // 投盲注
+        postBlinds()
+
+        // 设置当前行动玩家
+        activePlayerIndex = (bigBlindIndex + 1) % max(1, players.count)
+
+        // 重置手牌状态
+        isHandOver = false
+        winners = []
+        currentStreet = .preFlop
+        handNumber += 1
+    }
+
+    /// 投盲注
+    private mutating func postBlinds() {
+        // 小盲
+        if players[smallBlindIndex].chips >= smallBlindAmount {
+            let actual = min(players[smallBlindIndex].chips, smallBlindAmount)
+            players[smallBlindIndex].chips -= actual
+            players[smallBlindIndex].currentBet = actual
+            players[smallBlindIndex].totalBetThisHand += actual
+            pot.add(actual)
+        }
+
+        // 大盲
+        if players[bigBlindIndex].chips >= bigBlindAmount {
+            let actual = min(players[bigBlindIndex].chips, bigBlindAmount)
+            players[bigBlindIndex].chips -= actual
+            players[bigBlindIndex].currentBet = actual
+            players[bigBlindIndex].totalBetThisHand += actual
+            pot.add(actual)
+        }
+
+        currentBet = bigBlindAmount
+        minRaise = bigBlindAmount * 2
+    }
+
+    /// 获取当前玩家
+    var currentPlayer: LitePlayer? {
+        guard activePlayerIndex >= 0 && activePlayerIndex < players.count else { return nil }
+        return players[activePlayerIndex]
+    }
+
+    /// 找到下一个可行动玩家
+    mutating func nextActivePlayer() -> Bool {
+        let startIndex = activePlayerIndex
+        var attempts = 0
+
+        while attempts < players.count {
+            activePlayerIndex = (activePlayerIndex + 1) % max(1, players.count)
+
+            let player = players[activePlayerIndex]
+            if player.status == .active && player.chips > 0 {
+                return true
+            }
+
+            attempts += 1
+
+            // 检查是否所有人都已行动
+            if allPlayersActed() {
+                return false
+            }
+        }
+
+        return false
+    }
+
+    /// 检查是否所有玩家都已行动
+    private func allPlayersActed() -> Bool {
+        let active = players.filter { $0.status == .active || $0.status == .allIn }
+        for player in active {
+            if hasActed[player.id] != true {
+                return false
+            }
+        }
+        return !active.isEmpty
+    }
+
+    /// 检查当前玩家是否可以 check
+    func currentPlayerCanCheck() -> Bool {
+        guard let player = currentPlayer else { return false }
+        return player.currentBet == currentBet
+    }
+
+    /// 当前玩家需要跟注的金额
+    func currentPlayerCallAmount() -> Int {
+        guard let player = currentPlayer else { return 0 }
+        return currentBet - player.currentBet
+    }
+
+    /// 结束手牌
+    mutating func endHand(with winners: [UUID]) {
+        self.winners = winners
+        self.isHandOver = true
+    }
+}
