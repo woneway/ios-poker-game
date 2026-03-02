@@ -85,10 +85,11 @@ class AIVerificationRunner {
         currentGame = 0
         results = []
         isCancelled = false
-        
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+
+        // 验证功能在主线程运行，避免 ObservableObject 多线程访问崩溃
+        DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
+
             let evaluator = AITournamentEvaluator(config: AITournamentEvaluator.TournamentConfig(
                 playerCount: self.selectedProfiles.count,
                 games: config.tournamentCount,
