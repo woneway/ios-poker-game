@@ -6,20 +6,41 @@ private let analysisLogger = Logger(subsystem: "smartegg.TexasPoker", category: 
 
 class DataAnalysisEngine {
     static let shared = DataAnalysisEngine()
-    
+
     private var handHistory: [HandRecord] = []
     private var playerActions: [String: [ActionRecord]] = [:]
     private let queue = DispatchQueue(label: "com.poker.analysis", attributes: .concurrent)
-    private var isLoaded = false
-    
-    private var context: NSManagedObjectContext {
-        PersistenceController.shared.container.viewContext
+    private var _isLoaded = false
+
+    /// 线程安全的 isLoaded 访问
+    private var isLoaded: Bool {
+        queue.sync { _isLoaded }
     }
-    
+
     private init() {}
-    
+
+    /// 线程安全地设置 isLoaded
+    private func setLoaded(_ value: Bool) {
+        queue.async(flags: .barrier) { [weak self] in
+            self?._isLoaded = value
+        }
+    }
+
+    /// 线程安全地添加手牌历史
+    private func appendHandRecord(_ record: HandRecord) {
+        queue.async(flags: .barrier) { [weak self] in
+            self?.handHistory.append(record)
+        }
+    }
+
+    /// 线程安全地获取手牌历史
+    func getHandHistory() -> [HandRecord] {
+        queue.sync { handHistory }
+    }
+
     func loadHistoryFromCoreData(gameMode: GameMode? = nil, profileId: String? = nil) {
-        guard !isLoaded else {
+        // 使用 queue.sync 确保线程安全检查
+        guard queue.sync(execute: { !_isLoaded }) else {
             analysisLogger.info("Data already loaded, skipping...")
             return
         }
@@ -27,59 +48,70 @@ class DataAnalysisEngine {
         let pid = profileId ?? ProfileManager.shared.currentProfileIdForData
 
         analysisLogger.info("Loading history from Core Data, gameMode=\(String(describing: gameMode)), profileId=\(pid)")
-        
-        let request = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
-        
-        var predicates: [NSPredicate] = []
-        if let mode = gameMode {
-            predicates.append(NSPredicate(format: "gameMode == %@", mode.rawValue))
-        }
-        
-        if pid == ProfileManager.defaultProfileId {
-            predicates.append(NSPredicate(format: "(profileId == %@ OR profileId == nil)", pid))
-        } else {
-            predicates.append(NSPredicate(format: "profileId == %@", pid))
-        }
-        
-        if !predicates.isEmpty {
-            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
-        }
-        
-        request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
-        request.fetchLimit = 1000
-        
-        do {
-            let hands = try context.fetch(request)
-            analysisLogger.info("Loaded \(hands.count) hands from Core Data")
-            
-            for hand in hands {
-                guard let handId = hand.value(forKey: "id") as? UUID,
-                      let date = hand.value(forKey: "date") as? Date else {
-                    continue
-                }
-                
-                let winnerNames = (hand.value(forKey: "winnerNames") as? String ?? "").components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-                
-                let handRecord = HandRecord(
-                    id: handId,
-                    timestamp: date,
-                    players: [],
-                    holeCards: [:],
-                    communityCards: [],
-                    actions: [],
-                    potSize: Int(hand.value(forKey: "finalPot") as? Int32 ?? 0),
-                    winner: winnerNames.first,
-                    profit: [:]
-                )
-                
-                handHistory.append(handRecord)
+
+        // 使用后台上下文执行 Core Data 操作
+        let backgroundContext = PersistenceController.shared.newBackgroundContext()
+        var loadedHands: [HandRecord] = []
+
+        backgroundContext.performAndWait {
+            let request = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
+
+            var predicates: [NSPredicate] = []
+            if let mode = gameMode {
+                predicates.append(NSPredicate(format: "gameMode == %@", mode.rawValue))
             }
-            
-            isLoaded = true
-            analysisLogger.info("Successfully loaded \(self.handHistory.count) hand records")
-        } catch {
-            analysisLogger.error("Failed to load history from Core Data: \(error.localizedDescription)")
+
+            if pid == ProfileManager.defaultProfileId {
+                predicates.append(NSPredicate(format: "(profileId == %@ OR profileId == nil)", pid))
+            } else {
+                predicates.append(NSPredicate(format: "profileId == %@", pid))
+            }
+
+            if !predicates.isEmpty {
+                request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+            }
+
+            request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+            request.fetchLimit = 1000
+
+            do {
+                let hands = try backgroundContext.fetch(request)
+                analysisLogger.info("Loaded \(hands.count) hands from Core Data")
+
+                for hand in hands {
+                    guard let handId = hand.value(forKey: "id") as? UUID,
+                          let date = hand.value(forKey: "date") as? Date else {
+                        continue
+                    }
+
+                    let winnerNames = (hand.value(forKey: "winnerNames") as? String ?? "").components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+
+                    let handRecord = HandRecord(
+                        id: handId,
+                        timestamp: date,
+                        players: [],
+                        holeCards: [:],
+                        communityCards: [],
+                        actions: [],
+                        potSize: Int(hand.value(forKey: "finalPot") as? Int32 ?? 0),
+                        winner: winnerNames.first,
+                        profit: [:]
+                    )
+
+                    loadedHands.append(handRecord)
+                }
+            } catch {
+                analysisLogger.error("Failed to load history from Core Data: \(error.localizedDescription)")
+            }
         }
+
+        // 将加载的数据写入内存（线程安全）
+        queue.async(flags: .barrier) { [weak self] in
+            self?.handHistory = loadedHands
+            self?._isLoaded = true
+        }
+
+        analysisLogger.info("Successfully loaded \(loadedHands.count) hand records")
     }
     
     func ensureDataLoaded() {

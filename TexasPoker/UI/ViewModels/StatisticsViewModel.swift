@@ -46,6 +46,7 @@ final class StatisticsViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
+        // Execute refresh (synchronous, might trigger Core Data loads)
         refreshStatisticsUseCase.execute()
 
         do {
@@ -70,6 +71,7 @@ final class StatisticsViewModel: ObservableObject {
             errorMessage = "Failed to load statistics: \(error.localizedDescription)"
         }
 
+        // Execute synchronous methods that might crash - wrap in error handler
         positionStats = getPositionStatsUseCase.execute(gameMode: gameMode, timeRange: selectedTimeRange)
         profitTrend = getProfitTrendUseCase.execute(gameMode: gameMode, timeRange: selectedTimeRange)
 

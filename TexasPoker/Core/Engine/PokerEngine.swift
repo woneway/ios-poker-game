@@ -24,7 +24,18 @@ class PokerEngine: ObservableObject {
     
     var aiDecisionDelay: Double = 0.6
     var useSyncAIDecision: Bool = false
-    var disableSideEffects: Bool = false  // 禁用副作用（Core Data 记录等）
+
+    // MARK: - 协议依赖 (通过依赖注入实现)
+    /// 动作记录器 - 可选实现，默认使用单例
+    weak var actionRecorder: ActionRecorderProtocol?
+    /// 事件发布器 - 可选实现，默认使用单例
+    weak var eventPublisher: EventPublisherProtocol?
+    /// 音效管理器 - 可选实现，默认使用单例
+    weak var soundManager: SoundManagerProtocol?
+    /// 动画管理器 - 可选实现，默认使用单例
+    weak var animationManager: AnimationManagerProtocol?
+    /// 资金管理器 - 可选实现，默认使用单例
+    weak var bankrollManager: BankrollManagerProtocol?
     
     // MARK: - Computed Properties
     
@@ -414,7 +425,8 @@ class PokerEngine: ObservableObject {
         recordActionStats(action: action, originalPlayer: player, updatedPlayer: result.playerUpdate, potAddition: result.potAddition)
         
         if result.potAddition > 0 {
-            GameEventPublisher.shared.publishChipAnimation(seatIndex: activePlayerIndex, amount: result.potAddition)
+            eventPublisher?.publishChipAnimation(seatIndex: activePlayerIndex, amount: result.potAddition)
+                ?? GameEventPublisher.shared.publishChipAnimation(seatIndex: activePlayerIndex, amount: result.potAddition)
         }
         
         #if DEBUG

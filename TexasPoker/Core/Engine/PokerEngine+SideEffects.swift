@@ -1,15 +1,15 @@
 import Foundation
 
 /// 记录AI玩家每手牌的输赢结果
-func recordAIHandResults(players: [Player], startingChips: [String: Int]) {
+func recordAIHandResults(players: [Player], startingChips: [String: Int], bankrollManager: BankrollManagerProtocol?) {
     for player in players where !player.isHuman {
         let playerId = player.id.uuidString
         let startChips = startingChips[playerId] ?? player.chips
         let profit = player.chips - startChips
         if profit > 0 {
-            AIBankrollManager.shared.recordWin(playerId, amount: profit)
+            bankrollManager?.recordWin(playerId, amount: profit) ?? AIBankrollManager.shared.recordWin(playerId, amount: profit)
         } else if profit < 0 {
-            AIBankrollManager.shared.recordLoss(playerId, amount: -profit)
+            bankrollManager?.recordLoss(playerId, amount: -profit) ?? AIBankrollManager.shared.recordLoss(playerId, amount: -profit)
         }
     }
 }
@@ -22,12 +22,17 @@ extension PokerEngine {
     }
     
     func playSoundForAction(_ action: PlayerAction) {
-        switch action {
-        case .fold:  SoundManager.shared.playSound(.fold)
-        case .check: SoundManager.shared.playSound(.check)
-        case .call:  SoundManager.shared.playSound(.call)
-        case .raise: SoundManager.shared.playSound(.raise)
-        case .allIn: SoundManager.shared.playSound(.allIn)
+        let sound: SoundType? = {
+            switch action {
+            case .fold:  return .fold
+            case .check: return .check
+            case .call:  return .call
+            case .raise: return .raise
+            case .allIn: return .allIn
+            }
+        }()
+        if let sound = sound {
+            soundManager?.playSound(sound) ?? SoundManager.shared.playSound(sound)
         }
     }
     
@@ -128,34 +133,47 @@ extension PokerEngine {
     
     private func triggerPlayerAnimation(player: Player, action: PlayerAction) {
         let playerId = player.id.uuidString
-        
-        switch action {
-        case .fold:
-            PlayerAnimationManager.shared.startAnimation(for: playerId, type: .folding)
-        case .check:
-            PlayerAnimationManager.shared.startAnimation(for: playerId, type: .acting)
-        case .call:
-            PlayerAnimationManager.shared.startAnimation(for: playerId, type: .acting)
-        case .raise:
-            PlayerAnimationManager.shared.startAnimation(for: playerId, type: .acting)
-        case .allIn:
-            PlayerAnimationManager.shared.startAnimation(for: playerId, type: .allIn)
-        }
-        
+
+        let animationType: PlayerAnimationType = {
+            switch action {
+            case .fold:   return .folding
+            case .check:  return .acting
+            case .call:   return .acting
+            case .raise:  return .acting
+            case .allIn:  return .allIn
+            }
+        }()
+
+        animationManager?.startAnimation(for: playerId, type: animationType)
+            ?? PlayerAnimationManager.shared.startAnimation(for: playerId, type: animationType)
+
         // Publish action event for UI
-        GameEventPublisher.shared.publishPlayerAction(
+        eventPublisher?.publishPlayerAction(
+            playerID: player.id,
+            action: String(describing: action),
+            isThinking: false
+        ) ?? GameEventPublisher.shared.publishPlayerAction(
             playerID: player.id,
             action: String(describing: action)
         )
     }
     
     func recordActionStats(action: PlayerAction, originalPlayer: Player, updatedPlayer: Player, potAddition: Int) {
-        // 验证模式下跳过 Core Data 记录
-        if disableSideEffects { return }
+        // 验证模式下（无依赖注入）跳过 Core Data 记录
+        guard actionRecorder != nil else { return }
 
         let isVoluntary = determineIfVoluntary(action: action, player: originalPlayer)
         let position = getPosition(playerIndex: activePlayerIndex)
-        ActionRecorder.shared.recordAction(
+        actionRecorder?.recordAction(
+            playerName: updatedPlayer.name,
+            playerUniqueId: updatedPlayer.playerUniqueId,
+            action: action,
+            amount: potAddition,
+            street: currentStreet,
+            isVoluntary: isVoluntary,
+            position: position,
+            isHuman: originalPlayer.isHuman
+        ) ?? ActionRecorder.shared.recordAction(
             playerName: updatedPlayer.name,
             playerUniqueId: updatedPlayer.playerUniqueId,
             action: action,
@@ -168,32 +186,37 @@ extension PokerEngine {
     }
 
     func recordHandEnd() {
-        // 验证模式下跳过 Core Data 记录
-        if disableSideEffects { return }
+        // 验证模式下（无依赖注入）跳过 Core Data 记录
+        guard actionRecorder != nil else { return }
 
         let heroCards = players.first { $0.isHuman }?.holeCards ?? []
         let winnerNames = winners.compactMap { id in
             players.first { $0.id == id }?.name
         }
-        ActionRecorder.shared.endHand(
+        actionRecorder?.endHand(
+            finalPot: lastPotSize,
+            communityCards: communityCards,
+            heroCards: heroCards,
+            winners: winnerNames
+        ) ?? ActionRecorder.shared.endHand(
             finalPot: lastPotSize,
             communityCards: communityCards,
             heroCards: heroCards,
             winners: winnerNames
         )
-        
+
         // Record hand data to DataAnalysisEngine for AI learning
         recordHandToAnalysisEngine()
-        
+
         // Record hand patterns to AILearningSystem for AI learning
         recordHandToLearningSystem()
-        
+
         // Record memories to AIMemorySystem
         recordMemoriesToLearningSystem()
-        
+
         // Record emotional events for AI opponents
         recordEmotionalEvents()
-        
+
         // Recompute persisted statistics for all table players.
         // This keeps "download/new install" stats empty, and updates dynamically as the user plays.
         StatisticsCalculator.shared.recomputeAndPersistStats(
@@ -202,7 +225,7 @@ extension PokerEngine {
             profileId: ProfileManager.shared.currentProfileIdForData
         )
 
-        GameEventPublisher.shared.publishPlayerStatsUpdated()
+        eventPublisher?.publishPlayerStatsUpdated() ?? GameEventPublisher.shared.publishPlayerStatsUpdated()
     }
     
     private func recordHandToAnalysisEngine() {
@@ -414,26 +437,28 @@ extension PokerEngine {
     func notifyWinnerAnimations(result: ShowdownResult) {
         for winnerID in result.winnerIDs {
             if let winnerIndex = players.firstIndex(where: { $0.id == winnerID }) {
-                GameEventPublisher.shared.publishPlayerWon(playerID: winnerID)
+                eventPublisher?.publishPlayerWon(playerID: winnerID) ?? GameEventPublisher.shared.publishPlayerWon(playerID: winnerID)
                 let winnerAmount = result.totalPot / result.winnerIDs.count
-                GameEventPublisher.shared.publishWinnerChipAnimation(seatIndex: winnerIndex, amount: winnerAmount)
-                
+                eventPublisher?.publishWinnerChipAnimation(seatIndex: winnerIndex, amount: winnerAmount) ?? GameEventPublisher.shared.publishWinnerChipAnimation(seatIndex: winnerIndex, amount: winnerAmount)
+
                 // Trigger winner animation
                 let playerId = winnerID.uuidString
-                if winnerAmount > pot.total / 2 {
-                    PlayerAnimationManager.shared.startAnimation(for: playerId, type: .bigWin)
-                } else {
-                    PlayerAnimationManager.shared.startAnimation(for: playerId, type: .winning)
-                }
-                PlayerAnimationManager.shared.setEmotion(for: playerId, emotion: .happy)
+                let winAnimationType: PlayerAnimationType = winnerAmount > pot.total / 2 ? .bigWin : .winning
+
+                animationManager?.startAnimation(for: playerId, type: winAnimationType)
+                    ?? PlayerAnimationManager.shared.startAnimation(for: playerId, type: winAnimationType)
+                animationManager?.setEmotion(for: playerId, emotion: .happy)
+                    ?? PlayerAnimationManager.shared.setEmotion(for: playerId, emotion: .happy)
             }
         }
-        
+
         // Trigger losing animations for losers
         for player in players where !winners.contains(player.id) && player.status != .eliminated {
             let playerId = player.id.uuidString
-            PlayerAnimationManager.shared.startAnimation(for: playerId, type: .losing)
-            PlayerAnimationManager.shared.setEmotion(for: playerId, emotion: .sad)
+            animationManager?.startAnimation(for: playerId, type: .losing)
+                ?? PlayerAnimationManager.shared.startAnimation(for: playerId, type: .losing)
+            animationManager?.setEmotion(for: playerId, emotion: .sad)
+                ?? PlayerAnimationManager.shared.setEmotion(for: playerId, emotion: .sad)
         }
     }
     

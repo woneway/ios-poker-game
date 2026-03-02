@@ -91,11 +91,20 @@ class StatisticsCalculator {
 
     /// Overridable profile id for testing.
     var profileIdProvider: (() -> String)?
-    
+
+    /// 是否使用后台上下文（用于避免主线程阻塞）
+    var useBackgroundContext: Bool = false
+
     private var context: NSManagedObjectContext {
-        contextProvider?() ?? PersistenceController.shared.container.viewContext
+        if let provider = contextProvider {
+            return provider()
+        }
+        if useBackgroundContext {
+            return PersistenceController.shared.newBackgroundContext()
+        }
+        return PersistenceController.shared.viewContext
     }
-    
+
     private init() {}
 
     func invalidateCache() {

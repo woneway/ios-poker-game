@@ -772,7 +772,7 @@ class PokerGameStore: ObservableObject {
         // 记录AI玩家输赢，用于资金管理
         recordAIHandResults(players: engine.players, startingChips: engine.players.reduce(into: [String: Int]()) { dict, player in
             dict[player.id.uuidString] = player.startingChips
-        })
+        }, bankrollManager: engine.bankrollManager)
         
         checkCashGameEndConditions()
     }
