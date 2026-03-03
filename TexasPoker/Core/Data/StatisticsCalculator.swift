@@ -8,16 +8,17 @@ private let statisticsLogger = Logger(subsystem: "smartegg.TexasPoker", category
 
 final class StatisticsCache {
     static let shared = StatisticsCache()
-    
+
     private var cache: [String: CachedStats] = [:]
     private let queue = DispatchQueue(label: "com.poker.statistics.cache", attributes: .concurrent)
     private let maxAge: TimeInterval = 60
-    
+    private let maxCacheSize = 100 // Limit cache size to prevent memory issues
+
     struct CachedStats {
         let stats: PlayerStats
         let timestamp: Date
     }
-    
+
     func getStats(for key: String) -> PlayerStats? {
         queue.sync {
             guard let cached = cache[key] else { return nil }
@@ -29,19 +30,32 @@ final class StatisticsCache {
             return cached.stats
         }
     }
-    
+
     func setStats(_ stats: PlayerStats, for key: String) {
-        queue.async(flags: .barrier) {
+        queue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+
+            // Evict oldest entries if cache is full
+            if self.cache.count >= self.maxCacheSize {
+                // Remove oldest 20% of entries
+                let sortedKeys = self.cache.sorted { $0.value.timestamp < $1.value.timestamp }
+                    .prefix(self.maxCacheSize / 5)
+                    .map { $0.key }
+                for key in sortedKeys {
+                    self.cache.removeValue(forKey: key)
+                }
+            }
+
             self.cache[key] = CachedStats(stats: stats, timestamp: Date())
         }
     }
-    
+
     func invalidate(key: String) {
         queue.async(flags: .barrier) {
             self.cache.removeValue(forKey: key)
         }
     }
-    
+
     func clear() {
         queue.async(flags: .barrier) {
             self.cache.removeAll()
@@ -413,7 +427,85 @@ class StatisticsCalculator {
             totalInvested: totalInvested
         )
     }
-    
+
+    // MARK: - Async Statistics Calculation (Background Processing)
+
+    /// Calculate statistics asynchronously using background context to avoid blocking main thread
+    /// - Parameters:
+    ///   - playerName: The player's display name
+    ///   - playerUniqueId: The unique identifier for the player
+    ///   - gameMode: The game mode to calculate stats for
+    ///   - profileId: Optional profile ID override
+    ///   - isHumanOverride: Optional override to determine if player is human
+    /// - Returns: PlayerStats or nil if player has no data
+    func calculateStatsAsync(
+        playerName: String,
+        playerUniqueId: String? = nil,
+        gameMode: GameMode,
+        profileId: String? = nil,
+        isHumanOverride: Bool? = nil
+    ) async -> PlayerStats? {
+        // Use a dedicated background context
+        let backgroundContext = PersistenceController.shared.newBackgroundContext()
+
+        return await withCheckedContinuation { continuation in
+            backgroundContext.perform { [weak self] in
+                guard let self = self else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                // Temporarily override context provider
+                let originalProvider = self.contextProvider
+                self.contextProvider = { backgroundContext }
+
+                let result = self.calculateStats(
+                    playerName: playerName,
+                    playerUniqueId: playerUniqueId,
+                    gameMode: gameMode,
+                    profileId: profileId,
+                    isHumanOverride: isHumanOverride
+                )
+
+                // Restore original provider
+                self.contextProvider = originalProvider
+
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    /// Calculate batch statistics asynchronously for multiple players
+    func calculateBatchStatsAsync(
+        playerNames: [String],
+        gameMode: GameMode,
+        profileId: String? = nil
+    ) async -> [String: PlayerStats?] {
+        let backgroundContext = PersistenceController.shared.newBackgroundContext()
+
+        return await withCheckedContinuation { continuation in
+            backgroundContext.perform { [weak self] in
+                guard let self = self else {
+                    continuation.resume(returning: [:])
+                    return
+                }
+
+                let originalProvider = self.contextProvider
+                self.contextProvider = { backgroundContext }
+
+                let result = self.calculateBatchStats(
+                    playerNames: playerNames,
+                    gameMode: gameMode,
+                    profileId: profileId
+                )
+
+                self.contextProvider = originalProvider
+
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
     // MARK: - Core Data Queries
     
     private func fetchHands(gameMode: GameMode, profileId: String) -> [NSManagedObject] {
@@ -962,11 +1054,13 @@ class StatisticsCalculator {
 
     // MARK: - Public Data Query Methods
 
-    /// Fetch hand history summaries for the current profile and game mode
+    /// Fetch hand history summaries for the current profile and game mode (with pagination support)
     func fetchHandHistorySummaries(
         gameMode: GameMode,
         timeRange: TimeRange = .all,
-        profileId: String? = nil
+        profileId: String? = nil,
+        limit: Int? = nil,
+        offset: Int = 0
     ) -> [HandHistorySummary] {
         let pid = normalizeProfileId(profileId ?? ProfileManager.shared.currentProfileIdForData)
 
@@ -985,6 +1079,12 @@ class StatisticsCalculator {
         let request = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
         request.predicate = compoundPredicate
         request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+
+        // Add pagination support
+        if let limit = limit {
+            request.fetchLimit = limit
+        }
+        request.fetchOffset = offset
 
         guard let hands = try? context.fetch(request) else { return [] }
 
@@ -1019,6 +1119,53 @@ class StatisticsCalculator {
                 isWin: isWin,
                 profit: profit
             )
+        }
+    }
+
+    /// Get total count of hand histories (useful for pagination)
+    func fetchHandHistoryCount(
+        gameMode: GameMode,
+        timeRange: TimeRange = .all,
+        profileId: String? = nil
+    ) -> Int {
+        let pid = normalizeProfileId(profileId ?? ProfileManager.shared.currentProfileIdForData)
+
+        var predicates: [NSPredicate] = [
+            NSPredicate(format: "gameMode == %@", gameMode.rawValue),
+            predicateForProfileId(pid)
+        ]
+
+        if let startDate = startDate(for: timeRange) {
+            predicates.append(NSPredicate(format: "date >= %@", startDate as NSDate))
+        }
+
+        let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+
+        let request = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
+        request.predicate = compoundPredicate
+
+        return (try? context.count(for: request)) ?? 0
+    }
+
+    /// Async version for background processing
+    func fetchHandHistorySummariesAsync(
+        gameMode: GameMode,
+        timeRange: TimeRange = .all,
+        profileId: String? = nil,
+        limit: Int? = nil,
+        offset: Int = 0
+    ) async -> [HandHistorySummary] {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let results = self?.fetchHandHistorySummaries(
+                    gameMode: gameMode,
+                    timeRange: timeRange,
+                    profileId: profileId,
+                    limit: limit,
+                    offset: offset
+                ) ?? []
+                continuation.resume(returning: results)
+            }
         }
     }
 

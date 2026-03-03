@@ -2,12 +2,12 @@ import Foundation
 import CoreData
 
 class DataExporter {
-    
-    /// Export player statistics as JSON
+
+    /// Export player statistics as JSON (main thread version)
     static func exportStatistics(gameMode: GameMode) -> URL? {
         let context = PersistenceController.shared.container.viewContext
         let profileId = ProfileManager.shared.currentProfileIdForData
-        
+
         let request = NSFetchRequest<NSManagedObject>(entityName: "PlayerStatsEntity")
         if profileId == ProfileManager.defaultProfileId {
             request.predicate = NSPredicate(format: "gameMode == %@ AND (profileId == %@ OR profileId == nil)", gameMode.rawValue, profileId)
@@ -15,11 +15,13 @@ class DataExporter {
             request.predicate = NSPredicate(format: "gameMode == %@ AND profileId == %@", gameMode.rawValue, profileId)
         }
         request.sortDescriptors = [NSSortDescriptor(key: "totalHands", ascending: false)]
-        
+
         guard let statsEntities = try? context.fetch(request) else { return nil }
-        
+
         // Convert to dictionary format
         var statsArray: [[String: Any]] = []
+        statsArray.reserveCapacity(statsEntities.count)
+
         for entity in statsEntities {
             let dict: [String: Any] = [
                 "profileId": entity.value(forKey: "profileId") as? String ?? ProfileManager.defaultProfileId,
@@ -38,16 +40,16 @@ class DataExporter {
             ]
             statsArray.append(dict)
         }
-        
+
         // Convert to JSON
         guard let jsonData = try? JSONSerialization.data(withJSONObject: statsArray, options: .prettyPrinted) else {
             return nil
         }
-        
+
         // Write to temp file
         let fileName = "poker_stats_\(profileId)_\(gameMode.rawValue)_\(Date().ISO8601Format()).json"
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-        
+
         do {
             try jsonData.write(to: tempURL)
             return tempURL
@@ -58,12 +60,22 @@ class DataExporter {
             return nil
         }
     }
-    
-    /// Export hand history as JSON
+
+    /// Export player statistics asynchronously (background thread version for large datasets)
+    static func exportStatisticsAsync(gameMode: GameMode) async -> URL? {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let result = exportStatistics(gameMode: gameMode)
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    /// Export hand history as JSON (main thread version)
     static func exportHandHistory(limit: Int = 100, gameMode: GameMode) -> URL? {
         let context = PersistenceController.shared.container.viewContext
         let profileId = ProfileManager.shared.currentProfileIdForData
-        
+
         let request = NSFetchRequest<NSManagedObject>(entityName: "HandHistoryEntity")
         if profileId == ProfileManager.defaultProfileId {
             request.predicate = NSPredicate(format: "gameMode == %@ AND (profileId == %@ OR profileId == nil)", gameMode.rawValue, profileId)
@@ -72,10 +84,12 @@ class DataExporter {
         }
         request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
         request.fetchLimit = limit
-        
+
         guard let hands = try? context.fetch(request) else { return nil }
-        
+
         var handsArray: [[String: Any]] = []
+        handsArray.reserveCapacity(hands.count)
+
         for hand in hands {
             let dict: [String: Any] = [
                 "profileId": hand.value(forKey: "profileId") as? String ?? ProfileManager.defaultProfileId,
@@ -88,15 +102,25 @@ class DataExporter {
             ]
             handsArray.append(dict)
         }
-        
+
         guard let jsonData = try? JSONSerialization.data(withJSONObject: handsArray, options: .prettyPrinted) else {
             return nil
         }
-        
+
         let fileName = "poker_history_\(profileId)_\(gameMode.rawValue)_\(Date().ISO8601Format()).json"
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-        
+
         try? jsonData.write(to: tempURL)
         return tempURL
+    }
+
+    /// Export hand history asynchronously (background thread version for large datasets)
+    static func exportHandHistoryAsync(limit: Int = 100, gameMode: GameMode) async -> URL? {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let result = exportHandHistory(limit: limit, gameMode: gameMode)
+                continuation.resume(returning: result)
+            }
+        }
     }
 }

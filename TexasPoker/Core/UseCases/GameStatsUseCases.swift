@@ -36,6 +36,50 @@ final class SaveGameStatsUseCase {
     }
 }
 
+// MARK: - Leaderboard Cache
+
+final class LeaderboardCache {
+    static let shared = LeaderboardCache()
+
+    private var cache: [String: CachedEntry] = [:]
+    private let queue = DispatchQueue(label: "com.poker.leaderboard.cache", attributes: .concurrent)
+    private let maxAge: TimeInterval = 30 // 30 seconds cache
+
+    struct CachedEntry {
+        let entries: [LeaderboardEntry]
+        let timestamp: Date
+    }
+
+    func getEntries(for key: String) -> [LeaderboardEntry]? {
+        queue.sync {
+            guard let cached = cache[key] else { return nil }
+            if Date().timeIntervalSince(cached.timestamp) > maxAge {
+                cache.removeValue(forKey: key)
+                return nil
+            }
+            return cached.entries
+        }
+    }
+
+    func setEntries(_ entries: [LeaderboardEntry], for key: String) {
+        queue.async(flags: .barrier) {
+            self.cache[key] = CachedEntry(entries: entries, timestamp: Date())
+        }
+    }
+
+    func invalidate(key: String) {
+        queue.async(flags: .barrier) {
+            self.cache.removeValue(forKey: key)
+        }
+    }
+
+    func clear() {
+        queue.async(flags: .barrier) {
+            self.cache.removeAll()
+        }
+    }
+}
+
 final class GetLeaderboardUseCase {
     private let statisticsCalculator: StatisticsCalculator
 
@@ -43,10 +87,17 @@ final class GetLeaderboardUseCase {
         self.statisticsCalculator = statisticsCalculator
     }
 
-    func execute(gameMode: GameMode, limit: Int = 10) -> [LeaderboardEntry] {
+    func execute(gameMode: GameMode, limit: Int = 10, useCache: Bool = true) -> [LeaderboardEntry] {
+        let cacheKey = "\(gameMode.rawValue)_\(limit)"
+
+        // Check cache first
+        if useCache, let cached = LeaderboardCache.shared.getEntries(for: cacheKey) {
+            return cached
+        }
+
         let allStats = statisticsCalculator.fetchAllPlayersStats(gameMode: gameMode)
 
-        return allStats
+        let entries = allStats
             .map { name, stats in
                 LeaderboardEntry(
                     rank: 0,
@@ -64,6 +115,29 @@ final class GetLeaderboardUseCase {
                 updated.rank = index + 1
                 return updated
             }
+
+        // Cache the result
+        if useCache {
+            LeaderboardCache.shared.setEntries(entries, for: cacheKey)
+        }
+
+        return entries
+    }
+
+    /// Async version for background processing
+    func executeAsync(gameMode: GameMode, limit: Int = 10) async -> [LeaderboardEntry] {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let entries = self?.execute(gameMode: gameMode, limit: limit, useCache: false) ?? []
+                continuation.resume(returning: entries)
+            }
+        }
+    }
+
+    /// Invalidate cache (call after data changes)
+    func invalidateCache(gameMode: GameMode, limit: Int = 10) {
+        let cacheKey = "\(gameMode.rawValue)_\(limit)"
+        LeaderboardCache.shared.invalidate(key: cacheKey)
     }
 }
 
