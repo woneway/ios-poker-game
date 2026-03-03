@@ -168,12 +168,19 @@ struct LiteGameState: Equatable {
         lastRaiserID = nil
         preflopAggressorID = nil
 
-        // 移动庄家位
-        dealerIndex = (dealerIndex + 1) % max(1, players.count)
+        // 移动庄家位到下一个有筹码的玩家
+        dealerIndex = findNextPlayerWithChips(from: dealerIndex)
 
-        // 设置大小盲位置
-        smallBlindIndex = (dealerIndex + 1) % max(1, players.count)
-        bigBlindIndex = (dealerIndex + 2) % max(1, players.count)
+        // 设置大小盲位置（跳过没有筹码的玩家）
+        smallBlindIndex = findNextPlayerWithChips(from: dealerIndex)
+        bigBlindIndex = findNextPlayerWithChips(from: smallBlindIndex)
+
+        // 检查是否有足够的玩家有筹码（使用已有的属性）
+        guard self.playersWithChips >= 2 else {
+            isHandOver = true
+            winners = players.filter { $0.chips > 0 }.map { $0.id }
+            return
+        }
 
         // 发底牌
         dealHoleCards()
@@ -193,7 +200,7 @@ struct LiteGameState: Equatable {
         postBlinds()
 
         // 设置当前行动玩家
-        activePlayerIndex = (bigBlindIndex + 1) % max(1, players.count)
+        activePlayerIndex = findNextPlayerWithChips(from: bigBlindIndex)
 
         // 重置手牌状态
         isHandOver = false
@@ -204,9 +211,13 @@ struct LiteGameState: Equatable {
 
     /// 投盲注
     private mutating func postBlinds() {
+        // 安全检查：确保索引有效
+        guard smallBlindIndex < players.count && bigBlindIndex < players.count else { return }
+
         // 小盲
-        if players[smallBlindIndex].chips >= smallBlindAmount {
-            let actual = min(players[smallBlindIndex].chips, smallBlindAmount)
+        let sbPlayer = players[smallBlindIndex]
+        if sbPlayer.chips > 0 {
+            let actual = min(sbPlayer.chips, smallBlindAmount)
             players[smallBlindIndex].chips -= actual
             players[smallBlindIndex].currentBet = actual
             players[smallBlindIndex].totalBetThisHand += actual
@@ -214,16 +225,18 @@ struct LiteGameState: Equatable {
         }
 
         // 大盲
-        if players[bigBlindIndex].chips >= bigBlindAmount {
-            let actual = min(players[bigBlindIndex].chips, bigBlindAmount)
+        let bbPlayer = players[bigBlindIndex]
+        if bbPlayer.chips > 0 {
+            let actual = min(bbPlayer.chips, bigBlindAmount)
             players[bigBlindIndex].chips -= actual
             players[bigBlindIndex].currentBet = actual
             players[bigBlindIndex].totalBetThisHand += actual
             pot.add(actual)
         }
 
-        currentBet = bigBlindAmount
-        minRaise = bigBlindAmount * 2
+        // 计算当前最高下注
+        currentBet = max(players[smallBlindIndex].currentBet, players[bigBlindIndex].currentBet)
+        minRaise = max(currentBet * 2, bigBlindAmount)
     }
 
     /// 获取当前玩家
@@ -283,5 +296,26 @@ struct LiteGameState: Equatable {
     mutating func endHand(with winners: [UUID]) {
         self.winners = winners
         self.isHandOver = true
+    }
+
+    /// 找到下一个有筹码的玩家索引
+    private func findNextPlayerWithChips(from startIndex: Int) -> Int {
+        guard !players.isEmpty else { return 0 }
+
+        // 首先检查起始位置的玩家是否有筹码
+        if players[startIndex].chips > 0 {
+            return startIndex
+        }
+
+        // 向前搜索有筹码的玩家
+        for i in 1..<players.count {
+            let index = (startIndex + i) % players.count
+            if players[index].chips > 0 {
+                return index
+            }
+        }
+
+        // 没有找到有筹码的玩家，返回起始位置
+        return startIndex
     }
 }
