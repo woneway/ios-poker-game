@@ -412,6 +412,115 @@ extension DecisionEngine {
 
         return .fold
     }
+
+    // MARK: - 混合策略 (Mixed Strategy)
+
+    /// 混合策略 - 以一定概率选择次优但安全的行动
+    /// gtoStrength: GTO纯度因子 (0.0-1.0), 越高越倾向GTO最优解
+    static func gtoMixedStrategy(
+        optimalAction: PlayerAction,
+        safeAction: PlayerAction,
+        gtoStrength: Double,
+        equity: Double
+    ) -> PlayerAction {
+        let optimalProb = gtoStrength
+        let safetyAdjust = equity < 0.3 ? 0.2 : 0.0
+        if Double.random(in: 0...1) < (optimalProb - safetyAdjust) {
+            return optimalAction
+        } else {
+            return safeAction
+        }
+    }
+
+    // MARK: - 剥削策略 (Exploitative Strategy)
+
+    /// 剥削策略 - 根据对手漏洞动态调整
+    struct ExploitAdjustment {
+        var vpipBonus: Double = 0.0
+        var aggressionBonus: Double = 0.0
+        var foldBonus: Double = 0.0
+    }
+
+    /// 根据对手模型计算剥削调整
+    static func calculateExploitAdjustment(
+        opponentModel: OpponentModel,
+        myPosition: Position,
+        street: Street
+    ) -> ExploitAdjustment {
+        var adjust = ExploitAdjustment()
+        if opponentModel.style == .lag {
+            adjust.vpipBonus = -0.15
+            adjust.aggressionBonus = 0.1
+        } else if opponentModel.style == .tag {
+            adjust.vpipBonus = 0.1
+            adjust.aggressionBonus = 0.15
+        } else if opponentModel.style == .fish {
+            adjust.aggressionBonus = -0.1
+        } else if opponentModel.style == .rock {
+            adjust.aggressionBonus = 0.2
+        }
+        if myPosition == .btn || myPosition == .co {
+            adjust.aggressionBonus *= 1.3
+        }
+        if street == .river {
+            adjust.aggressionBonus *= 1.2
+        }
+        return adjust
+    }
+
+    // MARK: - 多路底池处理
+
+    /// 多路底池策略调整
+    static func multiwayAdjustment(
+        playerCount: Int,
+        baseEquity: Double,
+        potOdds: Double
+    ) -> Double {
+        guard playerCount > 2 else { return baseEquity }
+        let multiwayPenalty = Double(playerCount - 2) * 0.05
+        let adjustedEquity = baseEquity - multiwayPenalty
+        let betIncentive = adjustedEquity > 0.4 && adjustedEquity > potOdds ? 1.0 : 0.0
+        return adjustedEquity + betIncentive * 0.05
+    }
+
+    // MARK: - SPR精细化决策
+
+    /// 基于SPR的精细化决策
+    static func sprBasedDecision(
+        spr: Double,
+        equity: Double,
+        potSize: Int,
+        stackSize: Int,
+        hasNutAdvantage: Bool,
+        isMultiway: Bool
+    ) -> PlayerAction {
+        let bb = max(1, potSize / 100)
+
+        if spr < 1.0 {
+            if equity > 0.5 { return .allIn }
+            else if equity > (1.0 / (1.0 + spr * 2)) { return .call }
+            return .fold
+        }
+        if spr < 3.0 {
+            if hasNutAdvantage && equity > 0.65 {
+                return .raise(Int(Double(potSize) * 0.75))
+            }
+            if equity > 0.55 && !isMultiway {
+                return .raise(Int(Double(potSize) * 0.5))
+            }
+            return equity > (1.0 / (1.0 + spr * 2)) ? .call : .check
+        }
+        if spr < 6.0 {
+            if hasNutAdvantage && equity > 0.55 {
+                return .raise(Int(Double(potSize) * 0.6))
+            }
+            return .check
+        }
+        if hasNutAdvantage && equity > 0.5 {
+            return .raise(Int(Double(potSize) * 0.4))
+        }
+        return .check
+    }
 }
 
 // MARK: - GTO范围分析扩展
@@ -451,7 +560,7 @@ extension RangeAnalyzer {
     /// 获取GTO跟注3-bet范围
     static func gtoCall3BetRange(position: Position, isIP: Bool) -> HandRange {
         if isIP {
-            return HandRange(position: position, action: .call, street: .preFlop, rangeWidth: 0.15, description: "77+,A9s+,K9s+,Q9s+,J9s+,T9s,ATo,KJo+")
+            return HandRange(position: position, action: .call, street: .preFlop, rangeWidth: 0.15, description: "77+,A9s+,K9s+,J9s+,T9s,ATo,KJo+")
         }
         return HandRange(position: position, action: .call, street: .preFlop, rangeWidth: 0.10, description: "88+,A9s+,KQs,ATo,KJo+")
     }

@@ -70,11 +70,11 @@ extension AIProfile {
             let all = AIProfile.allProfiles
             switch self {
             case .easy:
-                return all.filter { $0.difficultyRating <= 1 }
+                return all.filter { $0.difficultyLevel <= 1 }
             case .normal:
-                return all.filter { $0.difficultyRating <= 2 }
+                return all.filter { $0.difficultyLevel <= 2 }
             case .hard:
-                return all.filter { $0.difficultyRating <= 3 }
+                return all.filter { $0.difficultyLevel <= 3 }
             case .expert:
                 return all
             }
@@ -152,6 +152,33 @@ struct AIProfile: Equatable {
 
     var effectiveCallDown: Double {
         min(Self.maxEffectiveCallDown, callDownTendency + currentTilt * Self.tiltEffectOnCallDown)
+    }
+
+    // MARK: - Difficulty Rating
+
+    /// 难度等级 1-4 (1=简单, 4=专家)
+    /// 基于角色属性自动计算
+    var difficultyLevel: Int {
+        // GTO角色默认最高难度
+        if useGTOStrategy {
+            return 4
+        }
+        // 基于属性计算基础难度
+        let baseScore = (positionAwareness + bluffDetection + (1.0 - tiltSensitivity)) / 3.0
+        let aggressionFactor = aggression > 0.7 ? 1 : 0
+        let tightnessFactor = tightness > 0.7 ? 1 : 0
+        let baseRating = Int(baseScore * 2) + aggressionFactor + tightnessFactor
+        return min(4, max(1, baseRating))
+    }
+
+    /// GTO策略强度因子 (0.0 - 1.0)
+    /// 1.0 = 纯GTO, 0.0 = 无GTO
+    var gtoStrength: Double {
+        if !useGTOStrategy {
+            return 0.0
+        }
+        // 基于bluffDetection和positionAwareness计算GTO纯度
+        return (bluffDetection + positionAwareness + (1.0 - tiltSensitivity)) / 3.0
     }
 
     // MARK: - Position Adjustments

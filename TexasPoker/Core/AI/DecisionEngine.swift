@@ -767,12 +767,15 @@ class DecisionEngine {
         let isPremium = chenScore >= 10     // AA, KK, QQ, AKs, AKo
         let isStrong = chenScore >= 7       // JJ, TT, AQs, AJs, KQs
         let isPlayable = handStrength > threshold
-        
+
         let facingRaise = callAmount > engine.bigBlindAmount
         let facing3Bet = callAmount > engine.bigBlindAmount * 3
-        
+
         // GTO AI uses a separate decision path
         if profile.useGTOStrategy {
+            // Get GTO strength factor (0.0-1.0)
+            let gtoStrength = profile.gtoStrength
+
             // Use GTO Tournament ICM strategy in tournament mode
             if engine.gameMode == .tournament, let tournamentConfig = engine.tournamentConfig {
                 let situation = ICMCalculator.analyze(
@@ -780,7 +783,7 @@ class DecisionEngine {
                     allChips: engine.players.map { $0.chips },
                     payoutStructure: tournamentConfig.payoutStructure
                 )
-                
+
                 // If in bubble or final table, use ICM strategy
                 if situation.isBubble || situation.playersRemaining <= 6 {
                     let equity = MonteCarloSimulator.calculateEquity(
@@ -789,7 +792,7 @@ class DecisionEngine {
                         playerCount: activePlayers,
                         iterations: 200
                     )
-                    
+
                     return gtoTournamentICMStrategy(
                         holeCards: holeCards,
                         equity: equity,
@@ -800,12 +803,27 @@ class DecisionEngine {
                     )
                 }
             }
-            
-            return gtoPreflopDecision(
+
+            // Apply mixed strategy based on GTO strength
+            let gtoAction = gtoPreflopDecision(
                 holeCards: holeCards, engine: engine,
                 callAmount: callAmount, seatOffset: seatOffset,
                 activePlayers: activePlayers, chenScore: chenScore
             )
+
+            // Lower gtoStrength = more conservative play
+            if gtoStrength < 0.8 {
+                // With lower GTO strength, sometimes choose safer option
+                let safeAction: PlayerAction = facingRaise ? .call : .check
+                return gtoMixedStrategy(
+                    optimalAction: gtoAction,
+                    safeAction: safeAction,
+                    gtoStrength: gtoStrength,
+                    equity: handStrength
+                )
+            }
+
+            return gtoAction
         }
         
         print("🧠 \(player.name)[\(profile.name)] preflop: chen=\(String(format:"%.1f",chenScore)) str=\(String(format:"%.2f",handStrength)) thr=\(String(format:"%.2f",threshold)) call=\(callAmount) pos=\(seatOffset)")
@@ -1106,20 +1124,55 @@ class DecisionEngine {
         
         let hasStrongHand = category >= 3   // Trips or better
         let hasDecentHand = category >= 1   // At least a pair
-        
+
         print("🧠 \(player.name)[\(profile.name)] \(street.rawValue): eq=\(String(format:"%.2f",equity)) potOdds=\(String(format:"%.2f",potOdds)) hand=\(category) draws=\(draws.totalOuts)outs wet=\(String(format:"%.1f",board.wetness)) pfr=\(isPFR)")
-        
+
         // GTO AI uses separate postflop path
         if profile.useGTOStrategy {
-            return gtoPostflopDecision(
+            // Get GTO strength factor
+            let gtoStrength = profile.gtoStrength
+            let isMultiway = activePlayers > 2
+
+            // Apply SPR-based decision for deeper analysis
+            let hasNutAdvantage = category >= 4  // Two pair or better
+            let sprBasedAction = sprBasedDecision(
+                spr: spr,
+                equity: equity,
+                potSize: potSize,
+                stackSize: player.chips,
+                hasNutAdvantage: hasNutAdvantage,
+                isMultiway: isMultiway
+            )
+
+            // Multiway pot adjustment
+            let adjustedEquity = multiwayAdjustment(
+                playerCount: activePlayers,
+                baseEquity: equity,
+                potOdds: potOdds
+            )
+
+            let gtoAction = gtoPostflopDecision(
                 player: player, holeCards: holeCards,
                 community: community, engine: engine,
                 street: street, callAmount: callAmount,
-                potSize: potSize, equity: equity,
+                potSize: potSize, equity: adjustedEquity,
                 potOdds: potOdds, category: category,
                 draws: draws, board: board,
                 isPFR: isPFR, spr: spr
             )
+
+            // Apply mixed strategy based on GTO strength
+            if gtoStrength < 0.8 {
+                let safeAction: PlayerAction = callAmount > 0 ? .call : .check
+                return gtoMixedStrategy(
+                    optimalAction: gtoAction,
+                    safeAction: safeAction,
+                    gtoStrength: gtoStrength,
+                    equity: equity
+                )
+            }
+
+            return gtoAction
         }
         
         // MARK: - Facing no bet (can check or bet)
