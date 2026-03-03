@@ -10,41 +10,41 @@ extension AIProfile {
     static let rock = AIProfile(
         id: "rock", name: "石头", avatar: .emoji("🗿"),
         description: "超紧玩家，只玩顶级牌",
-        tightness: 0.90, aggression: 0.80, bluffFreq: 0.01, foldTo3Bet: 0.08,
-        cbetFreq: 0.80, cbetTurnFreq: 0.60, positionAwareness: 0.10, tiltSensitivity: 0.05,
-        callDownTendency: 0.05, riskTolerance: 0.15, bluffDetection: 0.20, deepStackThreshold: 300
+        tightness: 0.95, aggression: 0.50, bluffFreq: 0.0, foldTo3Bet: 0.95,
+        cbetFreq: 0.95, cbetTurnFreq: 0.80, positionAwareness: 0.10, tiltSensitivity: 0.02,
+        callDownTendency: 0.02, riskTolerance: 0.05, bluffDetection: 0.10, deepStackThreshold: 300
     )
 
     static let maniac = AIProfile(
         id: "maniac", name: "疯子麦克", avatar: .emoji("🤪"),
         description: "松凶型玩家，什么都敢加注",
-        tightness: 0.25, aggression: 0.95, bluffFreq: 0.60, foldTo3Bet: 0.20,
-        cbetFreq: 0.90, cbetTurnFreq: 0.75, positionAwareness: 0.40, tiltSensitivity: 0.30,
-        callDownTendency: 0.15, riskTolerance: 0.90, bluffDetection: 0.25, deepStackThreshold: 100
+        tightness: 0.15, aggression: 0.98, bluffFreq: 0.75, foldTo3Bet: 0.08,
+        cbetFreq: 0.98, cbetTurnFreq: 0.90, positionAwareness: 0.30, tiltSensitivity: 0.25,
+        callDownTendency: 0.08, riskTolerance: 0.98, bluffDetection: 0.15, deepStackThreshold: 80
     )
 
     static let callingStation = AIProfile(
         id: "calling_station", name: "安娜", avatar: .emoji("🧘"),
         description: "跟注站，什么都跟注",
-        tightness: 0.35, aggression: 0.15, bluffFreq: 0.05, foldTo3Bet: 0.08,
-        cbetFreq: 0.25, cbetTurnFreq: 0.15, positionAwareness: 0.20, tiltSensitivity: 0.20,
-        callDownTendency: 0.95, riskTolerance: 0.30, bluffDetection: 0.10, deepStackThreshold: 200
+        tightness: 0.40, aggression: 0.10, bluffFreq: 0.02, foldTo3Bet: 0.05,
+        cbetFreq: 0.15, cbetTurnFreq: 0.08, positionAwareness: 0.15, tiltSensitivity: 0.30,
+        callDownTendency: 0.98, riskTolerance: 0.25, bluffDetection: 0.05, deepStackThreshold: 250
     )
 
     static let fox = AIProfile(
         id: "fox", name: "老狐狸", avatar: .emoji("🦊"),
         description: "平衡型高手，难以读牌",
-        tightness: 0.55, aggression: 0.68, bluffFreq: 0.22, foldTo3Bet: 0.52,
-        cbetFreq: 0.65, cbetTurnFreq: 0.45, positionAwareness: 0.80, tiltSensitivity: 0.15,
-        callDownTendency: 0.30, riskTolerance: 0.6, bluffDetection: 0.7, deepStackThreshold: 180
+        tightness: 0.50, aggression: 0.70, bluffFreq: 0.25, foldTo3Bet: 0.45,
+        cbetFreq: 0.70, cbetTurnFreq: 0.50, positionAwareness: 0.85, tiltSensitivity: 0.10,
+        callDownTendency: 0.25, riskTolerance: 0.65, bluffDetection: 0.75, deepStackThreshold: 180
     )
 
     static let shark = AIProfile(
         id: "shark", name: "鲨鱼汤姆", avatar: .emoji("🦈"),
         description: "位置意识极强，后位杀手",
-        tightness: 0.48, aggression: 0.78, bluffFreq: 0.28, foldTo3Bet: 0.50,
-        cbetFreq: 0.75, cbetTurnFreq: 0.55, positionAwareness: 0.95, tiltSensitivity: 0.1,
-        callDownTendency: 0.25, riskTolerance: 0.7, bluffDetection: 0.85, deepStackThreshold: 150
+        tightness: 0.45, aggression: 0.80, bluffFreq: 0.30, foldTo3Bet: 0.40,
+        cbetFreq: 0.80, cbetTurnFreq: 0.60, positionAwareness: 0.98, tiltSensitivity: 0.08,
+        callDownTendency: 0.20, riskTolerance: 0.75, bluffDetection: 0.90, deepStackThreshold: 140
     )
 
     static let academic = AIProfile(
@@ -59,9 +59,9 @@ extension AIProfile {
     static let tiltDavid = AIProfile(
         id: "tilt_david", name: "大卫", avatar: .emoji("😤"),
         description: "输钱后情绪化，容易上头",
-        tightness: 0.55, aggression: 0.55, bluffFreq: 0.18, foldTo3Bet: 0.50,
-        cbetFreq: 0.58, cbetTurnFreq: 0.40, positionAwareness: 0.5, tiltSensitivity: 0.85,
-        callDownTendency: 0.30, riskTolerance: 0.5, bluffDetection: 0.4, deepStackThreshold: 180
+        tightness: 0.60, aggression: 0.45, bluffFreq: 0.15, foldTo3Bet: 0.55,
+        cbetFreq: 0.50, cbetTurnFreq: 0.35, positionAwareness: 0.45, tiltSensitivity: 0.95,
+        callDownTendency: 0.35, riskTolerance: 0.40, bluffDetection: 0.35, deepStackThreshold: 200
     )
 
     // MARK: - Extended Characters (8-52)
