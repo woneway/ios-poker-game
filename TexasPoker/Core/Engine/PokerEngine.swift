@@ -22,7 +22,7 @@ class PokerEngine: ObservableObject {
     @Published var actionLog: [ActionLogEntry] = []
     let maxLogEntries = 30
     
-    var aiDecisionDelay: Double = 0.6
+    var aiDecisionDelay: Double = 0.0
     var useSyncAIDecision: Bool = false
 
     // MARK: - 协议依赖 (通过依赖注入实现)
