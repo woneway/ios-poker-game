@@ -163,12 +163,19 @@ struct AIProfile: Equatable {
         if useGTOStrategy {
             return 4
         }
-        // 基于属性计算基础难度
-        let baseScore = (positionAwareness + bluffDetection + (1.0 - tiltSensitivity)) / 3.0
-        let aggressionFactor = aggression > 0.7 ? 1 : 0
-        let tightnessFactor = tightness > 0.7 ? 1 : 0
-        let baseRating = Int(baseScore * 2) + aggressionFactor + tightnessFactor
-        return min(4, max(1, baseRating))
+        // 基于属性计算基础难度 (满分4分)
+        // 位置意识 (0-1) * 1.5
+        let posScore = positionAwareness * 1.5
+        // 诈欺检测 (0-1) * 1.0
+        let bluffScore = bluffDetection * 1.0
+        // 情绪控制 (1-tiltSensitivity) * 1.0
+        let tiltScore = (1.0 - tiltSensitivity) * 1.0
+        // 攻击性 (0-1) * 0.5
+        let aggScore = aggression * 0.5
+
+        let total = posScore + bluffScore + tiltScore + aggScore
+        let rating = min(4, max(1, Int(total)))
+        return rating
     }
 
     /// GTO策略强度因子 (0.0 - 1.0)
