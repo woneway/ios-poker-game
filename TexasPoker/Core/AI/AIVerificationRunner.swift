@@ -79,7 +79,7 @@ class AIVerificationRunner {
     
     func runVerification(config: AIVerificationConfig) {
         guard !selectedProfiles.isEmpty else { return }
-        
+
         isRunning = true
         progress = 0
         currentGame = 0
@@ -90,13 +90,24 @@ class AIVerificationRunner {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
+            // 安全检查：确保配置参数合理
+            guard config.tournamentCount > 0, config.handsPerTournament > 0 else {
+                #if DEBUG
+                print("⚠️ AIVerificationRunner: 无效的配置参数")
+                #endif
+                DispatchQueue.main.async {
+                    self.isRunning = false
+                }
+                return
+            }
+
             let evaluator = AITournamentEvaluator(config: AITournamentEvaluator.TournamentConfig(
                 playerCount: self.selectedProfiles.count,
                 games: config.tournamentCount,
                 startingChips: config.startingChips,
                 maxHandsPerGame: config.handsPerTournament
             ))
-            
+
             for profile in self.selectedProfiles {
                 evaluator.profilesMap[profile.name] = profile
             }
@@ -109,6 +120,10 @@ class AIVerificationRunner {
             // 如果比赛场次少于5场，则只在最后更新一次
             let updateInterval = config.tournamentCount >= 5 ? max(5, config.tournamentCount / 5) : config.tournamentCount
 
+            // 用于跟踪连续失败的次数
+            var consecutiveFailures = 0
+            let maxConsecutiveFailures = 3
+
             for i in 1...config.tournamentCount {
                 if self.isCancelled {
                     break
@@ -116,6 +131,24 @@ class AIVerificationRunner {
 
                 // 运行单场比赛
                 let gameResults = evaluator.runSingleGameForProgress(profiles: self.selectedProfiles)
+
+                // 检查结果是否有效
+                if gameResults.isEmpty {
+                    consecutiveFailures += 1
+                    #if DEBUG
+                    print("⚠️ AIVerificationRunner 第\(i)场比赛结果为空")
+                    #endif
+
+                    if consecutiveFailures >= maxConsecutiveFailures {
+                        #if DEBUG
+                        print("⚠️ AIVerificationRunner: 连续\(maxConsecutiveFailures)场比赛失败，停止验证")
+                        #endif
+                        break
+                    }
+                    continue
+                }
+
+                consecutiveFailures = 0
 
                 // 更新累积结果
                 evaluator.updateCumulativeResults(with: gameResults)
@@ -152,18 +185,29 @@ class AIVerificationRunner {
                     }
                 }
             }
-            
+
             if !self.isCancelled {
                 // 使用累积结果作为最终结果
                 let evaluatorResults = evaluator.getCumulativeResults()
                 let totalPlayers = self.selectedProfiles.count
-                
+
+                // 检查是否有有效结果
+                guard !evaluatorResults.isEmpty else {
+                    #if DEBUG
+                    print("⚠️ AIVerificationRunner: 没有有效的评估结果")
+                    #endif
+                    DispatchQueue.main.async {
+                        self.isRunning = false
+                    }
+                    return
+                }
+
                 var finalResults: [AIVerificationResult] = []
-                
+
                 for result in evaluatorResults {
                     let expectedRank = self.calculateExpectedRank(for: result.profile, in: totalPlayers)
                     let deviation = expectedRank - Int(result.avgRank)
-                    
+
                     let status: AIVerificationResult.VerificationStatus
                     if deviation <= -5 {
                         status = .ahead
@@ -172,7 +216,7 @@ class AIVerificationRunner {
                     } else {
                         status = .onTrack
                     }
-                    
+
                     finalResults.append(AIVerificationResult(
                         profileName: result.profile.name,
                         expectedRank: expectedRank,
@@ -181,15 +225,15 @@ class AIVerificationRunner {
                         status: status
                     ))
                 }
-                
+
                 finalResults.sort { $0.actualRank < $1.actualRank }
-                
+
                 DispatchQueue.main.async {
                     self.results = finalResults
                     self.isRunning = false
                     self.progress = 1.0
                 }
-                
+
                 self.saveResults(finalResults)
             } else {
                 DispatchQueue.main.async {

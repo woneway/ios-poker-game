@@ -170,8 +170,14 @@ final class PokerEngineLite {
             }
         }
 
-        // 所有下注必须相等
-        let bets = Set(active.map { $0.currentBet })
+        // 所有可继续行动玩家的下注必须相等
+        // 注意：allIn玩家的下注可能不同，不应影响下注轮结束判断
+        let actionablePlayers = active.filter { $0.status == .active && $0.chips > 0 }
+        if actionablePlayers.isEmpty {
+            // 没有可继续行动的玩家（下注轮结束）
+            return true
+        }
+        let bets = Set(actionablePlayers.map { $0.currentBet })
         return bets.count == 1
     }
 
@@ -315,13 +321,47 @@ final class PokerEngineLite {
     func runHand() {
         startNewHand()
 
-        while !isHandOver && activePlayerCount > 1 {
+        var loopGuard = 0
+        let maxLoops = 500 // 防止无限循环
+
+        while !isHandOver && state.playersWithChips > 1 && loopGuard < maxLoops {
+            loopGuard += 1
+
+            // 检查是否有可行动的玩家
+            guard let player = state.currentPlayer else {
+                #if DEBUG
+                print("⚠️ PokerEngineLite: 无当前玩家，提前结束手牌")
+                #endif
+                break
+            }
+
+            // 检查玩家是否还有AI profile
+            guard player.aiProfile != nil else {
+                // 非AI玩家，跳过
+                _ = state.nextActivePlayer()
+                continue
+            }
+
+            // 检查玩家是否还有可行动的能力（筹码大于0且状态为active）
+            guard player.status == .active && player.chips > 0 else {
+                // 无法行动的玩家，跳过
+                _ = state.nextActivePlayer()
+                continue
+            }
+
             if let action = runAIDecision() {
                 _ = processCurrentPlayerAction(action)
             } else {
-                break
+                // 无法获取有效动作，跳过当前玩家
+                _ = state.nextActivePlayer()
             }
         }
+
+        #if DEBUG
+        if loopGuard >= maxLoops {
+            print("⚠️ PokerEngineLite: 达到最大循环次数 \(maxLoops)，强制结束手牌")
+        }
+        #endif
     }
 
     /// 获取当前玩家排名（按筹码）

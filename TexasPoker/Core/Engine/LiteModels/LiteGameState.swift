@@ -44,6 +44,11 @@ struct LiteGameState: Equatable {
         players.filter { $0.status != .folded && $0.status != .eliminated }
     }
 
+    /// 有筹码的玩家数量（用于判断游戏是否结束）
+    var playersWithChips: Int {
+        players.filter { $0.chips > 0 }.count
+    }
+
     /// 初始化
     init(players: [LitePlayer], smallBlind: Int = 10, bigBlind: Int = 20) {
         self.players = players
@@ -76,13 +81,29 @@ struct LiteGameState: Equatable {
 
     /// 发底牌给所有活跃玩家
     mutating func dealHoleCards() {
+        var playersWithCards = 0
+
         for i in 0..<players.count {
             guard players[i].chips > 0 else { continue }
-            guard let card1 = dealCard(), let card2 = dealCard() else { break }
+            guard let card1 = dealCard(), let card2 = dealCard() else {
+                // 牌数不足，给没有牌的玩家标记为无法参与
+                #if DEBUG
+                print("⚠️ LiteGameState: 牌数不足，无法给所有玩家发牌")
+                #endif
+                break
+            }
             players[i].holeCards = [card1, card2]
             players[i].status = .active
             players[i].currentBet = 0
             players[i].totalBetThisHand = 0
+            playersWithCards += 1
+        }
+
+        // 如果没有足够的玩家有牌，标记手牌结束
+        if playersWithCards < 2 {
+            #if DEBUG
+            print("⚠️ LiteGameState: 只有 \(playersWithCards) 个玩家有牌，不足以进行游戏")
+            #endif
         }
     }
 
@@ -115,6 +136,19 @@ struct LiteGameState: Equatable {
         // 重置牌堆
         resetDeck()
 
+        // 统计有筹码的玩家数量
+        let playersWithChips = players.filter { $0.chips > 0 }.count
+
+        // 如果玩家数量不足，标记手牌结束
+        if playersWithChips < 2 {
+            #if DEBUG
+            print("⚠️ LiteGameState: 只有 \(playersWithChips) 个玩家有筹码，手牌结束")
+            #endif
+            isHandOver = true
+            winners = players.filter { $0.chips > 0 }.map { $0.id }
+            return
+        }
+
         // 重置玩家状态
         for i in 0..<players.count {
             players[i].holeCards = []
@@ -143,6 +177,17 @@ struct LiteGameState: Equatable {
 
         // 发底牌
         dealHoleCards()
+
+        // 再次检查是否有足够的玩家有牌
+        let playersWithHoleCards = players.filter { $0.holeCards.count == 2 }.count
+        if playersWithHoleCards < 2 {
+            #if DEBUG
+            print("⚠️ LiteGameState: 只有 \(playersWithHoleCards) 个玩家有底牌，手牌结束")
+            #endif
+            isHandOver = true
+            winners = players.filter { $0.chips > 0 }.map { $0.id }
+            return
+        }
 
         // 投盲注
         postBlinds()
