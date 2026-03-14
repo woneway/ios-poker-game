@@ -129,39 +129,20 @@ enum BettingManager {
         // 这是死锁场景的核心修复：当所有人都 all-in 时，不应该等待任何人行动
         let allPlayersAllIn = activePlayers.allSatisfy { $0.status == .allIn }
         if allPlayersAllIn {
-            #if DEBUG
-            print("🔍 isRoundComplete: 所有玩家都是 all-in，轮次结束")
-            #endif
             return true
         }
 
-        #if DEBUG
-        var debugInfo = "🔍 isRoundComplete: activePlayers=\(activePlayers.count), currentBet=\(currentBet)"
-        #endif
-
         for player in activePlayers {
-            #if DEBUG
-            debugInfo += " | \(player.name): hasActed=\(hasActed[player.id] == true), currentBet=\(player.currentBet), status=\(player.status)"
-            #endif
             if hasActed[player.id] != true {
-                #if DEBUG
-                print(debugInfo)
-                #endif
                 return false
             }
             // allIn 玩家的 currentBet 可能小于 currentBet（比如短码 all-in）
             // 但他们已经用完所有筹码，不能再继续下注，所以应该被视为完成
             // 只有 active 玩家需要检查 currentBet 是否相等
             if player.status == .active && player.currentBet != currentBet {
-                #if DEBUG
-                print(debugInfo)
-                #endif
                 return false
             }
         }
-        #if DEBUG
-        print(debugInfo + " => true (round complete!)")
-        #endif
         return true
     }
 

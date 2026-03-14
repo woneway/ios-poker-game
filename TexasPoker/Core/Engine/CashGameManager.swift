@@ -171,10 +171,6 @@ struct CashGameManager {
         systemChipsPool = 0
         profileEntryCounts = [:]  // 重置入场计数器
         AIPlayerBankrollManager.shared.resetAllEntryIndexes()  // 重置 UserDefaults 中的 entryIndex
-
-        #if DEBUG
-        print("🔄 CashGameManager 系统池和入场计数器已重置")
-        #endif
     }
 
     // MARK: - entryIndex 生成
@@ -268,10 +264,6 @@ struct CashGameManager {
                         players: &players
                     )
                     enteredPlayers.append(rejoinedPlayer)
-
-                    #if DEBUG
-                    print("🔄 AI 玩家 \(rejoinedPlayer.displayName) 重新加入，持有筹码 $\(rejoinedPlayer.chips)")
-                    #endif
                 }
                 // 如果没有可重新加入的玩家，不生成新玩家，直接跳过此空位
             }
@@ -327,21 +319,11 @@ struct CashGameManager {
                     let chipsToAdd = min(departingChips, maxSystemPoolSize - systemChipsPool)
                     systemChipsPool += chipsToAdd
                     let overflowChips = departingChips - chipsToAdd
-                    
-                    if overflowChips > 0 {
-                        #if DEBUG
-                        print("⚠️ 系统池溢出！溢出金额: $\(overflowChips)")
-                        #endif
-                    }
-                    
+
                     player.chips = 0
                     players[i].chips = 0
                     players[i].status = .sittingOut
                     departedPlayers.append(player)
-                    
-                    #if DEBUG
-                    print("💰 \(player.name) 离场，回收筹码 $\(departingChips)，系统池总计 $\(systemChipsPool)")
-                    #endif
                 }
             }
             // 筹码 < maxBuyIn * 0.3 时 20% 概率离场
@@ -369,21 +351,11 @@ struct CashGameManager {
                     let chipsToAdd = min(departingChips, maxSystemPoolSize - systemChipsPool)
                     systemChipsPool += chipsToAdd
                     let overflowChips = departingChips - chipsToAdd
-                    
-                    if overflowChips > 0 {
-                        #if DEBUG
-                        print("⚠️ 系统池溢出！溢出金额: $\(overflowChips)")
-                        #endif
-                    }
-                    
+
                     player.chips = 0
                     players[i].chips = 0
                     players[i].status = .sittingOut
                     departedPlayers.append(player)
-                    
-                    #if DEBUG
-                    print("💰 \(player.name) 离场（输光），回收筹码 $\(departingChips)，系统池总计 $\(systemChipsPool)")
-                    #endif
                 }
             }
         }

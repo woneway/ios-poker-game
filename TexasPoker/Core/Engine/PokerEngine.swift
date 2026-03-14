@@ -1,7 +1,10 @@
 import Foundation
 import Combine
 
+@MainActor
 class PokerEngine: ObservableObject {
+    private let logger = AppLogger.shared
+
     @Published var deck: Deck
     @Published var players: [Player]
     @Published var communityCards: [Card]
@@ -86,12 +89,9 @@ class PokerEngine: ObservableObject {
 
     /// 标记引擎已被销毁（防止 deinit 中重复操作）
     private var isEngineDestroyed: Bool = false
-    
-    /// 标记引擎的异步任务是否已取消（用于防止销毁后异步任务访问已释放对象）
-    private var isTaskCancelled: Bool = false
-    
-    /// 当前异步任务的唯一标识符，用于防止竞态条件
-    private var currentTaskId: Int = 0
+
+    /// 当前活跃的异步任务引用，用于优雅取消
+    private var currentTask: Task<Void, Never>?
 
     init(mode: GameMode = .cashGame, config: TournamentConfig? = nil, cashGameConfig: CashGameConfig? = nil, difficulty: AIProfile.Difficulty? = nil, playerCount: Int = 8) {
         self.deck = Deck()
@@ -192,7 +192,7 @@ class PokerEngine: ObservableObject {
         // 安全检查：锦标赛模式强制检查
         guard gameMode == .tournament else {
             #if DEBUG
-            print("⚠️ Rebuy attempted in non-tournament mode - blocked for safety")
+            logger.warning("Rebuy attempted in non-tournament mode - blocked for safety", category: .game)
             #endif
             return
         }
@@ -203,9 +203,9 @@ class PokerEngine: ObservableObject {
         players[playerIndex].chips = chips
         players[playerIndex].status = .active
         rebuyCount += 1
-        
+
         #if DEBUG
-        print("💰 \(players[playerIndex].name) Rebuy 成功，筹码: \(chips)，总 Rebuy 次数: \(rebuyCount)")
+        logger.info("\(players[playerIndex].name) Rebuy 成功，筹码: \(chips)，总 Rebuy 次数: \(rebuyCount)", category: .game)
         #endif
     }
     
@@ -225,11 +225,11 @@ class PokerEngine: ObservableObject {
     // MARK: - Lifecycle
 
     deinit {
-        // 先取消所有异步任务，防止销毁后访问已释放对象
-        isTaskCancelled = true
-        currentTaskId += 1  // 使所有待处理的异步任务失效
+        // 取消所有异步任务，防止销毁后访问已释放对象
+        currentTask?.cancel()
+        currentTask = nil
         isEngineDestroyed = true
-        
+
         // 只有已注册的引擎才需要注销，避免重复操作
         if isRegistered {
             DecisionEngine.unregisterEngine(self)
@@ -239,8 +239,8 @@ class PokerEngine: ObservableObject {
     /// 安全清理引擎资源（替代直接 deinit，供外部调用）
     /// 调用后引擎将不再可用
     func destroy() {
-        isTaskCancelled = true
-        currentTaskId += 1  // 使所有待处理的异步任务失效
+        currentTask?.cancel()
+        currentTask = nil
         isEngineDestroyed = true
         if isRegistered {
             DecisionEngine.unregisterEngine(self)
@@ -280,7 +280,7 @@ class PokerEngine: ObservableObject {
         
         if activePlayersCount == 0 || (activePlayersCount == 1 && allInPlayersCount >= 1) {
             #if DEBUG
-            print("🔍 dealNextStreet: 玩家all-in状态: active=\(activePlayersCount), allIn=\(allInPlayersCount)，发完公共牌后结算")
+            logger.debug("dealNextStreet: 玩家all-in状态: active=\(activePlayersCount), allIn=\(allInPlayersCount)，发完公共牌后结算", category: .game)
             #endif
             runOutBoard()
             return
@@ -336,11 +336,11 @@ class PokerEngine: ObservableObject {
             }
             return
         }
-        
+
         #if DEBUG
-        print("--- \(currentStreet.rawValue) | Community: \(communityCards.map { $0.description }.joined(separator: " ")) ---")
+        logger.debug("\(currentStreet.rawValue) | Community: \(communityCards.map { $0.description }.joined(separator: " "))", category: .game)
         #endif
-        
+
         checkBotTurn()
     }
 
@@ -379,7 +379,7 @@ class PokerEngine: ObservableObject {
         // 检查操作是否有效，无效则忽略
         guard result.isValid else {
             #if DEBUG
-            print("⚠️ 无效操作被忽略: \(player.name) 尝试 \(action.description)")
+            logger.warning("无效操作被忽略: \(player.name) 尝试 \(action.description)", category: .game)
             #endif
             return
         }
@@ -428,11 +428,11 @@ class PokerEngine: ObservableObject {
             eventPublisher?.publishChipAnimation(seatIndex: activePlayerIndex, amount: result.potAddition)
                 ?? GameEventPublisher.shared.publishChipAnimation(seatIndex: activePlayerIndex, amount: result.potAddition)
         }
-        
+
         #if DEBUG
-        print("  \(result.playerUpdate.name): \(action.description) | chips=\(result.playerUpdate.chips) bet=\(result.playerUpdate.currentBet) pot=\(pot.total)")
+        logger.debug("\(result.playerUpdate.name): \(action.description) | chips=\(result.playerUpdate.chips) bet=\(result.playerUpdate.currentBet) pot=\(pot.total)", category: .game)
         #endif
-        
+
         // Check if only 1 non-folded player remains
         // allIn玩家仍然在参与手牌，应该被计入
         let nonFolded = players.filter { $0.status != .folded && $0.status != .eliminated }
@@ -445,7 +445,9 @@ class PokerEngine: ObservableObject {
             dealNextStreet()
         } else {
             // DEBUG: 追踪轮次没有结束的问题
-            print("⚠️ isRoundComplete=false, 调用 advanceTurn()")
+            #if DEBUG
+            logger.warning("isRoundComplete=false, 调用 advanceTurn()", category: .game)
+            #endif
             advanceTurn()
         }
     }
@@ -468,31 +470,56 @@ class PokerEngine: ObservableObject {
         let player = players[activePlayerIndex]
         guard !player.isHuman && player.status == .active else { return }
         guard !isHandOver else { return }
-        guard !isTaskCancelled else { return }
-        
+
+        // 同步模式：立即执行 AI 决策（无延迟）
         if useSyncAIDecision {
             executeAIDecision()
             return
         }
-        
-        // 生成新的任务标识符
-        let taskId = currentTaskId + 1
-        currentTaskId = taskId
-        
-        // 捕获执行决策时的索引，防止竞态条件
+
+        // 取消之前的任务（如果存在）
+        currentTask?.cancel()
+
+        // 捕获当前状态快照
         let capturedIndex = activePlayerIndex
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + self.aiDecisionDelay) { [weak self] in
+        let capturedStreet = currentStreet
+        let capturedHandOver = isHandOver
+
+        // 使用 Task 进行异步执行，并保存引用以便后续取消
+        currentTask = Task { [weak self] in
             guard let self = self else { return }
-            // 检查任务是否已被取消
-            guard !self.isTaskCancelled else { return }
-            // 检查任务标识符是否匹配（防止竞态条件）
-            guard self.currentTaskId == taskId else { return }
+
+            // 等待指定的决策延迟
+            if self.aiDecisionDelay > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(self.aiDecisionDelay * 1_000_000_000))
+            }
+
+            // ========== 验证检查（按优先级排序）==========
+
+            // 1. 检查任务是否被取消（Swift 内置机制）
+            try? Task.checkCancellation()
+
+            // 2. 检查引擎是否已销毁
+            guard !self.isEngineDestroyed else { return }
+
+            // 3. 检查游戏是否已结束
             guard !self.isHandOver else { return }
-            // 使用捕获的索引而不是当前的 activePlayerIndex
+
+            // 4. 检查街道是否变化（状态一致性验证）
+            guard self.currentStreet == capturedStreet else { return }
+
+            // 5. 再次检查手牌状态
+            guard self.isHandOver == capturedHandOver else { return }
+
+            // 6. 验证玩家仍然符合条件
+            guard capturedIndex < self.players.count else { return }
             let currentPlayer = self.players[capturedIndex]
             guard currentPlayer.status == .active && !currentPlayer.isHuman else { return }
-            self.executeAIDecisionForPlayer(currentPlayer, capturedIndex: capturedIndex)
+
+            // 执行 AI 决策
+            await MainActor.run {
+                self.executeAIDecisionForPlayer(currentPlayer, capturedIndex: capturedIndex)
+            }
         }
     }
     
@@ -558,7 +585,7 @@ class PokerEngine: ObservableObject {
         let hasActivePlayer = players.contains { $0.status == .active }
         if !hasActivePlayer {
             #if DEBUG
-            print("⚠️ nextActivePlayerIndex: No active players found! Returning -1")
+            logger.warning("nextActivePlayerIndex: No active players found! Returning -1", category: .game)
             #endif
             return -1
         }
@@ -576,7 +603,7 @@ class PokerEngine: ObservableObject {
         // 如果遍历完所有玩家都没有找到 active 玩家，返回 -1
         if attempts >= players.count {
             #if DEBUG
-            print("⚠️ nextActivePlayerIndex: No active players found after full cycle! Returning -1")
+            logger.warning("nextActivePlayerIndex: No active players found after full cycle! Returning -1", category: .game)
             #endif
             return -1
         }
@@ -656,7 +683,7 @@ class PokerEngine: ObservableObject {
         currentBlindLevel = 0
 
         #if DEBUG
-        print("🔄 PokerEngine.resetForProfile() called - game state reset for new profile")
+        logger.info("PokerEngine.resetForProfile() called - game state reset for new profile", category: .game)
         #endif
     }
 }

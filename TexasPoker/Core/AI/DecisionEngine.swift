@@ -1,6 +1,8 @@
 import Foundation
 import CoreData
 
+private let logger = AppLogger.shared
+
 // MARK: - EV Calculation Models
 
 /// Represents the expected value of a potential action
@@ -120,10 +122,42 @@ private struct DeterministicRandom {
 }
 #endif
 
+// MARK: - Decision Engine Protocol
+
+/// 决策引擎协议，支持依赖注入
+protocol DecisionEngineProtocol {
+    func makeDecision(player: Player, engine: PokerEngine) -> PlayerAction
+    func publishDecision(player: Player, action: PlayerAction, equity: Double, potOdds: Double)
+}
+
+/// 默认实现，使用静态方法
+final class DefaultDecisionEngine: DecisionEngineProtocol {
+    static let shared = DefaultDecisionEngine()
+
+    func makeDecision(player: Player, engine: PokerEngine) -> PlayerAction {
+        DecisionEngine.makeDecision(player: player, engine: engine)
+    }
+
+    func publishDecision(player: Player, action: PlayerAction, equity: Double, potOdds: Double) {
+        DecisionEngine.publishDecision(player: player, action: action, equity: equity, potOdds: potOdds)
+    }
+}
+
 class DecisionEngine {
-    
+
+    // MARK: - Dependency Injection
+
+    /// 可选的决策引擎实例，用于依赖注入
+    /// 如果为 nil，则使用静态方法（向后兼容）
+    static var injectedEngine: DecisionEngineProtocol?
+
+    /// 检查是否使用了注入的引擎
+    static var isUsingInjectedEngine: Bool {
+        injectedEngine != nil
+    }
+
     // MARK: - Constants
-    
+
     /// 默认对手 call probability for EV calculation
     private static let defaultOpponentCallProb: Double = 0.5
     
@@ -273,7 +307,9 @@ class DecisionEngine {
         }
         
 #if DEBUG
-        print("🧹 对手模型清理完成，剩余模型数: \(opponentModels.count)")
+        #if DEBUG
+        logger.debug("对手模型清理完成，剩余模型数: \(opponentModels.count)", category: .game)
+        #endif
 #endif
     }
     
@@ -500,19 +536,30 @@ class DecisionEngine {
     }
     
     // MARK: - Main Decision Entry Point
-    
+
     static func makeDecision(player: Player, engine: PokerEngine) -> PlayerAction {
+        // 如果使用了注入的引擎，委托给它处理
+        if let injected = injectedEngine {
+            return injected.makeDecision(player: player, engine: engine)
+        }
+
+        // 默认实现：使用静态方法
+        return makeDecisionInternal(player: player, engine: engine)
+    }
+
+    /// 内部实现，保留原有逻辑
+    private static func makeDecisionInternal(player: Player, engine: PokerEngine) -> PlayerAction {
         let profile = player.aiProfile ?? .fox
         let holeCards = player.holeCards
         let community = engine.communityCards
         let street = engine.currentStreet
-        
+
         let callAmount = engine.currentBet - player.currentBet
         let potSize = engine.pot.total
         let stackSize = player.chips
         let activePlayers = engine.players.filter { $0.status == .active || $0.status == .allIn }.count
         let seatOffset = engine.seatOffsetFromDealer(playerIndex: engine.activePlayerIndex)
-        
+
         // Get strategy recommendation from PlayerStrategyManager (AI learning system)
         // This uses learned patterns to suggest optimal actions
         let _ = getStrategyRecommendation(
@@ -555,8 +602,10 @@ class DecisionEngine {
                     strategyAdjust = OpponentModeler.getStrategyAdjustment(style: opponentModel.style)
                     
 #if DEBUG
-                    print("🎯 \(player.name) 识别对手 \(lastBettor.name) 为 \(opponentModel.style.description)")
-                    print("   策略调整：偷盲\(String(format:"%.0f%%", strategyAdjust.stealFreqBonus*100)) 诈唬\(String(format:"%.0f%%", strategyAdjust.bluffFreqAdjust*100))")
+                    #if DEBUG
+                    logger.debug("\(player.name) 识别对手 \(lastBettor.name) 为 \(opponentModel.style.description)", category: .game)
+                    logger.debug("策略调整：偷盲\(String(format:"%.0f%%", strategyAdjust.stealFreqBonus*100)) 诈唬\(String(format:"%.0f%%", strategyAdjust.bluffFreqAdjust*100))", category: .game)
+                    #endif
 #endif
                 }
             }
@@ -588,7 +637,9 @@ class DecisionEngine {
             }
             
 #if DEBUG
-            print("🎯 \(player.name) 识别对手下注模式: \(pattern.description)，调整: \(String(format: "%.0f%%", patternAdjust * 100))")
+            #if DEBUG
+            logger.debug("\(player.name) 识别对手下注模式: \(pattern.description)，调整: \(String(format: "%.0f%%", patternAdjust * 100))", category: .game)
+            #endif
 #endif
         }
         
@@ -604,8 +655,10 @@ class DecisionEngine {
             
 #if DEBUG
             if situation.isBubble {
-                print("💰 泡沫期！\(icmAdjust?.description ?? "")")
-                print("   筹码比率：\(String(format:"%.2f", situation.stackRatio))")
+                #if DEBUG
+                logger.debug("泡沫期！\(icmAdjust?.description ?? "")", category: .game)
+                logger.debug("筹码比率：\(String(format:"%.2f", situation.stackRatio))", category: .game)
+                #endif
             }
 #endif
         }
@@ -647,8 +700,30 @@ class DecisionEngine {
     }
     
     // MARK: - AI Decision Publishing
-    
+
     static func publishDecision(
+        player: Player,
+        action: PlayerAction,
+        equity: Double,
+        potOdds: Double
+    ) {
+        // 如果使用了注入的引擎，委托给它处理
+        if let injected = injectedEngine {
+            injected.publishDecision(player: player, action: action, equity: equity, potOdds: potOdds)
+            return
+        }
+
+        // 默认实现：使用静态方法
+        publishDecisionInternal(
+            player: player,
+            action: action,
+            equity: equity,
+            potOdds: potOdds
+        )
+    }
+
+    /// 内部实现，保留原有逻辑
+    private static func publishDecisionInternal(
         player: Player,
         action: PlayerAction,
         equity: Double,
@@ -660,7 +735,7 @@ class DecisionEngine {
             equity: equity,
             potOdds: potOdds
         )
-        
+
         GameEventPublisher.shared.publishAIDecision(
             playerID: player.id,
             playerName: player.name,
@@ -826,7 +901,9 @@ class DecisionEngine {
             return gtoAction
         }
         
-        print("🧠 \(player.name)[\(profile.name)] preflop: chen=\(String(format:"%.1f",chenScore)) str=\(String(format:"%.2f",handStrength)) thr=\(String(format:"%.2f",threshold)) call=\(callAmount) pos=\(seatOffset)")
+        #if DEBUG
+        logger.debug("\(player.name)[\(profile.name)] preflop: chen=\(String(format:"%.1f",chenScore)) str=\(String(format:"%.2f",handStrength)) thr=\(String(format:"%.2f",threshold)) call=\(callAmount) pos=\(seatOffset)", category: .game)
+        #endif
         
         // ===== 基于EV的决策 =====
         
@@ -1080,8 +1157,10 @@ class DecisionEngine {
                 
 #if DEBUG
                 if reading.confidence > 0.5 {
-                    print("🔍 \(player.name) 读取对手牌力: \(reading.handCategory.description), 信心度: \(String(format: "%.0f%%", reading.confidence * 100))")
-                    print("   调整: \(String(format: "%.0f%%", handReadingAdjust * 100))")
+                    #if DEBUG
+                    logger.debug("\(player.name) 读取对手牌力: \(reading.handCategory.description), 信心度: \(String(format: "%.0f%%", reading.confidence * 100))", category: .game)
+                    logger.debug("调整: \(String(format: "%.0f%%", handReadingAdjust * 100))", category: .game)
+                    #endif
                 }
 #endif
             }
@@ -1116,7 +1195,9 @@ class DecisionEngine {
                     opponentRange = narrowedRange
                     
 #if DEBUG
-                    print("📊 对手翻后范围：\(narrowedRange.description)")
+                    #if DEBUG
+                    logger.debug("对手翻后范围：\(narrowedRange.description)", category: .game)
+                    #endif
 #endif
                 }
             }
@@ -1125,7 +1206,9 @@ class DecisionEngine {
         let hasStrongHand = category >= 3   // Trips or better
         let hasDecentHand = category >= 1   // At least a pair
 
-        print("🧠 \(player.name)[\(profile.name)] \(street.rawValue): eq=\(String(format:"%.2f",equity)) potOdds=\(String(format:"%.2f",potOdds)) hand=\(category) draws=\(draws.totalOuts)outs wet=\(String(format:"%.1f",board.wetness)) pfr=\(isPFR)")
+        #if DEBUG
+        logger.debug("\(player.name)[\(profile.name)] \(street.rawValue): eq=\(String(format:"%.2f",equity)) potOdds=\(String(format:"%.2f",potOdds)) hand=\(category) draws=\(draws.totalOuts)outs wet=\(String(format:"%.1f",board.wetness)) pfr=\(isPFR)", category: .game)
+        #endif
 
         // GTO AI uses separate postflop path
         if profile.useGTOStrategy {
@@ -1315,9 +1398,11 @@ class DecisionEngine {
                     
 #if DEBUG
                     if let indicator = bluffIndicator {
-                        print("🎲 诈唬检测：概率 \(String(format:"%.1f%%", indicator.bluffProbability * 100))")
-                        print("   信号：\(indicator.signals.map { $0.rawValue }.joined(separator: ", "))")
-                        print("   建议：\(indicator.recommendation)")
+                        #if DEBUG
+                        logger.debug("诈唬检测：概率 \(String(format:"%.1f%%", indicator.bluffProbability * 100))", category: .game)
+                        logger.debug("信号：\(indicator.signals.map { $0.rawValue }.joined(separator: ", "))", category: .game)
+                        logger.debug("建议：\(indicator.recommendation)", category: .game)
+                        #endif
                     }
 #endif
                 }

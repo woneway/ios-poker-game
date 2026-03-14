@@ -329,9 +329,6 @@ final class PokerEngineLite {
 
             // 检查是否有可行动的玩家
             guard let player = state.currentPlayer else {
-                #if DEBUG
-                print("⚠️ PokerEngineLite: 无当前玩家，提前结束手牌")
-                #endif
                 break
             }
 
@@ -356,12 +353,6 @@ final class PokerEngineLite {
                 _ = state.nextActivePlayer()
             }
         }
-
-        #if DEBUG
-        if loopGuard >= maxLoops {
-            print("⚠️ PokerEngineLite: 达到最大循环次数 \(maxLoops)，强制结束手牌")
-        }
-        #endif
     }
 
     /// 获取当前玩家排名（按筹码）

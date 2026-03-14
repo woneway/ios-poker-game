@@ -2,6 +2,8 @@ import Foundation
 import Combine
 
 class PokerGameStore: ObservableObject {
+    private let logger = AppLogger.shared
+
     @Published private(set) var state: GameState = .idle
     @Published var engine: PokerEngine
     @Published var isGameOver: Bool = false
@@ -58,10 +60,10 @@ class PokerGameStore: ObservableObject {
     private var watchdogTask: DispatchWorkItem?
     private var runOutBoardTasks: [DispatchWorkItem] = []
     
-    /// Number of background hands to simulate per batch
-    private let backgroundHandsPerBatch = 100
-    /// Number of batches to simulate
-    private let backgroundBatches = 10
+    /// Number of background hands to simulate per batch (reduced for better performance)
+    private let backgroundHandsPerBatch = 50
+    /// Number of batches to simulate (reduced for better performance)
+    private let backgroundBatches = 5
     
     /// 当前是否是人类玩家的回合
     var isHumanTurn: Bool {
@@ -87,28 +89,35 @@ class PokerGameStore: ObservableObject {
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
-        
-        // BUG FIX 1: 检查 isHandOver 是否在订阅前就已经是 true
+
+        // 检查 isHandOver 是否在订阅前就已经是 true
         // 如果是，立即触发 handOver 事件
         if engine.isHandOver && state != .showdown {
             #if DEBUG
-            print("⚠️ Engine isHandOver is already true at subscription time!")
+            logger.warning("Engine isHandOver is already true at subscription time!", category: .game)
             #endif
             DispatchQueue.main.async { [weak self] in
                 self?.send(.handOver)
             }
         }
-        
-        // Listen for hand-over
+
+        // Listen for hand-over - 核心状态同步机制
+        // 当 engine 标记手牌结束时，自动触发状态机转换
         engine.$isHandOver
             .removeDuplicates()
-            .filter { $0 == true }
-            .sink { [weak self] _ in
-                self?.send(.handOver)
+            .filter { [weak self] _ in
+                guard let self = self else { return false }
+                // 只在非 showdown 状态时触发
+                return self.state != .showdown
+            }
+            .sink { [weak self] isHandOver in
+                guard let self = self, isHandOver else { return }
+                self.send(.handOver)
             }
             .store(in: &cancellables)
-        
-        // When active player changes, check if we should transition to waitingForAction
+
+        // 监听 activePlayerIndex 变化 - 检测人类玩家回合
+        // 当活跃玩家变为人类玩家时，切换到 waitingForAction 状态
         engine.$activePlayerIndex
             .sink { [weak self] _ in
                 guard let self = self else { return }
@@ -117,31 +126,51 @@ class PokerGameStore: ObservableObject {
                 }
             }
             .store(in: &cancellables)
-        
-        // Safety net: whenever state becomes .betting, poll until human turn or state changes
-        // This handles the race condition where AI finishes during .dealing state
+
+        // 状态变化监听 - 简化为单一入口点
+        // 替换多个 watchdog 为一个可靠的 Combine 管道
         $state
-            .filter { $0 == .betting }
-            .sink { [weak self] _ in
-                guard let self = self else { return }
-                // 立即同步检查是否是人类玩家的回合，避免延迟
-                if self.isHumanTurn {
-                    self.state = .waitingForAction
-                    return
-                }
-                self.pollForHumanTurn()
-                self.scheduleAIWatchdog()
-                self.scheduleHandOverWatchdog()
+            .sink { [weak self] newState in
+                self?.handleStateChange(newState)
             }
             .store(in: &cancellables)
-        
-        // BUG FIX 1: 添加对 waitingForAction 状态的监控
-        $state
-            .filter { $0 == .waitingForAction }
-            .sink { [weak self] _ in
-                self?.scheduleHandOverWatchdog()
+    }
+
+    /// 统一处理状态变化 - 替代多个 watchdog
+    private func handleStateChange(_ newState: GameState) {
+        switch newState {
+        case .betting:
+            // 进入 betting 状态时，检查是否需要等待人类玩家
+            if isHumanTurn {
+                state = .waitingForAction
             }
-            .store(in: &cancellables)
+            // AI 会通过引擎自动处理，不需要额外的轮询
+
+        case .waitingForAction:
+            // 人类玩家正在思考，确保 watchdoc 激活
+            break
+
+        case .showdown:
+            // 清理所有异步任务
+            cancelAllAsyncTasks()
+
+        default:
+            break
+        }
+    }
+
+    /// 取消所有异步任务 - 统一的清理入口
+    private func cancelAllAsyncTasks() {
+        dealCompleteTimer?.cancel()
+        dealCompleteTimer = nil
+        pollTasks.forEach { $0.cancel() }
+        pollTasks.removeAll()
+        watchdogTask?.cancel()
+        watchdogTask = nil
+        handOverWatchdogTask?.cancel()
+        handOverWatchdogTask = nil
+        runOutBoardTasks.forEach { $0.cancel() }
+        runOutBoardTasks.removeAll()
     }
     
     // MARK: - BUG FIX 1: Hand Over Watchdog
@@ -159,7 +188,7 @@ class PokerGameStore: ObservableObject {
             // 检查引擎是否已结束但状态机不知道
             if self.engine.isHandOver && self.state != .showdown {
                 #if DEBUG
-                print("⚠️ HandOver Watchdog: engine.isHandOver is true but state is \(self.state). Forcing transition to showdown.")
+                logger.warning("HandOver Watchdog: engine.isHandOver is true but state is \(self.state). Forcing transition to showdown.", category: .game)
                 #endif
                 self.send(.handOver)
             }
@@ -169,7 +198,7 @@ class PokerGameStore: ObservableObject {
                 let activePlayers = self.engine.players.filter { $0.status == .active }
                 if activePlayers.isEmpty && self.engine.isHandOver {
                     #if DEBUG
-                    print("⚠️ HandOver Watchdog: No active players and engine.isHandOver is true. Forcing transition to showdown.")
+                    logger.warning("HandOver Watchdog: No active players and engine.isHandOver is true. Forcing transition to showdown.", category: .game)
                     #endif
                     self.send(.handOver)
                 }
@@ -199,14 +228,14 @@ class PokerGameStore: ObservableObject {
 
                 let isHuman = self.isHumanTurn
                 #if DEBUG
-                print("🔍 Poll: state=\(self.state), activeIdx=\(self.engine.activePlayerIndex), isHumanTurn=\(isHuman)")
+                logger.debug("Poll: state=\(self.state), activeIdx=\(self.engine.activePlayerIndex), isHumanTurn=\(isHuman)", category: .game)
                 if let player = self.engine.players.indices.contains(self.engine.activePlayerIndex) ? self.engine.players[self.engine.activePlayerIndex] : nil {
-                    print("   ActivePlayer: \(player.name), status=\(player.status), isHuman=\(player.isHuman)")
+                    logger.debug("ActivePlayer: \(player.name), status=\(player.status), isHuman=\(player.isHuman)", category: .game)
                 }
                 #endif
 
                 if isHuman {
-                    print("✅ Poll detected human turn, switching to waitingForAction")
+                    logger.debug("Poll detected human turn, switching to waitingForAction", category: .game)
                     self.state = .waitingForAction
                 }
             }
@@ -226,7 +255,7 @@ class PokerGameStore: ObservableObject {
             // 如果依然是 AI 回合（非人类回合），尝试踢一下引擎
             if !self.isHumanTurn {
                 #if DEBUG
-                print("⚠️ AI Watchdog: Kicking engine to check bot turn. ActiveIdx=\(self.engine.activePlayerIndex)")
+                logger.warning("AI Watchdog: Kicking engine to check bot turn. ActiveIdx=\(self.engine.activePlayerIndex)", category: .game)
                 #endif
                 self.engine.checkBotTurn()
 
@@ -234,7 +263,7 @@ class PokerGameStore: ObservableObject {
                 self.scheduleAIWatchdog()
             } else {
                 // It IS human turn, but state is still betting? Force switch.
-                print("⚠️ AI Watchdog: It IS human turn but state is .betting. Forcing switch.")
+                logger.warning("AI Watchdog: It IS human turn but state is .betting. Forcing switch.", category: .game)
                 self.state = .waitingForAction
             }
         }
@@ -255,7 +284,7 @@ class PokerGameStore: ObservableObject {
     
     func send(_ event: GameEvent) {
         #if DEBUG
-        print("FSM: Event=\(event), State=\(state)")
+        logger.debug("FSM: Event=\(event), State=\(state)", category: .game)
         #endif
         
         switch (state, event) {
@@ -266,7 +295,7 @@ class PokerGameStore: ObservableObject {
             }
             // 记录这手牌开始时 hero 的 chips
             #if DEBUG
-            print("📊 .idle -> .start: 调用 recordHeroChipsAtHandStart, handNumber=\(engine.handNumber)")
+            logger.debug(".idle -> .start: 调用 recordHeroChipsAtHandStart, handNumber=\(engine.handNumber)", category: .game)
             #endif
             self.recordHeroChipsAtHandStart()
             state = .dealing
@@ -302,7 +331,7 @@ class PokerGameStore: ObservableObject {
             }
             // 现金局：记录每手盈利
             #if DEBUG
-            print("📊 .betting -> .handOver: 调用 recordHandProfit, handNumber=\(engine.handNumber)")
+            logger.debug(".betting -> .handOver: 调用 recordHandProfit, handNumber=\(engine.handNumber)", category: .game)
             #endif
             if engine.gameMode == .cashGame {
                 recordHandProfit()
@@ -322,7 +351,7 @@ class PokerGameStore: ObservableObject {
             }
             // 现金局：记录每手盈利
             #if DEBUG
-            print("📊 .waitingForAction -> .handOver: 调用 recordHandProfit, handNumber=\(engine.handNumber)")
+            logger.debug(".waitingForAction -> .handOver: 调用 recordHandProfit, handNumber=\(engine.handNumber)", category: .game)
             #endif
             if engine.gameMode == .cashGame {
                 recordHandProfit()
@@ -342,12 +371,12 @@ class PokerGameStore: ObservableObject {
             // 现金局：如果hero被淘汰需要rebuy，阻止继续游戏
             if engine.gameMode == .cashGame && showBuyIn {
                 #if DEBUG
-                print("⏸️ 现金局：hero需要rebuy，暂停游戏")
+                logger.info("现金局：hero需要rebuy，暂停游戏", category: .game)
                 #endif
                 return
             }
             #if DEBUG
-            print("📊 .showdown -> .nextHand: 调用 recordHeroChipsAtHandStart, handNumber before startHand=\(engine.handNumber)")
+            logger.debug(".showdown -> .nextHand: 调用 recordHeroChipsAtHandStart, handNumber before startHand=\(engine.handNumber)", category: .game)
             #endif
             state = .dealing
             engine.startHand()
@@ -399,7 +428,7 @@ class PokerGameStore: ObservableObject {
 
         default:
             #if DEBUG
-            print("FSM: Invalid transition \(state) + \(event) — recovering to safe state")
+            logger.error("FSM: Invalid transition \(state) + \(event) — recovering to safe state", category: .game)
             #endif
             // BUG FIX 3: 增强错误恢复逻辑
             // 1. 如果引擎已经结束手牌，强制转换到 showdown
@@ -481,58 +510,78 @@ class PokerGameStore: ObservableObject {
     /// 为 AI 玩家启动后台模拟任务，加快数据收集速度
     private func startBackgroundAISimulation() {
         guard !isBackgroundSimulating else { return }
+
+        // 只有在有足够玩家时才运行后台模拟
+        guard remainingPlayerCount >= 2 else {
+            #if DEBUG
+            logger.info("玩家数量不足，跳过后台模拟", category: .game)
+            #endif
+            return
+        }
+
         isBackgroundSimulating = true
-        
+
         #if DEBUG
-        print("🚀 开始 AI 后台模拟...")
+        logger.info("开始 AI 后台模拟...", category: .game)
         #endif
-        
+
         // 在后台队列执行模拟
         let simulationQueue = DispatchQueue(label: "com.poker.ai.simulation", qos: .userInitiated)
-        
+
         simulationQueue.async { [weak self] in
             guard let self = self else { return }
-            
+
             // 获取当前所有玩家名称（用于统计）
             let playerNames = self.engine.players.map { $0.name }
             let gameMode = self.engine.gameMode
-            
+
             // 执行多批模拟
             for batch in 0..<self.backgroundBatches {
                 self.runBatchSimulation(batch: batch + 1, totalBatches: self.backgroundBatches)
             }
-            
+
             // 模拟完成后更新统计数据
             DispatchQueue.main.async {
                 self.updateAllPlayerStats(playerNames: playerNames, gameMode: gameMode)
                 self.isBackgroundSimulating = false
-                
-                #if DEBUG
-                print("✅ AI 后台模拟完成！")
-                #endif
             }
         }
     }
     
     /// 执行一批后台模拟
     private func runBatchSimulation(batch: Int, totalBatches: Int) {
-        // 为每批模拟创建独立的引擎实例，避免状态冲突
-        let simEngine = PokerEngine(mode: engine.gameMode, config: engine.tournamentConfig, difficulty: gameDifficulty, playerCount: gamePlayerCount)
-        
+        // 由于 PokerEngine 是 @MainActor，需要在主线程创建实例
+        // 使用阻塞方式等待结果
+        var simEngine: PokerEngine?
+
+        let semaphore = DispatchSemaphore(value: 0)
+        DispatchQueue.main.async {
+            simEngine = PokerEngine(
+                mode: self.engine.gameMode,
+                config: self.engine.tournamentConfig,
+                difficulty: self.gameDifficulty,
+                playerCount: self.gamePlayerCount
+            )
+            semaphore.signal()
+        }
+        semaphore.wait()
+
+        guard let engine = simEngine else { return }
+
         // 使用同步方式快速完成多手牌
         for _ in 0..<backgroundHandsPerBatch {
             // 检查是否还有足够玩家继续
-            let activePlayers = simEngine.players.filter { $0.chips > 0 }
+            let activePlayers = engine.players.filter { $0.chips > 0 }
             if activePlayers.count < 2 {
                 break
             }
-            
+
             // 快速模拟一手牌（不播放动画）
-            self.quickSimulateHand(engine: simEngine)
+            self.quickSimulateHand(engine: engine)
         }
-        
+
         #if DEBUG
-        print("📊 Batch \(batch)/\(totalBatches) 完成，已模拟 \(backgroundHandsPerBatch) 手牌")
+        logger.info("Batch \(batch)/\(totalBatches) 完成，已模拟 \(backgroundHandsPerBatch) 手牌", category: .game)
         #endif
     }
     
@@ -713,7 +762,7 @@ class PokerGameStore: ObservableObject {
         guard let hero = engine.players.first(where: { $0.isHuman }) else { return }
         heroChipsAtHandStart = hero.chips
         #if DEBUG
-        print("📊 recordHeroChipsAtHandStart: hero.chips=\(hero.chips), handNumber=\(engine.handNumber)")
+        logger.debug("recordHeroChipsAtHandStart: hero.chips=\(hero.chips), handNumber=\(engine.handNumber)", category: .game)
         #endif
     }
     
@@ -722,30 +771,30 @@ class PokerGameStore: ObservableObject {
         guard let hero = engine.players.first(where: { $0.isHuman }) else { return }
         heroChipsAtHandStart = hero.chips
         #if DEBUG
-        print("📊 resetHeroChipsAtHandStart: hero.chips=\(hero.chips) (after rebuy)")
+        logger.debug("resetHeroChipsAtHandStart: hero.chips=\(hero.chips) (after rebuy)", category: .game)
         #endif
     }
     
     func recordHandProfit() {
         #if DEBUG
-        print("📊 recordHandProfit: 开始, gameMode=\(engine.gameMode)")
+        logger.debug("recordHandProfit: 开始, gameMode=\(engine.gameMode)", category: .game)
         #endif
         guard engine.gameMode == .cashGame else { 
             #if DEBUG
-            print("📊 recordHandProfit: guard failed - not cashGame")
+            logger.debug("recordHandProfit: guard failed - not cashGame", category: .game)
             #endif
             return 
         }
         guard let hero = engine.players.first(where: { $0.isHuman }) else { 
             #if DEBUG
-            print("📊 recordHandProfit: guard failed - no hero")
-            print("📊 recordHandProfit: 所有玩家 = \(engine.players.map { "\($0.name)(\($0.isHuman))" })")
+            logger.debug("recordHandProfit: guard failed - no hero", category: .game)
+            logger.debug("recordHandProfit: 所有玩家 = \(engine.players.map { "\($0.name)(\($0.isHuman))" })", category: .game)
             #endif
             return 
         }
         guard var session = currentSession else { 
             #if DEBUG
-            print("📊 recordHandProfit: guard failed - no session")
+            logger.debug("recordHandProfit: guard failed - no session", category: .game)
             #endif
             return 
         }
@@ -759,7 +808,7 @@ class PokerGameStore: ObservableObject {
         let heroWon = engine.winners.contains(hero.id) || profit > 0
         
         #if DEBUG
-        print("📊 recordHandProfit: hero.chips=\(hero.chips), heroChipsAtHandStart=\(heroChipsAtHandStart), profit=\(profit), handNumber=\(engine.handNumber)")
+        logger.debug("recordHandProfit: hero.chips=\(hero.chips), heroChipsAtHandStart=\(heroChipsAtHandStart), profit=\(profit), handNumber=\(engine.handNumber)", category: .game)
         #endif
         
         session.handProfits.append(profit)
@@ -786,13 +835,13 @@ class PokerGameStore: ObservableObject {
         if let heroIndex = engine.players.firstIndex(where: { $0.isHuman }),
            engine.players[heroIndex].chips <= 0 {
             #if DEBUG
-            print("💰 Hero被淘汰，检查是否可以rebuy")
+            logger.info("Hero被淘汰，检查是否可以rebuy", category: .game)
             #endif
             
             // 检查是否达到买入限制
             if session.isBuyInLimitReached {
                 #if DEBUG
-                print("🎯 达到总买入限制 \(session.maxBuyIns)，无法rebuy，结束游戏")
+                logger.info("达到总买入限制 \(session.maxBuyIns)，无法rebuy，结束游戏", category: .game)
                 #endif
                 // 标记玩家淘汰
                 engine.players[heroIndex].status = .eliminated
@@ -802,7 +851,7 @@ class PokerGameStore: ObservableObject {
             }
             
             #if DEBUG
-            print("💰 Hero被淘汰，显示rebuy界面")
+            logger.info("Hero被淘汰，显示rebuy界面", category: .game)
             #endif
             // 标记玩家淘汰
             engine.players[heroIndex].status = .eliminated
@@ -813,9 +862,7 @@ class PokerGameStore: ObservableObject {
         
         // 如果没有玩家被淘汰，检查是否达到买入限制（仅用于统计，不强制结束）
         if session.isBuyInLimitReached {
-            #if DEBUG
-            print("🎯 达到总买入限制 \(session.maxBuyIns)，游戏将继续直到所有玩家离开")
-            #endif
+            logger.info("达到总买入限制 \(session.maxBuyIns)，游戏将继续直到所有玩家离开", category: .game)
         }
     }
     
@@ -885,13 +932,15 @@ class PokerGameStore: ObservableObject {
         showLeaveConfirm = false
         showCashSessionSummary = false
         currentSession = nil
-        
-        // 注销旧引擎并创建新引擎（使用之前保存的难度和玩家数量）
-        DecisionEngine.unregisterEngine(engine)
+
+        // 安全销毁旧引擎 - 取消所有异步任务并注销
+        engine.destroy()
+
+        // 创建新引擎（使用之前保存的难度和玩家数量）
         engine = PokerEngine(mode: mode, config: config, difficulty: gameDifficulty, playerCount: gamePlayerCount)
         // 注册新引擎
         DecisionEngine.registerEngine(engine)
-        
+
         // Re-subscribe
         cancellables.removeAll()
         subscribeToEngine()

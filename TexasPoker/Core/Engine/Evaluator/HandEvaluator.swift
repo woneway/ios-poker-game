@@ -1,15 +1,16 @@
 import Foundation
 
 class HandEvaluator {
-    
+
     // Category: 8=StraightFlush, 7=Quads, 6=FullHouse, 5=Flush, 4=Straight,
     //           3=Trips, 2=TwoPair, 1=Pair, 0=HighCard
     // Returns (category, kickers) where kickers are sorted descending for comparison
-    
-    /// 评估结果缓存
+
+    /// 评估结果缓存（线程安全）
     private static var evaluationCache: [String: (Int, [Int])] = [:]
     private static let maxCacheSize = 2000
-    
+    private static let cacheLock = NSLock()
+
     /// 缓存键生成
     private static func cacheKey(holeCards: [Card], communityCards: [Card]) -> String {
         let holeRanks = holeCards.map { Int($0.rank.rawValue) }.sorted()
@@ -18,39 +19,48 @@ class HandEvaluator {
         let communitySuits = communityCards.map { $0.suit.rawValue }.sorted()
         return "\(holeRanks)-\(holeSuits)-\(communityRanks)-\(communitySuits)"
     }
-    
-    /// 清理缓存
+
+    /// 清理缓存（线程安全）
     static func clearCache() {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
         evaluationCache.removeAll()
     }
-    
+
     static func evaluate(holeCards: [Card], communityCards: [Card]) -> (Int, [Int]) {
         // 处理边界情况：牌数不足
         guard holeCards.count >= 2 else {
             return (0, [])
         }
-        
-        // 检查缓存
+
+        // 检查缓存（加锁）
         let key = cacheKey(holeCards: holeCards, communityCards: communityCards)
+        cacheLock.lock()
         if let cached = evaluationCache[key] {
+            cacheLock.unlock()
             return cached
         }
-        
+        cacheLock.unlock()
+
         let allCards = holeCards + communityCards
-        
+
         // 处理公共牌不足5张的情况（如翻牌前全下）
         if allCards.count < 5 {
             // 牌数不足时，按高牌评估（使用可用牌的等级作为kickers）
             let sortedRanks = allCards.map { $0.rank.rawValue }.sorted(by: >)
             let score = (0, sortedRanks) // 高牌牌型，分数为0，kickers为牌等级
+
+            // 写入缓存（加锁）
+            cacheLock.lock()
             evaluationCache[key] = score
+            cacheLock.unlock()
             return score
         }
-        
+
         let combinations = combinationsOf5(from: allCards)
-        
+
         var bestScore = (-1, [Int]())
-        
+
         for hand in combinations {
             let score = eval5(cards: hand)
             if score.0 > bestScore.0 {
@@ -61,17 +71,19 @@ class HandEvaluator {
                 }
             }
         }
-        
-        // 存储到缓存
+
+        // 存储到缓存（加锁）
+        cacheLock.lock()
         if evaluationCache.count >= maxCacheSize {
             // 清除50%缓存
             let keysToRemove = Array(evaluationCache.keys.prefix(maxCacheSize / 2))
-            for key in keysToRemove {
-                evaluationCache.removeValue(forKey: key)
+            for keyToRemove in keysToRemove {
+                evaluationCache.removeValue(forKey: keyToRemove)
             }
         }
         evaluationCache[key] = bestScore
-        
+        cacheLock.unlock()
+
         return bestScore
     }
     

@@ -121,11 +121,7 @@ extension PokerEngine {
         }
         
         actionLog.removeAll()
-        
-        #if DEBUG
-        print("=== Hand #\(handNumber): Dealer=\(players[dealerIndex].name), SB=\(players[smallBlindIndex].name), BB=\(players[bigBlindIndex].name) ===")
-        #endif
-        
+
         checkBotTurn()
         
         ActionRecorder.shared.startHand(
@@ -271,12 +267,8 @@ extension PokerEngine {
                 )
             }
         }
-
-        #if DEBUG
-        print("=== Hand #\(handNumber) Over: \(winMessage) ===\n")
-        #endif
     }
-    
+
     /// 所有人 All-in 时，快速依次发完剩余公共牌然后结算
     func runOutBoard() {
         let startingStreet = currentStreet
@@ -286,10 +278,6 @@ extension PokerEngine {
             endHand()
             return
         }
-
-        #if DEBUG
-        print("🔍 runOutBoard: startingStreet=\(startingStreet), streetsToGo=\(streetsToGo)")
-        #endif
 
         // 保存当前手牌标识，用于检测游戏状态变化
         let handId = handNumber
@@ -301,9 +289,6 @@ extension PokerEngine {
 
                 // 检查手牌是否仍是同一手（防止竞态条件）
                 guard self.handNumber == handId && !self.isHandOver else {
-                    #if DEBUG
-                    print("⚠️ runOutBoard: 跳过发牌，手牌已变化或游戏已结束")
-                    #endif
                     return
                 }
 
@@ -311,10 +296,6 @@ extension PokerEngine {
                 // 因为我们是按照固定顺序发牌的：flop -> turn -> river
                 let previousStreet = self.currentStreet
                 DealingManager.dealStreetCards(deck: &self.deck, communityCards: &self.communityCards, currentStreet: &self.currentStreet)
-
-                #if DEBUG
-                print("🔍 runOutBoard: 发牌 \(previousStreet) -> \(self.currentStreet), communityCards count: \(self.communityCards.count)")
-                #endif
 
                 if i == streetsToGo - 1 {
                     // 最后一条街发完后结算
@@ -361,10 +342,6 @@ extension PokerEngine {
                     players[index].totalBetThisHand -= refundAmount // 修正 totalBet 以便正确计算边池
                     players[index].currentBet -= refundAmount       // 修正 currentBet
                     pot.refund(refundAmount)
-                    
-                    #if DEBUG
-                    print("💰 Refund uncalled bet $\(refundAmount) to \(players[index].name)")
-                    #endif
                 }
             }
         }

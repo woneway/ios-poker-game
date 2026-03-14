@@ -1,10 +1,11 @@
 import XCTest
 @testable import TexasPoker
 
+@MainActor
 class PokerEngineTests: XCTestCase {
-    
+
     var engine: PokerEngine!
-    
+
     override func setUp() {
         super.setUp()
         engine = PokerEngine()

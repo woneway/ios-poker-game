@@ -46,11 +46,7 @@ struct TournamentManager {
         }
         
         let level = config.blindSchedule[nextLevel]
-        
-        #if DEBUG
-        print("🔔 Blinds increased to \(level.description)")
-        #endif
-        
+
         return (nextLevel, 0, level.smallBlind, level.bigBlind, level.ante)
     }
     
@@ -159,10 +155,6 @@ struct TournamentManager {
 
         players.append(playerToAdd)
 
-        #if DEBUG
-        print("🎉 新玩家 \(finalName) 入场，筹码: \(playerToAdd.chips)")
-        #endif
-
         return playerToAdd
     }
 
@@ -229,11 +221,7 @@ struct TournamentManager {
         ) {
             replaceEliminatedPlayer(at: seatIndex, with: rejoinedPlayer, players: &players)
             newEntries.append(rejoinedPlayer)
-            
-            #if DEBUG
-            print("🔄 锦标赛 AI 玩家 \(rejoinedPlayer.playerUniqueId) 重新加入，筹码: \(rebuyChips)")
-            #endif
-            
+
             return newEntries
         }
         
@@ -272,10 +260,6 @@ struct TournamentManager {
 
                     replaceEliminatedPlayer(at: seatIndex, with: entryPlayer, players: &players)
                     newEntries.append(entryPlayer)
-
-                    #if DEBUG
-                    print("🎉 锦标赛新 AI \(finalName) 入场座位 \(seatIndex)，买入: \(config.buyIn)，筹码: \(rebuyChips)")
-                    #endif
                 }
             }
         }

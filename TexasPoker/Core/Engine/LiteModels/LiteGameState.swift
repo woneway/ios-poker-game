@@ -87,9 +87,6 @@ struct LiteGameState: Equatable {
             guard players[i].chips > 0 else { continue }
             guard let card1 = dealCard(), let card2 = dealCard() else {
                 // 牌数不足，给没有牌的玩家标记为无法参与
-                #if DEBUG
-                print("⚠️ LiteGameState: 牌数不足，无法给所有玩家发牌")
-                #endif
                 break
             }
             players[i].holeCards = [card1, card2]
@@ -101,9 +98,6 @@ struct LiteGameState: Equatable {
 
         // 如果没有足够的玩家有牌，标记手牌结束
         if playersWithCards < 2 {
-            #if DEBUG
-            print("⚠️ LiteGameState: 只有 \(playersWithCards) 个玩家有牌，不足以进行游戏")
-            #endif
         }
     }
 
@@ -141,9 +135,6 @@ struct LiteGameState: Equatable {
 
         // 如果玩家数量不足，标记手牌结束
         if playersWithChips < 2 {
-            #if DEBUG
-            print("⚠️ LiteGameState: 只有 \(playersWithChips) 个玩家有筹码，手牌结束")
-            #endif
             isHandOver = true
             winners = players.filter { $0.chips > 0 }.map { $0.id }
             return
@@ -188,9 +179,6 @@ struct LiteGameState: Equatable {
         // 再次检查是否有足够的玩家有牌
         let playersWithHoleCards = players.filter { $0.holeCards.count == 2 }.count
         if playersWithHoleCards < 2 {
-            #if DEBUG
-            print("⚠️ LiteGameState: 只有 \(playersWithHoleCards) 个玩家有底牌，手牌结束")
-            #endif
             isHandOver = true
             winners = players.filter { $0.chips > 0 }.map { $0.id }
             return
