@@ -12,7 +12,7 @@ A professional Texas Hold'em poker game for iOS built with SwiftUI. The app feat
 ```bash
 xcodebuild -project TexasPoker.xcodeproj \
            -scheme TexasPoker \
-           -destination 'platform=iOS Simulator,name=iPhone 15' \
+           -destination 'platform=iOS Simulator,name=iPhone 17' \
            -configuration Debug \
            build
 ```
@@ -27,12 +27,12 @@ xcodegen generate
 # All tests
 xcodebuild test -project TexasPoker.xcodeproj \
                 -scheme TexasPoker \
-                -destination 'platform=iOS Simulator,name=iPhone 15'
+                -destination 'platform=iOS Simulator,name=iPhone 17'
 
 # Specific test class
 xcodebuild test -project TexasPoker.xcodeproj \
                 -scheme TexasPoker \
-                -destination 'platform=iOS Simulator,name=iPhone 15' \
+                -destination 'platform=iOS Simulator,name=iPhone 17' \
                 -only-testing:TexasPokerTests/Core/Engine/HandEvaluatorTests
 ```
 
