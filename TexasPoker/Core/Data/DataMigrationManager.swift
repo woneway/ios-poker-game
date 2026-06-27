@@ -1,5 +1,8 @@
 import Foundation
 import CoreData
+import os.log
+
+private let logger = Logger(subsystem: "smartegg.TexasPoker", category: "DataMigration")
 
 /// Manages data migration from UserDefaults to Core Data
 class DataMigrationManager {
@@ -23,33 +26,33 @@ class DataMigrationManager {
     }
     
     // MARK: - Main Migration
-    
+
     /// Migrate all legacy statistics data to Core Data
     func migrateIfNeeded() {
         guard !isMigrationCompleted else {
             #if DEBUG
-            print("✅ Statistics migration already completed")
+            logger.info("Statistics migration already completed")
             #endif
             return
         }
 
         #if DEBUG
-        print("🔄 Starting statistics migration...")
+        logger.info("Starting statistics migration...")
         #endif
-        
+
         // Migrate legacy player stats if they exist
         migrateLegacyPlayerStats()
-        
+
         // Migrate game history to hand history if needed
         migrateGameHistoryToHandHistory()
 
         // Backfill new fields (e.g. profileId) for existing rows
         backfillDefaultProfileIdIfMissing()
-        
+
         // Mark migration as complete
         markMigrationCompleted()
         #if DEBUG
-        print("✅ Statistics migration completed")
+        logger.info("Statistics migration completed")
         #endif
     }
     
@@ -76,11 +79,11 @@ class DataMigrationManager {
         
         if migratedCount > 0 {
             #if DEBUG
-            print("📊 Migrated \(migratedCount) legacy player statistics")
+            logger.info("Migrated \(migratedCount) legacy player statistics")
             #endif
         } else {
             #if DEBUG
-            print("ℹ️ No legacy player statistics found to migrate")
+            logger.info("No legacy player statistics found to migrate")
             #endif
         }
     }
@@ -172,7 +175,7 @@ class DataMigrationManager {
         
         guard !records.isEmpty else {
             #if DEBUG
-            print("ℹ️ No game history found to migrate")
+            logger.info("No game history found to migrate")
             #endif
             return
         }
@@ -205,7 +208,7 @@ class DataMigrationManager {
         if migratedHands > 0 {
             try? context.save()
             #if DEBUG
-            print("📝 Migrated \(migratedHands) game records to hand history")
+            logger.info("Migrated \(migratedHands) game records to hand history")
             #endif
         }
     }
@@ -224,7 +227,7 @@ class DataMigrationManager {
             }
         } catch {
             #if DEBUG
-            print("Failed to backfill HandHistoryEntity.profileId: \(error)")
+            logger.error("Failed to backfill HandHistoryEntity.profileId: \(error.localizedDescription)")
             #endif
         }
 
@@ -244,7 +247,7 @@ class DataMigrationManager {
             }
         } catch {
             #if DEBUG
-            print("Failed to backfill ActionEntity.profileId: \(error)")
+            logger.error("Failed to backfill ActionEntity.profileId: \(error.localizedDescription)")
             #endif
         }
 
@@ -257,7 +260,7 @@ class DataMigrationManager {
             }
         } catch {
             #if DEBUG
-            print("Failed to backfill PlayerStatsEntity.profileId: \(error)")
+            logger.error("Failed to backfill PlayerStatsEntity.profileId: \(error.localizedDescription)")
             #endif
         }
 

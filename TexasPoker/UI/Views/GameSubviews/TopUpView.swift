@@ -1,5 +1,7 @@
 import SwiftUI
 
+private let logger = AppLogger.shared
+
 /// 补码面板 - 现金桌补充筹码界面
 struct TopUpView: View {
     let currentChips: Int
@@ -130,10 +132,14 @@ struct TopUpView: View {
         maxBuyIn: 2000,
         bigBlind: 10,
         onConfirm: { amount in
-            print("补码目标金额: $\(amount)")
+            #if DEBUG
+            logger.debug("补码目标金额: $\(amount)", category: .game)
+            #endif
         },
         onCancel: {
-            print("取消补码")
+            #if DEBUG
+            logger.debug("取消补码", category: .game)
+            #endif
         }
     )
 }

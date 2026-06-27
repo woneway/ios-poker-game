@@ -12,6 +12,7 @@ import XCTest
 import SwiftUI
 @testable import TexasPoker
 
+@MainActor
 class GameViewLayoutTests: XCTestCase {
     
     // MARK: - Hero Card Visibility Tests

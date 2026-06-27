@@ -401,10 +401,6 @@ extension RangeAnalyzer {
             newDescription = "已弃牌"
         }
 
-        #if DEBUG
-        print("📊 范围缩窄：\(Int(range.rangeWidth * 100))% → \(Int(newWidth * 100))%")
-        #endif
-
         return HandRange(
             position: range.position,
             action: range.action,

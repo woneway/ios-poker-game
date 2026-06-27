@@ -1,6 +1,7 @@
 import XCTest
 @testable import TexasPoker
 
+@MainActor
 class ShowdownLogicTests: XCTestCase {
     
     var engine: PokerEngine!

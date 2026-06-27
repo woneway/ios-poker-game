@@ -2,6 +2,7 @@ import Foundation
 
 /// 默认动作记录器适配器 - 包装现有单例实现 ActionRecorderProtocol
 final class DefaultActionRecorder: ActionRecorderProtocol {
+    static let shared = DefaultActionRecorder()
     private let recorder = ActionRecorder.shared
 
     func startHand(handNumber: Int, gameMode: GameMode, players: [Player]) {

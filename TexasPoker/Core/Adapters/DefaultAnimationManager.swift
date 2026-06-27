@@ -3,6 +3,7 @@ import SwiftUI
 
 /// 默认动画管理器适配器 - 包装现有单例实现 AnimationManagerProtocol
 final class DefaultAnimationManager: AnimationManagerProtocol {
+    static let shared = DefaultAnimationManager()
     private let animationManager = PlayerAnimationManager.shared
 
     func startAnimation(for playerId: String, type: PlayerAnimationType) {

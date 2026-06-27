@@ -1,5 +1,8 @@
 import Foundation
 import CoreData
+import os.log
+
+private let logger = Logger(subsystem: "smartegg.TexasPoker", category: "ActionRecorder")
 
 class ActionRecorder {
     static let shared = ActionRecorder()
@@ -110,7 +113,7 @@ class ActionRecorder {
             try context.save()
         } catch {
             #if DEBUG
-            print("Failed to save hand history: \(error)")
+            logger.error("Failed to save hand history: \(error.localizedDescription)")
             #endif
         }
     }

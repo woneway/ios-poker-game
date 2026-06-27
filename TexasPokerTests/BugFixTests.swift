@@ -1,6 +1,7 @@
 import XCTest
 @testable import TexasPoker
 
+@MainActor
 class BugFixTests: XCTestCase {
     
     var engine: PokerEngine!

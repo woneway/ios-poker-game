@@ -92,9 +92,6 @@ class AIVerificationRunner {
 
             // 安全检查：确保配置参数合理
             guard config.tournamentCount > 0, config.handsPerTournament > 0 else {
-                #if DEBUG
-                print("⚠️ AIVerificationRunner: 无效的配置参数")
-                #endif
                 DispatchQueue.main.async {
                     self.isRunning = false
                 }
@@ -135,14 +132,8 @@ class AIVerificationRunner {
                 // 检查结果是否有效
                 if gameResults.isEmpty {
                     consecutiveFailures += 1
-                    #if DEBUG
-                    print("⚠️ AIVerificationRunner 第\(i)场比赛结果为空")
-                    #endif
 
                     if consecutiveFailures >= maxConsecutiveFailures {
-                        #if DEBUG
-                        print("⚠️ AIVerificationRunner: 连续\(maxConsecutiveFailures)场比赛失败，停止验证")
-                        #endif
                         break
                     }
                     continue
@@ -193,9 +184,6 @@ class AIVerificationRunner {
 
                 // 检查是否有有效结果
                 guard !evaluatorResults.isEmpty else {
-                    #if DEBUG
-                    print("⚠️ AIVerificationRunner: 没有有效的评估结果")
-                    #endif
                     DispatchQueue.main.async {
                         self.isRunning = false
                     }

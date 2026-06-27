@@ -1,4 +1,7 @@
 import Foundation
+import os.log
+
+private let logger = AppLogger.shared
 
 /// 单个奖池（主池或边池）
 struct PotPortion: Equatable {
@@ -120,7 +123,7 @@ struct Pot: Equatable {
             let diff = runningTotal - portionSum
 
             #if DEBUG
-            print("⚠️ Pot 计算差异: portionsSum=\(portionSum), runningTotal=\(runningTotal), diff=\(diff)")
+            logger.warning("Pot 计算差异: portionsSum=\(portionSum), runningTotal=\(runningTotal), diff=\(diff)", category: .game)
             #endif
             // 尝试恢复：将差异加到主池
             if !portions.isEmpty {

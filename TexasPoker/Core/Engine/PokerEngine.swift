@@ -28,17 +28,24 @@ class PokerEngine: ObservableObject {
     var aiDecisionDelay: Double = 0.0
     var useSyncAIDecision: Bool = false
 
-    // MARK: - 协议依赖 (通过依赖注入实现)
-    /// 动作记录器 - 可选实现，默认使用单例
-    weak var actionRecorder: ActionRecorderProtocol?
-    /// 事件发布器 - 可选实现，默认使用单例
-    weak var eventPublisher: EventPublisherProtocol?
-    /// 音效管理器 - 可选实现，默认使用单例
-    weak var soundManager: SoundManagerProtocol?
-    /// 动画管理器 - 可选实现，默认使用单例
-    weak var animationManager: AnimationManagerProtocol?
-    /// 资金管理器 - 可选实现，默认使用单例
-    weak var bankrollManager: BankrollManagerProtocol?
+    /// 动作记录器 - 支持依赖注入
+    let actionRecorder: ActionRecorderProtocol
+
+    /// 事件发布器 - 支持依赖注入
+    let eventPublisher: EventPublisherProtocol
+
+    /// 音效管理器 - 支持依赖注入
+    let soundManager: SoundManagerProtocol
+
+    /// 动画管理器 - 支持依赖注入
+    let animationManager: AnimationManagerProtocol
+
+    /// 资金管理器 - 支持依赖注入
+    let bankrollManager: BankrollManagerProtocol
+
+    /// 决策引擎 - 支持依赖注入
+    let decisionEngine: DecisionEngineProtocol
+
     
     // MARK: - Computed Properties
     
@@ -93,7 +100,40 @@ class PokerEngine: ObservableObject {
     /// 当前活跃的异步任务引用，用于优雅取消
     private var currentTask: Task<Void, Never>?
 
-    init(mode: GameMode = .cashGame, config: TournamentConfig? = nil, cashGameConfig: CashGameConfig? = nil, difficulty: AIProfile.Difficulty? = nil, playerCount: Int = 8) {
+    /// 初始化引擎（支持依赖注入）
+    /// - Parameters:
+    ///   - mode: 游戏模式
+    ///   - config: 锦标赛配置（仅锦标赛模式需要）
+    ///   - cashGameConfig: 现金桌配置（仅现金桌模式需要）
+    ///   - difficulty: AI 难度
+    ///   - playerCount: 玩家数量
+    ///   - actionRecorder: 动作记录器（可选，默认使用单例）
+    ///   - eventPublisher: 事件发布器（可选，默认使用单例）
+    ///   - soundManager: 音效管理器（可选，默认使用单例）
+    ///   - animationManager: 动画管理器（可选，默认使用单例）
+    ///   - bankrollManager: 资金管理器（可选，默认使用单例）
+    ///   - decisionEngine: 决策引擎（可选，默认使用单例）
+    init(
+        mode: GameMode = .cashGame,
+        config: TournamentConfig? = nil,
+        cashGameConfig: CashGameConfig? = nil,
+        difficulty: AIProfile.Difficulty? = nil,
+        playerCount: Int = 8,
+        actionRecorder: ActionRecorderProtocol? = nil,
+        eventPublisher: EventPublisherProtocol? = nil,
+        soundManager: SoundManagerProtocol? = nil,
+        animationManager: AnimationManagerProtocol? = nil,
+        bankrollManager: BankrollManagerProtocol? = nil,
+        decisionEngine: DecisionEngineProtocol? = nil
+    ) {
+        // 初始化依赖（如果没有提供则使用默认单例）
+        self.actionRecorder = actionRecorder ?? DefaultActionRecorder.shared
+        self.eventPublisher = eventPublisher ?? DefaultEventPublisher.shared
+        self.soundManager = soundManager ?? DefaultSoundManager.shared
+        self.animationManager = animationManager ?? DefaultAnimationManager.shared
+        self.bankrollManager = bankrollManager ?? DefaultBankrollManager.shared
+        self.decisionEngine = decisionEngine ?? DefaultDecisionEngine.shared
+
         self.deck = Deck()
         self.players = []
         self.communityCards = []
@@ -101,13 +141,13 @@ class PokerEngine: ObservableObject {
         self.dealerIndex = -1
         self.activePlayerIndex = 0
         self.currentStreet = .preFlop
-        
+
         if let difficulty = difficulty {
             setupTable(difficulty: difficulty, playerCount: playerCount)
         } else {
             setup8PlayerTable()
         }
-        
+
         self.gameMode = mode
         self.tournamentConfig = config
         
@@ -139,7 +179,7 @@ class PokerEngine: ObservableObject {
         players = []
         
         // Add Hero
-        players.append(Player(name: heroName, chips: 1000, isHuman: true))
+        players.append(Player(name: heroName, chips: GameConstants.Game.defaultStartingChips, isHuman: true))
         
         // Add AI opponents based on difficulty
         let aiCount = min(playerCount - 1, 7)
@@ -148,7 +188,7 @@ class PokerEngine: ObservableObject {
         for profile in profiles {
             players.append(Player(
                 name: profile.name,
-                chips: 1000,
+                chips: GameConstants.Game.defaultStartingChips,
                 isHuman: false,
                 aiProfile: profile
             ))
@@ -164,8 +204,8 @@ class PokerEngine: ObservableObject {
     /// Legacy setup for backward compatibility
     private func setup8PlayerTable() {
         // 使用默认初始筹码（与Player模型默认值保持一致）
-        let defaultStartingChips = 1000
-        
+        let defaultStartingChips = GameConstants.Game.defaultStartingChips
+
         players = [
             Player(name: "Hero", chips: defaultStartingChips, isHuman: true),
             Player(name: "石头", chips: defaultStartingChips, isHuman: false, aiProfile: .rock, entryIndex: 1),
@@ -230,18 +270,23 @@ class PokerEngine: ObservableObject {
         currentTask = nil
         isEngineDestroyed = true
 
-        // 只有已注册的引擎才需要注销，避免重复操作
-        if isRegistered {
-            DecisionEngine.unregisterEngine(self)
-        }
+        // 注销引擎（安全检查在 DecisionEngine 内部处理）
+        DecisionEngine.unregisterEngine(self)
     }
+
+    /// 标记是否通过 destroy() 方法显式销毁
+    private var isEngineDestroyedByDestroy: Bool = false
 
     /// 安全清理引擎资源（替代直接 deinit，供外部调用）
     /// 调用后引擎将不再可用
     func destroy() {
+        guard !isEngineDestroyedByDestroy else { return }
+
         currentTask?.cancel()
         currentTask = nil
         isEngineDestroyed = true
+        isEngineDestroyedByDestroy = true
+
         if isRegistered {
             DecisionEngine.unregisterEngine(self)
             isRegistered = false
@@ -425,8 +470,7 @@ class PokerEngine: ObservableObject {
         recordActionStats(action: action, originalPlayer: player, updatedPlayer: result.playerUpdate, potAddition: result.potAddition)
         
         if result.potAddition > 0 {
-            eventPublisher?.publishChipAnimation(seatIndex: activePlayerIndex, amount: result.potAddition)
-                ?? GameEventPublisher.shared.publishChipAnimation(seatIndex: activePlayerIndex, amount: result.potAddition)
+            eventPublisher.publishChipAnimation(seatIndex: activePlayerIndex, amount: result.potAddition)
         }
 
         #if DEBUG
@@ -444,10 +488,7 @@ class PokerEngine: ObservableObject {
         if BettingManager.isRoundComplete(players: players, hasActed: hasActed, currentBet: currentBet) {
             dealNextStreet()
         } else {
-            // DEBUG: 追踪轮次没有结束的问题
-            #if DEBUG
-            logger.warning("isRoundComplete=false, 调用 advanceTurn()", category: .game)
-            #endif
+            // 轮次未结束，继续下一个玩家
             advanceTurn()
         }
     }
@@ -480,24 +521,29 @@ class PokerEngine: ObservableObject {
         // 取消之前的任务（如果存在）
         currentTask?.cancel()
 
-        // 捕获当前状态快照
+        // 捕获当前状态快照（值类型拷贝，避免引用问题）
         let capturedIndex = activePlayerIndex
         let capturedStreet = currentStreet
         let capturedHandOver = isHandOver
+        let capturedDecisionDelay = aiDecisionDelay
 
         // 使用 Task 进行异步执行，并保存引用以便后续取消
+        // 注意：Task 闭包外部捕获 self，但内部使用弱引用避免循环
         currentTask = Task { [weak self] in
             guard let self = self else { return }
 
             // 等待指定的决策延迟
-            if self.aiDecisionDelay > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(self.aiDecisionDelay * 1_000_000_000))
+            if capturedDecisionDelay > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(capturedDecisionDelay * 1_000_000_000))
+
+                // 睡眠后立即检查取消状态，确保任务取消时能立即响应
+                if Task.isCancelled { return }
             }
 
             // ========== 验证检查（按优先级排序）==========
 
-            // 1. 检查任务是否被取消（Swift 内置机制）
-            try? Task.checkCancellation()
+            // 1. 检查任务是否被取消（Swift 内置机制）- 使用 guard 确保真正退出
+            guard !Task.isCancelled else { return }
 
             // 2. 检查引擎是否已销毁
             guard !self.isEngineDestroyed else { return }
@@ -511,13 +557,23 @@ class PokerEngine: ObservableObject {
             // 5. 再次检查手牌状态
             guard self.isHandOver == capturedHandOver else { return }
 
-            // 6. 验证玩家仍然符合条件
-            guard capturedIndex < self.players.count else { return }
-            let currentPlayer = self.players[capturedIndex]
-            guard currentPlayer.status == .active && !currentPlayer.isHuman else { return }
+            // 6. 验证玩家仍然符合条件（使用捕获的值而不是重新访问数组）
+            guard capturedIndex >= 0 && capturedIndex < self.players.count else { return }
 
-            // 执行 AI 决策
-            await MainActor.run {
+            // 7. 额外安全检查：确保仍然是当前活跃玩家
+            guard self.activePlayerIndex == capturedIndex else { return }
+
+            // 在主线程上安全地访问玩家并进行决策
+            await MainActor.run { [weak self] in
+                guard let self = self else { return }
+
+                // 最终安全检查（在主线程执行）
+                guard self.activePlayerIndex == capturedIndex else { return }
+                guard capturedIndex < self.players.count else { return }
+                let currentPlayer = self.players[capturedIndex]
+                guard currentPlayer.status == .active && !currentPlayer.isHuman else { return }
+                guard !self.isHandOver else { return }
+
                 self.executeAIDecisionForPlayer(currentPlayer, capturedIndex: capturedIndex)
             }
         }
@@ -531,8 +587,9 @@ class PokerEngine: ObservableObject {
     }
     
     private func executeAIDecisionForPlayer(_ currentPlayer: Player, capturedIndex: Int) {
-        let action = DecisionEngine.makeDecision(player: currentPlayer, engine: self)
-        
+        // 使用注入的决策引擎（支持依赖注入和测试 mock）
+        let action = decisionEngine.makeDecision(player: currentPlayer, engine: self)
+
         let equity = MonteCarloSimulator.calculateEquity(
             holeCards: currentPlayer.holeCards,
             communityCards: self.communityCards,
@@ -540,13 +597,13 @@ class PokerEngine: ObservableObject {
             iterations: 100
         )
         let potOdds = self.currentBet > 0 ? Double(self.currentBet - currentPlayer.currentBet) / Double(self.pot.total) : 0
-        DecisionEngine.publishDecision(
+        decisionEngine.publishDecision(
             player: currentPlayer,
             action: action,
             equity: equity,
             potOdds: potOdds
         )
-        
+
         self.processAction(action)
     }
     
@@ -629,7 +686,7 @@ class PokerEngine: ObservableObject {
 
         // Reset all players to initial chips
         for i in 0..<players.count {
-            players[i].chips = 1000
+            players[i].chips = GameConstants.Game.defaultStartingChips
             players[i].currentBet = 0
             players[i].totalBetThisHand = 0  // 修复：重置本手牌总投注额
             players[i].status = .active

@@ -1,5 +1,7 @@
 import Foundation
 
+private let logger = AppLogger.shared
+
 /// AI 难度等级
 enum DifficultyLevel: Int, CaseIterable, Codable {
     case easy = 1       // 简单 - AI会犯常见错误
@@ -71,7 +73,7 @@ class DifficultyManager {
     func setDifficulty(_ level: DifficultyLevel) {
         currentDifficulty = level
         #if DEBUG
-        print("🎯 难度设置：\(level.description)")
+        logger.debug("🎯 难度设置：\(level.description)", category: .game)
         #endif
     }
     

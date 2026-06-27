@@ -44,3 +44,4 @@ archive/
 .AppleDouble
 .LSOverride
 TestResults/
+*.xcresult/

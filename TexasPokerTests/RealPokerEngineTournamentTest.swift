@@ -9,6 +9,7 @@ struct TournamentParams: Codable {
     let startingChips: Int
 }
 
+@MainActor
 final class RealPokerEngineTournamentTest: XCTestCase {
 
     func testRunTournament() throws {

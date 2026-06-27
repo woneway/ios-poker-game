@@ -3,6 +3,7 @@ import Combine
 
 /// 默认事件发布器适配器 - 包装现有单例实现 EventPublisherProtocol
 final class DefaultEventPublisher: EventPublisherProtocol {
+    static let shared = DefaultEventPublisher()
     private let publisher = GameEventPublisher.shared
 
     func publishPlayerAction(playerID: UUID, action: String, isThinking: Bool) {

@@ -22,8 +22,7 @@ extension PokerEngine {
     }
     
     func playSoundForAction(_ action: PlayerAction) {
-        // 验证模式下（无依赖注入）跳过音效
-        guard soundManager != nil else { return }
+        // soundManager 是必需的属性，总是被初始化
 
         let sound: SoundType? = {
             switch action {
@@ -35,7 +34,7 @@ extension PokerEngine {
             }
         }()
         if let sound = sound {
-            soundManager?.playSound(sound)
+            soundManager.playSound(sound)
         }
     }
     
@@ -135,8 +134,7 @@ extension PokerEngine {
     }
     
     private func triggerPlayerAnimation(player: Player, action: PlayerAction) {
-        // 验证模式下（无依赖注入）跳过动画
-        guard animationManager != nil else { return }
+        // animationManager 是必需的属性，总是被初始化
 
         let playerId = player.id.uuidString
 
@@ -150,10 +148,10 @@ extension PokerEngine {
             }
         }()
 
-        animationManager?.startAnimation(for: playerId, type: animationType)
+        animationManager.startAnimation(for: playerId, type: animationType)
 
         // Publish action event for UI
-        eventPublisher?.publishPlayerAction(
+        eventPublisher.publishPlayerAction(
             playerID: player.id,
             action: String(describing: action),
             isThinking: false
@@ -161,12 +159,10 @@ extension PokerEngine {
     }
     
     func recordActionStats(action: PlayerAction, originalPlayer: Player, updatedPlayer: Player, potAddition: Int) {
-        // 验证模式下（无依赖注入）跳过 Core Data 记录
-        guard actionRecorder != nil else { return }
-
+        // 记录动作到 Core Data
         let isVoluntary = determineIfVoluntary(action: action, player: originalPlayer)
         let position = getPosition(playerIndex: activePlayerIndex)
-        actionRecorder?.recordAction(
+        actionRecorder.recordAction(
             playerName: updatedPlayer.name,
             playerUniqueId: updatedPlayer.playerUniqueId,
             action: action,
@@ -179,14 +175,13 @@ extension PokerEngine {
     }
 
     func recordHandEnd() {
-        // 验证模式下（无依赖注入）跳过 Core Data 记录
-        guard actionRecorder != nil else { return }
+        // actionRecorder 是必需的属性，总是被初始化
 
         let heroCards = players.first { $0.isHuman }?.holeCards ?? []
         let winnerNames = winners.compactMap { id in
             players.first { $0.id == id }?.name
         }
-        actionRecorder?.endHand(
+        actionRecorder.endHand(
             finalPot: lastPotSize,
             communityCards: communityCards,
             heroCards: heroCards,
@@ -213,7 +208,7 @@ extension PokerEngine {
             profileId: ProfileManager.shared.currentProfileIdForData
         )
 
-        eventPublisher?.publishPlayerStatsUpdated() ?? GameEventPublisher.shared.publishPlayerStatsUpdated()
+        eventPublisher.publishPlayerStatsUpdated()
     }
     
     private func recordHandToAnalysisEngine() {
@@ -425,28 +420,24 @@ extension PokerEngine {
     func notifyWinnerAnimations(result: ShowdownResult) {
         for winnerID in result.winnerIDs {
             if let winnerIndex = players.firstIndex(where: { $0.id == winnerID }) {
-                eventPublisher?.publishPlayerWon(playerID: winnerID) ?? GameEventPublisher.shared.publishPlayerWon(playerID: winnerID)
+                eventPublisher.publishPlayerWon(playerID: winnerID)
                 let winnerAmount = result.totalPot / result.winnerIDs.count
-                eventPublisher?.publishWinnerChipAnimation(seatIndex: winnerIndex, amount: winnerAmount) ?? GameEventPublisher.shared.publishWinnerChipAnimation(seatIndex: winnerIndex, amount: winnerAmount)
+                eventPublisher.publishWinnerChipAnimation(seatIndex: winnerIndex, amount: winnerAmount)
 
                 // Trigger winner animation
                 let playerId = winnerID.uuidString
                 let winAnimationType: PlayerAnimationType = winnerAmount > pot.total / 2 ? .bigWin : .winning
 
-                animationManager?.startAnimation(for: playerId, type: winAnimationType)
-                    ?? PlayerAnimationManager.shared.startAnimation(for: playerId, type: winAnimationType)
-                animationManager?.setEmotion(for: playerId, emotion: .happy)
-                    ?? PlayerAnimationManager.shared.setEmotion(for: playerId, emotion: .happy)
+                animationManager.startAnimation(for: playerId, type: winAnimationType)
+                animationManager.setEmotion(for: playerId, emotion: .happy)
             }
         }
 
         // Trigger losing animations for losers
         for player in players where !winners.contains(player.id) && player.status != .eliminated {
             let playerId = player.id.uuidString
-            animationManager?.startAnimation(for: playerId, type: .losing)
-                ?? PlayerAnimationManager.shared.startAnimation(for: playerId, type: .losing)
-            animationManager?.setEmotion(for: playerId, emotion: .sad)
-                ?? PlayerAnimationManager.shared.setEmotion(for: playerId, emotion: .sad)
+            animationManager.startAnimation(for: playerId, type: .losing)
+            animationManager.setEmotion(for: playerId, emotion: .sad)
         }
     }
     

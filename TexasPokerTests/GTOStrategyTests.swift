@@ -1,6 +1,7 @@
 import XCTest
 @testable import TexasPoker
 
+@MainActor
 class GTOStrategyTests: XCTestCase {
 
     // MARK: - AIProfile Tests

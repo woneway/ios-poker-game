@@ -1,6 +1,8 @@
 import Foundation
 import CoreData
 
+private let logger = AppLogger.shared
+
 /// 玩家风格分类
 enum PlayerStyle: String, Codable {
     case rock       // 石头：VPIP<20%, PFR<15%, AF>2.5
@@ -90,7 +92,7 @@ class OpponentModel {
             let results = try context.fetch(request)
             guard let stats = results.first else {
                 #if DEBUG
-                print("⚠️ OpponentModel: 未找到玩家 \(playerName) 的统计数据")
+                logger.warning("⚠️ OpponentModel: 未找到玩家 \(playerName) 的统计数据", category: .game)
                 #endif
                 return
             }
@@ -104,17 +106,17 @@ class OpponentModel {
             self.totalHands = Int(stats.value(forKey: "totalHands") as? Int32 ?? 0)
 
             #if DEBUG
-            print("📊 OpponentModel: 加载 \(playerName) 统计数据，\(totalHands) 手")
+            logger.debug("📊 OpponentModel: 加载 \(playerName) 统计数据，\(totalHands) 手", category: .game)
             #endif
 
             updateStyle()
         } catch {
             #if DEBUG
-            print("❌ OpponentModel: 加载 \(playerName) 统计数据失败: \(error.localizedDescription)")
+            logger.error("❌ OpponentModel: 加载 \(playerName) 统计数据失败: \(error.localizedDescription)", category: .game)
             #endif
         }
     }
-    
+
     /// 更新风格分类
     func updateStyle() {
         guard totalHands >= Constants.Statistics.minHandsForStyleAnalysis else {

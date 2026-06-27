@@ -1,80 +1,14 @@
 import Foundation
 import CoreData
 
+// Import calculators for DRY refactoring
+// These functions were duplicated in DecisionEngine and are now centralized
+// EVCalculator uses static methods, PotOddsCalculator uses singleton
+
 private let logger = AppLogger.shared
 
-// MARK: - EV Calculation Models
-
-/// Represents the expected value of a potential action
-struct ExpectedValue {
-    let action: PlayerAction
-    let ev: Double
-    let reason: String
-    
-    static func compare(_ a: ExpectedValue, _ b: ExpectedValue) -> ExpectedValue {
-        return a.ev >= b.ev ? a : b
-    }
-}
-
-/// Action options with their calculated EVs
-struct ActionEV {
-    let action: PlayerAction
-    let equity: Double      // Win probability
-    let potOdds: Double     // Break-even equity needed
-    let impliedOdds: Double // Implied odds bonus
-    let ev: Double          // Expected value
-    
-    /// Determine if this action is +EV
-    var isPositiveEV: Bool {
-        return equity > potOdds
-    }
-}
-
-// MARK: - Draw & Board Analysis Helpers
-
-/// Describes the type of draws a player has
-struct DrawInfo {
-    let hasFlushDraw: Bool       // 4 cards of same suit (need 1 more)
-    let hasOpenEndedStraight: Bool  // 4 consecutive (need 1 on either end)
-    let hasGutshot: Bool         // Need 1 specific card to complete straight
-    let hasComboDraws: Bool      // Flush draw + straight draw
-    let flushOuts: Int           // Number of cards that complete flush
-    let straightOuts: Int        // Number of cards that complete straight
-    let overlap: Int             // Cards that complete both draws
-    
-    init(hasFlushDraw: Bool, hasOpenEndedStraight: Bool, hasGutshot: Bool, 
-         hasComboDraws: Bool, flushOuts: Int, straightOuts: Int, overlap: Int = 0) {
-        self.hasFlushDraw = hasFlushDraw
-        self.hasOpenEndedStraight = hasOpenEndedStraight
-        self.hasGutshot = hasGutshot
-        self.hasComboDraws = hasComboDraws
-        self.flushOuts = flushOuts
-        self.straightOuts = straightOuts
-        self.overlap = overlap
-    }
-    
-    var totalOuts: Int {
-        // Subtract actual overlap when both flush + straight draws exist
-        if hasComboDraws {
-            return flushOuts + straightOuts - overlap
-        }
-        return flushOuts + straightOuts
-    }
-    
-    var hasAnyDraw: Bool {
-        return hasFlushDraw || hasOpenEndedStraight || hasGutshot
-    }
-}
-
-/// Board texture analysis
-struct BoardTexture {
-    let wetness: Double     // 0 = rainbow dry, 1 = monotone connected
-    let isPaired: Bool      // Board has a pair
-    let isMonotone: Bool    // 3+ cards same suit on board
-    let isTwoTone: Bool     // Exactly 2 suits on board
-    let hasHighCards: Bool  // Board has A, K, or Q
-    let connectivity: Double // 0 = scattered, 1 = very connected
-}
+// 这些类型已移至 DecisionModels.swift
+// import DecisionModels
 
 // 确定性随机数生成器（用于测试）
 #if DEBUG
@@ -159,8 +93,8 @@ class DecisionEngine {
     // MARK: - Constants
 
     /// 默认对手 call probability for EV calculation
-    private static let defaultOpponentCallProb: Double = 0.5
-    
+    private static let defaultOpponentCallProb: Double = GameConstants.AI.defaultOpponentCallProb
+
     /// 测试辅助：随机数生成器（可设置种子以实现确定性测试）
 #if DEBUG
     private static var randomGenerator: RandomGenerator = .system
@@ -214,75 +148,130 @@ class DecisionEngine {
         DeterministicRandom.reset()
     }
 #endif
-    
+
     /// Default opponent range for EV calculation
-    private static let defaultOpponentRange: Double = 0.5
-    
+    private static let defaultOpponentRange: Double = GameConstants.AI.defaultOpponentRange
+
     /// SPR thresholds for implied odds
-    private static let sprHighThreshold: Double = 10.0
-    private static let sprMediumThreshold: Double = 5.0
-    private static let sprTurnHighThreshold: Double = 8.0
-    private static let sprTurnMediumThreshold: Double = 4.0
-    
+    private static let sprHighThreshold: Double = GameConstants.AI.sprHighThreshold
+    private static let sprMediumThreshold: Double = GameConstants.AI.sprMediumThreshold
+    private static let sprTurnHighThreshold: Double = GameConstants.AI.sprTurnHighThreshold
+    private static let sprTurnMediumThreshold: Double = GameConstants.AI.sprTurnMediumThreshold
+
     /// Implied odds bonuses
-    private static let impliedOddsFlopHigh: Double = 0.15
-    private static let impliedOddsFlopMedium: Double = 0.08
-    private static let impliedOddsTurnHigh: Double = 0.10
-    private static let impliedOddsTurnMedium: Double = 0.05
-    
+    private static let impliedOddsFlopHigh: Double = GameConstants.AI.impliedOddsFlopHigh
+    private static let impliedOddsFlopMedium: Double = GameConstants.AI.impliedOddsFlopMedium
+    private static let impliedOddsTurnHigh: Double = GameConstants.AI.impliedOddsTurnHigh
+    private static let impliedOddsTurnMedium: Double = GameConstants.AI.impliedOddsTurnMedium
+
     /// Tendency adjustment factors
-    private static let raiseTendencyFactor: Double = 0.1
-    private static let callTendencyFactor: Double = 0.05
-    private static let aggressionMidpoint: Double = 0.5
-    
+    private static let raiseTendencyFactor: Double = GameConstants.AI.raiseTendencyFactor
+    private static let callTendencyFactor: Double = GameConstants.AI.callTendencyFactor
+    private static let aggressionMidpoint: Double = GameConstants.AI.aggressionMidpoint
+
     // MARK: - Difficulty Manager
-    
+
     static let difficultyManager = DifficultyManager()
-    
+
     // MARK: - Opponent Modeling
-    
+
     // 使用引擎实例作为 key 的一部分，避免全局状态污染
     // key 格式: "ObjectIdentifier_gameMode_playerName"
     // 注意：fileprivate 以便测试可以访问
     fileprivate static var opponentModels: [String: OpponentModel] = [:]
-    
+
     // 追踪活跃的引擎标识符，用于自动清理
     private static var activeEngineIds: Set<ObjectIdentifier> = []
-    
+
     // 线程安全：使用串行队列保护静态状态
     private static let stateQueue = DispatchQueue(label: "com.poker.decisionengine.state")
-    
+
     // 最大对手模型数量限制，防止内存无限增长
-    private static let maxModelCount = 50
-    
+    private static let maxModelCount = GameConstants.AI.maxModelCount
+
     // 上次清理的时间戳
     private static var lastCleanupTime: Date = Date()
     /// 清理时间间隔（秒）
-    private static let cleanupInterval: TimeInterval = 300  // 5 分钟
-    
+    private static let cleanupInterval: TimeInterval = GameConstants.AI.cleanupInterval
+
+    // 定时器用于定期清理（防止引擎未正确注销时的内存泄漏）
+    private static var cleanupTimer: Timer?
+
     /// 测试辅助：获取对手模型数量
 #if DEBUG
     static var opponentModelCount: Int {
-        return opponentModels.count
+        stateQueue.sync {
+            return opponentModels.count
+        }
     }
 #endif
-    
+
+    /// 启动定期清理定时器（通常在应用启动时调用）
+    static func startPeriodicCleanup() {
+        DispatchQueue.main.async {
+            cleanupTimer?.invalidate()
+            // 每30秒执行一次清理（比cleanupInterval更频繁，作为安全网）
+            cleanupTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { _ in
+                performPeriodicCleanup()
+            }
+        }
+    }
+
+    /// 停止定期清理定时器（通常在应用退出时调用）
+    static func stopPeriodicCleanup() {
+        DispatchQueue.main.async {
+            cleanupTimer?.invalidate()
+            cleanupTimer = nil
+        }
+    }
+
+    /// 执行定期清理（定时器回调）
+    private static func performPeriodicCleanup() {
+        stateQueue.async {
+            cleanupInactiveModelsLocked()
+        }
+    }
+
     /// 注册一个活跃的引擎（在新游戏开始时调用）
     static func registerEngine(_ engine: PokerEngine) {
         stateQueue.sync {
+            // 先清理失效的引擎ID（确保只保留有效的）
+            performStaleEngineCleanupLocked()
             activeEngineIds.insert(ObjectIdentifier(engine))
             performCleanupIfNeededLocked()
+
+            #if DEBUG
+            logger.debug("注册引擎，当前模型数: \(opponentModels.count)", category: .game)
+            #endif
         }
     }
-    
+
     /// 注销一个引擎（在新游戏结束时调用）
     static func unregisterEngine(_ engine: PokerEngine) {
         stateQueue.sync {
             let engineId = ObjectIdentifier(engine)
             activeEngineIds.remove(engineId)
-            
+
             // 清理该引擎的所有对手模型
+            let previousCount = opponentModels.count
             opponentModels = opponentModels.filter { !$0.key.hasPrefix("\(engineId)_") }
+            let removedCount = previousCount - opponentModels.count
+
+            #if DEBUG
+            logger.debug("注销引擎，清理模型数: \(removedCount)，剩余模型数: \(opponentModels.count)", category: .game)
+            #endif
+        }
+    }
+
+    /// 清理已失效的引擎ID（对象已被销毁但ID仍在集合中）
+    private static func performStaleEngineCleanupLocked() {
+        // 由于无法直接检查 ObjectIdentifier 是否有效，
+        // 我们在每次注册时清理过期的模型数据
+        // 保留最近注册的引擎对应的模型
+        let activeIdPrefixes = activeEngineIds.map { "\($0)_" }
+
+        opponentModels = opponentModels.filter { key, _ in
+            activeIdPrefixes.contains { key.hasPrefix($0) }
         }
     }
     
@@ -300,17 +289,33 @@ class DecisionEngine {
     /// 清理不再活跃的引擎对应的模型（需在 stateQueue 内调用）
     private static func cleanupInactiveModelsLocked() {
         let activeIds = activeEngineIds.map { "\($0)_" }
-        
+
         // 保留活跃引擎的模型，清理不活跃的
         opponentModels = opponentModels.filter { key, _ in
             activeIds.contains { key.hasPrefix($0) }
         }
-        
+
+        // 如果仍然超过限制，按 LRU 策略清理最旧的模型
+        if opponentModels.count > maxModelCount {
+            // 按键排序（简单地移除最早的）并保留 maxModelCount 个
+            let keysToRemove = Array(opponentModels.keys.sorted().dropLast(maxModelCount))
+            for key in keysToRemove {
+                opponentModels.removeValue(forKey: key)
+            }
+        }
+
 #if DEBUG
         #if DEBUG
         logger.debug("对手模型清理完成，剩余模型数: \(opponentModels.count)", category: .game)
         #endif
 #endif
+    }
+
+    /// 强制清理所有不活跃模型（供外部调用的安全方法）
+    private static func forceCleanupAllInactive() {
+        stateQueue.async {
+            cleanupInactiveModelsLocked()
+        }
     }
     
     /// 加载对手模型（线程安全）
@@ -351,24 +356,23 @@ class DecisionEngine {
     ///   - callAmount: Cost to call
     ///   - potSize: Current pot size (does NOT include our call amount)
     /// - Returns: Expected value as multiplier of call amount
+    /// - Note: Now delegates to EVCalculator to avoid duplication
     static func calculateCallEV(
         equity: Double,
         callAmount: Int,
         potSize: Int,
         opponentRange: Double = defaultOpponentRange
     ) -> Double {
-        guard callAmount > 0 else { return 0 }
-        
-        // EV = p(win) * pot - p(lose) * call_amount
-        // When we win: we get the entire pot (opponent's bet is already in pot)
-        // When we lose: we lose our call amount
-        let winValue = equity * Double(potSize)
-        let loseValue = (1.0 - equity) * Double(callAmount)
-        
-        return winValue - loseValue
+        EVCalculator.calculateCallEV(
+            equity: equity,
+            callAmount: callAmount,
+            potSize: potSize,
+            opponentRange: opponentRange
+        )
     }
-    
+
     /// Calculate the expected value of raising
+    /// - Note: Now delegates to EVCalculator to avoid duplication
     static func calculateRaiseEV(
         equity: Double,
         raiseAmount: Int,
@@ -376,26 +380,19 @@ class DecisionEngine {
         potSize: Int,
         opponentCallProb: Double = defaultOpponentCallProb
     ) -> Double {
-        guard raiseAmount > 0 else { return 0 }
-        
-        // When raise, opponent may fold, call, or re-raise
-        // Simplified: consider fold equity + when called, our equity
-        
-        // If opponent folds (1 - opponentCallProb), we win the pot
-        let foldEquity = (1.0 - opponentCallProb) * Double(potSize)
-        
-        // If opponent calls, our EV = equity * (pot + raise) - (1-equity) * raise
-        let callEV = opponentCallProb * (
-            equity * Double(potSize + raiseAmount * 2) - (1.0 - equity) * Double(raiseAmount)
+        EVCalculator.calculateRaiseEV(
+            equity: equity,
+            raiseAmount: raiseAmount,
+            currentBet: currentBet,
+            potSize: potSize,
+            opponentCallProb: opponentCallProb
         )
-        
-        return foldEquity + callEV
     }
-    
+
     /// Calculate pot odds
+    /// - Note: Now delegates to PotOddsCalculator to avoid duplication
     static func calculatePotOdds(callAmount: Int, potSize: Int) -> Double {
-        guard callAmount > 0 else { return 0 }
-        return Double(callAmount) / Double(potSize + callAmount)
+        PotOddsCalculator.shared.calculateDirectOdds(callAmount: callAmount, potSize: potSize)
     }
     
     /// Calculate implied odds based on SPR
@@ -560,20 +557,6 @@ class DecisionEngine {
         let activePlayers = engine.players.filter { $0.status == .active || $0.status == .allIn }.count
         let seatOffset = engine.seatOffsetFromDealer(playerIndex: engine.activePlayerIndex)
 
-        // Get strategy recommendation from PlayerStrategyManager (AI learning system)
-        // This uses learned patterns to suggest optimal actions
-        let _ = getStrategyRecommendation(
-            player: player,
-            engine: engine,
-            holeCards: holeCards,
-            community: community,
-            street: street,
-            callAmount: callAmount,
-            potSize: potSize,
-            stackSize: stackSize,
-            seatOffset: seatOffset
-        )
-        
         // Stack-to-pot ratio
         let spr = potSize > 0 ? Double(stackSize) / Double(potSize) : 20.0
         
@@ -600,12 +583,10 @@ class DecisionEngine {
                 // Only apply adjustments if confidence is sufficient
                 if opponentModel.confidence > 0.5 {
                     strategyAdjust = OpponentModeler.getStrategyAdjustment(style: opponentModel.style)
-                    
+
 #if DEBUG
-                    #if DEBUG
                     logger.debug("\(player.name) 识别对手 \(lastBettor.name) 为 \(opponentModel.style.description)", category: .game)
                     logger.debug("策略调整：偷盲\(String(format:"%.0f%%", strategyAdjust.stealFreqBonus*100)) 诈唬\(String(format:"%.0f%%", strategyAdjust.bluffFreqAdjust*100))", category: .game)
-                    #endif
 #endif
                 }
             }
@@ -1705,286 +1686,5 @@ class DecisionEngine {
             }
         }
         return raiseCount >= 2
-    }
-    
-    // MARK: - Chen Formula (Standard Preflop Hand Strength)
-    
-    /// Bill Chen's formula for starting hand strength
-    /// Returns a score from -1.5 to 20
-    /// Reference: "The Mathematics of Poker" by Bill Chen
-    static func chenFormula(_ cards: [Card]) -> Double {
-        guard cards.count == 2 else { return 0.0 }
-        
-        let r1 = cards[0].rank.rawValue  // 0=2, 1=3, ..., 12=Ace
-        let r2 = cards[1].rank.rawValue
-        let high = max(r1, r2)
-        let low = min(r1, r2)
-        let isPair = r1 == r2
-        let isSuited = cards[0].suit == cards[1].suit
-        let gap = high - low
-        
-        var score: Double
-        
-        // Step 1: Score the highest card
-        switch high {
-        case 12: score = 10.0  // Ace
-        case 11: score = 8.0   // King
-        case 10: score = 7.0   // Queen
-        case 9:  score = 6.0   // Jack
-        default: score = Double(high + 2) / 2.0  // 2→2, 3→2.5, 4→3, ..., 10→6
-        }
-        
-        // Step 2: Pairs - multiply by 2, minimum 5
-        if isPair {
-            score = max(5.0, score * 2.0)
-            return score  // Pairs don't get gap/suited adjustments
-        }
-        
-        // Step 3: Suited bonus
-        if isSuited {
-            score += 2.0
-        }
-        
-        // Step 4: Gap penalty
-        switch gap {
-        case 1: break              // Connected: no penalty
-        case 2: score -= 1.0       // 1-gap
-        case 3: score -= 2.0       // 2-gap
-        case 4: score -= 4.0       // 3-gap
-        default: score -= 5.0      // 4+ gap
-        }
-        
-        // Step 5: Straight bonus for low connected cards
-        // If both cards are ≤ Q and gap ≤ 2, add +1
-        if gap <= 2 && high <= 10 {
-            score += 1.0
-        }
-        
-        return max(-1.5, score)
-    }
-    
-    /// Normalize Chen score to 0-1 range for threshold comparison
-    /// Chen range: roughly -1.5 to 20 (AA=20)
-    static func chenToNormalized(_ chen: Double) -> Double {
-        return max(0.0, min(1.0, (chen + 1.5) / 21.5))
-    }
-    
-    // MARK: - Draw Analysis
-    
-    /// Analyze flush and straight draws
-    static func analyzeDraws(holeCards: [Card], communityCards: [Card]) -> DrawInfo {
-        let allCards = holeCards + communityCards
-        
-        // --- Flush Draw ---
-        var suitCounts: [Suit: Int] = [:]
-        for card in allCards {
-            suitCounts[card.suit, default: 0] += 1
-        }
-        let maxSuitCount = suitCounts.values.max() ?? 0
-        let hasFlushDraw = maxSuitCount == 4 && communityCards.count < 5
-        
-        // Calculate actual flush outs considering hole cards
-        // Find the suit with 4 cards
-        var flushSuit: Suit? = nil
-        for (suit, count) in suitCounts where count == 4 {
-            flushSuit = suit
-            break
-        }
-        
-        var flushOuts = 0
-        if hasFlushDraw, let _ = flushSuit {
-            // Count remaining cards of this suit in deck
-            // 13 total - already have maxSuitCount
-            flushOuts = 13 - maxSuitCount
-        }
-        
-        // --- Straight Draw ---
-        let ranks = Set(allCards.map { $0.rank.rawValue })
-        // Add 13 for Ace-low (Ace can be 0 in A-2-3-4-5)
-        var rankSet = ranks
-        if ranks.contains(12) { rankSet.insert(-1) }
-        
-        _ = rankSet.sorted()  // Kept for potential future use
-        var hasOESD = false     // Open-ended straight draw
-        var hasGutshot = false   // Gutshot (1 card needed in the middle)
-        var straightOuts = 0
-        
-        // Check for 4-card sequences (OESD) and gapped sequences (gutshot)
-        if communityCards.count >= 3 && communityCards.count < 5 {
-            // Sliding window of 5 consecutive ranks
-            for baseRank in -1...9 {
-                let window = Set(baseRank...(baseRank + 4))
-                let overlap = window.intersection(rankSet)
-                if overlap.count == 4 {
-                    // 4 out of 5 consecutive ranks present
-                    let missing = window.subtracting(rankSet)
-                    if let missingRank = missing.first {
-                        if missingRank == baseRank || missingRank == baseRank + 4 {
-                            // Missing card is on the end → OESD (8 outs)
-                            if !hasOESD {
-                                hasOESD = true
-                                straightOuts = 8
-                            }
-                        } else {
-                            // Missing card is in the middle → Gutshot (4 outs)
-                            if !hasOESD && !hasGutshot {
-                                hasGutshot = true
-                                straightOuts = 4
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        let hasCombo = hasFlushDraw && (hasOESD || hasGutshot)
-        
-        // Calculate overlap between flush and straight draws
-        // When both draws exist, some cards may complete both
-        var overlap = 0
-        if hasCombo, let _ = flushSuit {
-            // Count cards of the flush suit that also complete straight
-            for rank in rankSet.sorted() {
-                if rank == -1 { continue } // Skip Ace-low placeholder
-            }
-            // Simplified: if we have OESD or gutshot, some flush cards complete straight too
-            if hasOESD || hasGutshot {
-                // Estimate 1-2 cards overlap on average
-                overlap = 1
-            }
-        }
-        
-        return DrawInfo(
-            hasFlushDraw: hasFlushDraw,
-            hasOpenEndedStraight: hasOESD,
-            hasGutshot: hasGutshot,
-            hasComboDraws: hasCombo,
-            flushOuts: flushOuts,
-            straightOuts: straightOuts,
-            overlap: overlap
-        )
-    }
-    
-    /// Helper to determine missing straight rank (simplified)
-    private static func missingStraightRank(communityCards: [Card], holeCards: [Card]) -> Int? {
-        // Simplified: just return nil since exact calculation is complex
-        return nil
-    }
-    
-    // MARK: - Board Texture Analysis
-    
-    /// Analyze how wet/dry and connected a board is
-    static func analyzeBoardTexture(_ community: [Card]) -> BoardTexture {
-        guard !community.isEmpty else {
-            return BoardTexture(wetness: 0, isPaired: false, isMonotone: false,
-                                isTwoTone: false, hasHighCards: false, connectivity: 0)
-        }
-        
-        // Suit analysis
-        var suitCounts: [Suit: Int] = [:]
-        for card in community {
-            suitCounts[card.suit, default: 0] += 1
-        }
-        let maxSuit = suitCounts.values.max() ?? 0
-        let isMonotone = maxSuit >= 3
-        let isTwoTone = suitCounts.count == 2
-        
-        // Pair analysis
-        let ranks = community.map { $0.rank.rawValue }
-        let uniqueRanks = Set(ranks)
-        let isPaired = uniqueRanks.count < community.count
-        
-        // High card analysis
-        let hasHighCards = ranks.contains(where: { $0 >= 10 })  // Q, K, A
-        
-        // Connectivity: how many cards are within 4 of each other
-        let sorted = ranks.sorted()
-        var connScore = 0.0
-        for i in 0..<sorted.count {
-            for j in (i+1)..<sorted.count {
-                let diff = sorted[j] - sorted[i]
-                if diff <= 4 { connScore += 1.0 }
-            }
-        }
-        let maxConn = Double(sorted.count * (sorted.count - 1)) / 2.0
-        let connectivity = maxConn > 0 ? connScore / maxConn : 0
-        
-        // Wetness calculation (0-1)
-        var wetness = 0.0
-        if isMonotone { wetness += 0.40 }
-        else if isTwoTone { wetness += 0.15 }
-        
-        wetness += connectivity * 0.35
-        if isPaired { wetness -= 0.10 }  // Paired boards are drier
-        
-        wetness = max(0.0, min(1.0, wetness))
-        
-        return BoardTexture(
-            wetness: wetness,
-            isPaired: isPaired,
-            isMonotone: isMonotone,
-            isTwoTone: isTwoTone,
-            hasHighCards: hasHighCards,
-            connectivity: connectivity
-        )
-    }
-    
-    // MARK: - PlayerStrategyManager Integration
-    
-    private static func getStrategyRecommendation(
-        player: Player,
-        engine: PokerEngine,
-        holeCards: [Card],
-        community: [Card],
-        street: Street,
-        callAmount: Int,
-        potSize: Int,
-        stackSize: Int,
-        seatOffset: Int
-    ) -> RecommendedAction? {
-        let actionType: ActionSituation.ActionSituationType
-        if callAmount > 0 {
-            if street == .preFlop && engine.currentBet > engine.bigBlindAmount {
-                actionType = .facing3Bet
-            } else {
-                actionType = .facingBet
-            }
-        } else {
-            actionType = .decisionToBet
-        }
-        
-        let handStrength = calculateHandStrength(holeCards: holeCards, community: community)
-        
-        let situation = ActionSituation(
-            actionType: actionType,
-            handStrength: handStrength,
-            position: seatOffset,
-            potSize: potSize,
-            toCall: callAmount,
-            stackSize: stackSize,
-            boardCards: community,
-            street: ActionSituation.Street(rawValue: street.rawValue)
-        )
-        
-        return PlayerStrategyManager.shared.getRecommendedAction(for: player.id.uuidString, situation: situation)
-    }
-    
-    private static func calculateHandStrength(holeCards: [Card], community: [Card]) -> Double {
-        guard holeCards.count == 2 else { return 0.5 }
-        
-        if community.isEmpty {
-            let ranks = holeCards.map { Int($0.rank.rawValue) }
-            let r0 = ranks[0]
-            let r1 = ranks[1]
-            if r0 == r1 {
-                return 0.7
-            } else if abs(r0 - r1) <= 2 {
-                return 0.55
-            } else {
-                return 0.4
-            }
-        } else {
-            return 0.5
-        }
     }
 }

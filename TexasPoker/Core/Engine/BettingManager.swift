@@ -132,18 +132,24 @@ enum BettingManager {
             return true
         }
 
-        for player in activePlayers {
-            if hasActed[player.id] != true {
-                return false
-            }
-            // allIn 玩家的 currentBet 可能小于 currentBet（比如短码 all-in）
-            // 但他们已经用完所有筹码，不能再继续下注，所以应该被视为完成
-            // 只有 active 玩家需要检查 currentBet 是否相等
-            if player.status == .active && player.currentBet != currentBet {
-                return false
-            }
+        // 检查是否有需要行动的活跃玩家
+        // 注意：folded 和 eliminated 玩家不参与下注轮次
+        let playersNeedingAction = activePlayers.filter { player in
+            // allIn 玩家不需要再行动
+            guard player.status == .active else { return false }
+            // 已经行动过的玩家不需要再行动
+            // 注意：即使玩家当前下注额等于当前最高下注额（如大盲注），
+            // 只要他们还没有行动，就仍然需要给他们行动机会（BB option）
+            return hasActed[player.id] != true
         }
-        return true
+
+        // 如果没有需要行动的玩家，轮次结束
+        if playersNeedingAction.isEmpty {
+            return true
+        }
+
+        // 有玩家需要行动，轮次未结束
+        return false
     }
 
     /// 重置下注状态（新街开始时）

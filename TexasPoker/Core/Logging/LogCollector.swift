@@ -1,13 +1,16 @@
 import Foundation
 import os.log
 
-/// 日志收集器 - 收集并导出日志到文件
+/// 日志收集器 - 收集并导出日志到文件（批量写入优化）
 final class LogCollector {
     static let shared = LogCollector()
 
     private let maxLogCount = 10000  // 最多保存10000条日志
+    private let batchWriteThreshold = 50  // 累积50条日志后再写入磁盘
     private var logs: [LogEntry] = []
     private let queue = DispatchQueue(label: "com.texaspoker.logcollector")
+    private let logger = OSLog(subsystem: "smartegg.TexasPoker", category: "LogCollector")
+    private var pendingWrites = 0  // 待写入计数
 
     struct LogEntry: Codable {
         let timestamp: Date
@@ -29,7 +32,7 @@ final class LogCollector {
 
     // MARK: - Public Methods
 
-    /// 记录日志
+    /// 记录日志（批量写入优化）
     func log(level: String, category: String, message: String) {
         queue.async { [weak self] in
             guard let self = self else { return }
@@ -43,14 +46,26 @@ final class LogCollector {
             )
 
             self.logs.append(entry)
+            self.pendingWrites += 1
 
             // 超过上限时删除最旧的
             if self.logs.count > self.maxLogCount {
                 self.logs.removeFirst(self.logs.count - self.maxLogCount)
             }
 
-            // 保存到磁盘
-            self.saveLogsToDisk()
+            // 批量写入：达到阈值或内存中日志过多时写入
+            if self.pendingWrites >= self.batchWriteThreshold || self.logs.count > self.maxLogCount / 2 {
+                self.saveLogsToDisk()
+                self.pendingWrites = 0
+            }
+        }
+    }
+
+    /// 强制刷新日志到磁盘（供外部调用，如应用进入后台）
+    func flush() {
+        queue.async { [weak self] in
+            self?.saveLogsToDisk()
+            self?.pendingWrites = 0
         }
     }
 
@@ -73,7 +88,7 @@ final class LogCollector {
                 try content.write(to: fileURL, atomically: true, encoding: .utf8)
                 result = fileURL
             } catch {
-                print("Failed to export logs: \(error)")
+                os_log("Failed to export logs: %{public}@", log: logger, type: .error, error.localizedDescription)
             }
         }
         return result
@@ -99,7 +114,7 @@ final class LogCollector {
                 try data.write(to: fileURL)
                 result = fileURL
             } catch {
-                print("Failed to export JSON logs: \(error)")
+                os_log("Failed to export JSON logs: %{public}@", log: logger, type: .error, error.localizedDescription)
             }
         }
         return result
@@ -146,7 +161,7 @@ final class LogCollector {
             let data = try encoder.encode(logs)
             try data.write(to: logFileURL)
         } catch {
-            print("Failed to save logs to disk: \(error)")
+            os_log("Failed to save logs to disk: %{public}@", log: logger, type: .error, error.localizedDescription)
         }
     }
 
@@ -159,7 +174,7 @@ final class LogCollector {
             decoder.dateDecodingStrategy = .iso8601
             logs = try decoder.decode([LogEntry].self, from: data)
         } catch {
-            print("Failed to load logs from disk: \(error)")
+            os_log("Failed to load logs from disk: %{public}@", log: logger, type: .error, error.localizedDescription)
         }
     }
 }

@@ -1,4 +1,7 @@
 import Foundation
+import os.log
+
+private let logger = AppLogger.shared
 
 /// 管理 AI 玩家的 Tilt（情绪失控）系统
 struct TiltManager {
@@ -13,7 +16,7 @@ struct TiltManager {
         }
 
         #if DEBUG
-        print("🔄 TiltManager: 所有玩家 tilt 值已重置")
+        logger.debug("所有玩家 tilt 值已重置", category: .game)
         #endif
     }
 

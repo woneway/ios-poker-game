@@ -1,0 +1,8 @@
+schemaVersion: 1
+sessionDefaultsProfiles:
+  ios:
+    projectPath: /Users/lianwu/ai/projects/ios-poker-game/TexasPoker.xcodeproj
+    scheme: TexasPoker
+    simulatorName: iPhone 17
+    simulatorPlatform: iOS Simulator
+activeSessionDefaultsProfile: ios

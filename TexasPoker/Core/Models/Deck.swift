@@ -1,8 +1,10 @@
 import Foundation
-import Combine
+import os.log
 
-class Deck: ObservableObject {
-    @Published var cards: [Card] = []
+private let logger = AppLogger.shared
+
+nonisolated class Deck {
+    var cards: [Card] = []
     
     init() {
         reset()
@@ -27,14 +29,14 @@ class Deck: ObservableObject {
     func deal() -> Card? {
         guard !cards.isEmpty else {
             #if DEBUG
-            print("🃏 Deck.deal() 警告: 牌堆已空！")
+            logger.warning("Deck.deal() 警告: 牌堆已空！", category: .game)
             #endif
             return nil
         }
         let card = cards.removeLast()
         #if DEBUG
         if cards.count < 10 {
-            print("🃏 Deck.deal() 警告: 剩余 \(cards.count) 张牌")
+            logger.warning("Deck.deal() 警告: 剩余 \(cards.count) 张牌", category: .game)
         }
         #endif
         return card

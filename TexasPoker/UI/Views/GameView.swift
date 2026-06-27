@@ -3,6 +3,8 @@ import SpriteKit
 import Combine
 
 struct GameView: View {
+    private let logger = AppLogger.shared
+
     @ObservedObject var settings: GameSettings
     @StateObject private var store: PokerGameStore
     @Environment(\.colorScheme) var colorScheme
@@ -67,8 +69,8 @@ struct GameView: View {
             .receive(on: DispatchQueue.main)
             .sink { event in
                 #if DEBUG
-                print("🤔 \(event.playerName): \(event.action) - \(event.reasoning)")
-                print("   Equity: \(String(format:"%.1f%%", event.equity * 100)) | PotOdds: \(String(format:"%.1f%%", event.potOdds * 100))")
+                logger.debug("AI Decision: \(event.playerName): \(event.action) - \(event.reasoning)", category: .game)
+                logger.debug("Equity: \(String(format:"%.1f%%", event.equity * 100)) | PotOdds: \(String(format:"%.1f%%", event.potOdds * 100))", category: .game)
                 #endif
                 // Show AI decision toast
                 let playerID = event.playerID
@@ -244,7 +246,7 @@ struct GameView: View {
                         // 可以买入，显示买入界面
                         store.showBuyIn = true
                         #if DEBUG
-                        print("💰 Hero被淘汰，显示rebuy界面 (from GameView)")
+                        logger.info("Hero被淘汰，显示rebuy界面", category: .game)
                         #endif
                     }
                 }
@@ -290,7 +292,7 @@ struct GameView: View {
             // Only reset if profile actually changed (not initial load)
             if newProfileId != lastProfileId {
                 #if DEBUG
-                print("👤 Profile changed from \(lastProfileId) to \(newProfileId) - resetting game")
+                logger.info("Profile changed from \(lastProfileId) to \(newProfileId) - resetting game", category: .game)
                 #endif
                 lastProfileId = newProfileId
                 store.resetGame(

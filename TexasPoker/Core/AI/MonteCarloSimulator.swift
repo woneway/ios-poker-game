@@ -86,9 +86,6 @@ class MonteCarloSimulator {
             var opponentHands: [[Card]] = []
             for _ in 0..<(playerCount - 1) {
                 guard deckCards.count >= 2 else {
-                    #if DEBUG
-                    print("🎲 MonteCarlo 警告: 牌数不足 \(deckCards.count)")
-                    #endif
                     break
                 }
                 let op1 = deckCards.removeLast()
@@ -100,9 +97,6 @@ class MonteCarloSimulator {
             var simCommunity = communityCards
             while simCommunity.count < 5 {
                 guard !deckCards.isEmpty else {
-                    #if DEBUG
-                    print("🎲 MonteCarlo 警告: 公共牌牌堆已空")
-                    #endif
                     break
                 }
                 simCommunity.append(deckCards.removeLast())

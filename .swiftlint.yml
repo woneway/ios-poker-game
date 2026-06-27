@@ -7,45 +7,63 @@ excluded:
   - Pods
   - Packages
   - DerivedData
-  - TexasPokerTests
   - "**/.build"
   - "**/Pods"
   - "**/DerivedData"
+  # 已知的大型文件（需要逐步重构，暂时排除）
+  # TODO: 逐步拆分这些文件
+  - TexasPoker/Core/AI/DecisionEngine.swift
+  - TexasPoker/Core/Data/StatisticsCalculator.swift
+  - TexasPoker/Core/Data/DataAnalysisEngine.swift
+  - TexasPoker/UI/Views/GameView.swift
 
 # 规则启用/禁用
 disabled_rules:
-  - trailing_whitespace
   - line_length
-  - function_body_length
-  - type_body_length
-  - file_length
   - identifier_name
-  - cyclomatic_complexity
   - for_whitespace
-  - empty_count
-  # 历史遗留的风格问题
-  - sorted_imports
+  # 历史遗留的风格问题 - 逐步恢复最佳实践规则
+  # - sorted_imports  # 已恢复为 opt-in
+  # - empty_count    # 已恢复为 opt-in
   - multiple_closures_with_trailing_closure
   - implicit_optional_initialization
   - colon
   - large_tuple
   - unused_closure_parameter
-  - trailing_newline
   - multiline_parameters
-  - vertical_whitespace
   - function_parameter_count
   - trailing_comma
   - type_name
-  - for_where
-  - nesting
+  # for_where 已恢复 - 有助于代码清晰度
+  # nesting 已恢复 - 有助于防止深层嵌套代码
   - statement_position
   - comma
-  - redundant_discardable_let
-  - unused_optional_binding
+  # - redundant_discardable_let  # 已恢复
+  # unused_optional_binding 已恢复 - 有助于代码清洁
   - unneeded_parentheses_in_closure_argument
-  - control_statement
+  # control_statement 已恢复 - 有助于代码清晰度
   - inclusive_language
   - orphaned_doc_comment
+
+# 文件长度限制 (400行)
+file_length:
+  warning: 400
+  error: 600
+
+# 函数体长度限制 (50行)
+function_body_length:
+  warning: 50
+  error: 80
+
+# 类型体长度限制 (300行)
+type_body_length:
+  warning: 300
+  error: 450
+
+# 圈复杂度限制
+cyclomatic_complexity:
+  warning: 15
+  error: 25
 
 # 可选规则（警告级别）
 opt_in_rules:

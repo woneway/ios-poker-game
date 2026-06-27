@@ -1,6 +1,8 @@
 import Foundation
 import AVFoundation
 
+private let logger = AppLogger.shared
+
 class SoundManager {
     static let shared = SoundManager()
     
@@ -54,7 +56,7 @@ class SoundManager {
                     audioPlayers[type] = player
                 } catch {
                     #if DEBUG
-                    print("Failed to load sound: \(filename)")
+                    logger.warning("Failed to load sound: \(filename)", category: .general)
                     #endif
                 }
             }

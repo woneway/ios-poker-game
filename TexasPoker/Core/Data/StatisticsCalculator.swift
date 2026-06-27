@@ -911,7 +911,7 @@ class StatisticsCalculator {
             try context.save()
         } catch {
             #if DEBUG
-            print("Failed to save player stats: \(error)")
+            statisticsLogger.error("Failed to save player stats: \(error.localizedDescription)")
             #endif
         }
     }
@@ -932,7 +932,7 @@ class StatisticsCalculator {
             try context.save()
         } catch {
             #if DEBUG
-            print("Failed to delete player stats: \(error)")
+            statisticsLogger.error("Failed to delete player stats: \(error.localizedDescription)")
             #endif
         }
     }
@@ -1288,11 +1288,11 @@ class StatisticsCalculator {
         do {
             try context.save()
             #if DEBUG
-            print("🗑️ Deleted all data for profile: \(pid)")
+            statisticsLogger.info("Deleted all data for profile: \(pid)")
             #endif
         } catch {
             #if DEBUG
-            print("Failed to delete profile data: \(error)")
+            statisticsLogger.error("Failed to delete profile data: \(error.localizedDescription)")
             #endif
         }
     }

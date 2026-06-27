@@ -71,9 +71,6 @@ final class AITournamentEvaluator {
         let profiles = AIProfile.allProfiles
         var results = profiles.map { PlayerResult(profile: $0) }
 
-        print("开始评估 \(profiles.count) 名AI牌手...")
-        print("配置: \(config.games) 场比赛, 初始筹码 \(config.startingChips)\n")
-
         for game in 1...config.games {
             let gameResults = runSingleGame(profiles: profiles)
 
@@ -87,8 +84,6 @@ final class AITournamentEvaluator {
                     }
                 }
             }
-
-            print("第 \(game)/\(config.games) 场完成")
         }
 
         return results.sorted { $0.avgRank < $1.avgRank }
@@ -130,9 +125,6 @@ final class AITournamentEvaluator {
             // 安全检查：每轮开始前验证状态
             let rankings = engine.getRankings()
             if rankings.count <= 1 {
-                #if DEBUG
-                print("🎯 runSingleGame 第\(handNum+1)手: 活跃玩家不足 \(rankings.count)，提前结束")
-                #endif
                 break
             }
 
@@ -165,9 +157,6 @@ final class AITournamentEvaluator {
         // 安全检查：确保有足够玩家
         let activePlayers = engine.players.filter { $0.chips > 0 }
         guard activePlayers.count >= 2 else {
-            #if DEBUG
-            print("🎯 playHand 提前结束: 活跃玩家不足 \(activePlayers.count)")
-            #endif
             return
         }
 
@@ -175,9 +164,6 @@ final class AITournamentEvaluator {
 
         // 检查牌是否足够
         guard engine.deck.remainingCount >= activePlayers.count * 2 else {
-            #if DEBUG
-            print("🎯 playHand 提前结束: 牌数不足，需要 \(activePlayers.count * 2)，剩余 \(engine.deck.remainingCount)")
-            #endif
             return
         }
 
@@ -190,10 +176,6 @@ final class AITournamentEvaluator {
                 }
             }
         }
-
-        #if DEBUG
-        print("🎯 playHand 开始: 玩家数=\(engine.players.count), 牌堆剩余=\(engine.deck.remainingCount)")
-        #endif
 
         engine.currentStreet = .preFlop
         engine.dealerIndex = 0

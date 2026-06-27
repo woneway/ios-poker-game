@@ -1,6 +1,7 @@
 import XCTest
 @testable import TexasPoker
 
+@MainActor
 class GameStoreTests: XCTestCase {
     
     // MARK: - Test 1: Initial state is .idle

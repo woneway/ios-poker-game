@@ -1,6 +1,8 @@
 import Foundation
 import CoreData
 
+private let logger = AppLogger.shared
+
 class DataExporter {
 
     /// Export player statistics as JSON (main thread version)
@@ -55,7 +57,7 @@ class DataExporter {
             return tempURL
         } catch {
             #if DEBUG
-            print("Failed to write JSON: \(error)")
+            logger.error("Failed to write JSON: \(error)", category: .general)
             #endif
             return nil
         }

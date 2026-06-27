@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 class PokerGameStore: ObservableObject {
     private let logger = AppLogger.shared
 
@@ -50,20 +51,22 @@ class PokerGameStore: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
     private var gameRecordSaved = false
-    private var dealCompleteTimer: DispatchWorkItem?
-    private var backgroundSimulationTask: DispatchWorkItem?
-    private var spectateLoopTask: DispatchWorkItem?
-    
-    // MARK: - 异步任务追踪（用于正确取消）
-    private var pollTasks: [DispatchWorkItem] = []
-    private var pollTasksCancelled = false  // 标志位：标记是否需要取消正在执行的任务
-    private var watchdogTask: DispatchWorkItem?
-    private var runOutBoardTasks: [DispatchWorkItem] = []
-    
-    /// Number of background hands to simulate per batch (reduced for better performance)
-    private let backgroundHandsPerBatch = 50
-    /// Number of batches to simulate (reduced for better performance)
-    private let backgroundBatches = 5
+
+    // MARK: - 异步任务追踪（统一使用 Task）
+    private var dealCompleteTask: Task<Void, Never>?
+    private var spectateLoopTask: Task<Void, Never>?
+    // 后台模拟任务引用，用于正确取消
+    private var backgroundSimTask: Task<Void, Never>?
+
+    // 竞态条件保护：使用简单标志位
+    // 注意：由于 PokerGameStore 是 @MainActor，所有属性访问都在主线程上执行
+    // 不需要使用 NSLock，Combine 的 receive(on: DispatchQueue.main) 确保主线程调度
+    private var isProcessingHandOver: Bool = false
+
+    /// Number of background hands to simulate per batch (optimized for better performance)
+    private var backgroundHandsPerBatch: Int { GameConstants.Simulation.backgroundHandsPerBatch }
+    /// Number of batches to simulate (optimized for better performance)
+    private var backgroundBatches: Int { GameConstants.Simulation.backgroundBatches }
     
     /// 当前是否是人类玩家的回合
     var isHumanTurn: Bool {
@@ -85,6 +88,7 @@ class PokerGameStore: ObservableObject {
     private func subscribeToEngine() {
         // Forward engine changes to SwiftUI
         engine.objectWillChange
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
@@ -96,29 +100,37 @@ class PokerGameStore: ObservableObject {
             #if DEBUG
             logger.warning("Engine isHandOver is already true at subscription time!", category: .game)
             #endif
-            DispatchQueue.main.async { [weak self] in
-                self?.send(.handOver)
-            }
+            // Since PokerGameStore is @MainActor, we can directly call send without DispatchQueue
+            self.send(.handOver)
         }
 
         // Listen for hand-over - 核心状态同步机制
         // 当 engine 标记手牌结束时，自动触发状态机转换
+        // 使用 isProcessingHandOver 标志防止竞态条件导致的重复触发
+        // 确保所有状态更新都在主线程上执行
         engine.$isHandOver
             .removeDuplicates()
+            .receive(on: DispatchQueue.main)
             .filter { [weak self] _ in
                 guard let self = self else { return false }
-                // 只在非 showdown 状态时触发
-                return self.state != .showdown
+                // 只在非 showdown 状态时触发，且不在处理中
+                // 注意: 由于 PokerGameStore 是 @MainActor，这里在主线程执行，访问 isProcessingHandOver 是安全的
+                return self.state != .showdown && !self.isProcessingHandOver
             }
             .sink { [weak self] isHandOver in
                 guard let self = self, isHandOver else { return }
+                self.isProcessingHandOver = true
                 self.send(.handOver)
+                // 注意: isProcessingHandOver 会在 handleHandOver 中被重置
+                // 这里不再需要 async 重置，避免竞态条件
             }
             .store(in: &cancellables)
 
         // 监听 activePlayerIndex 变化 - 检测人类玩家回合
         // 当活跃玩家变为人类玩家时，切换到 waitingForAction 状态
+        // 确保在主线程上执行
         engine.$activePlayerIndex
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self = self else { return }
                 if self.state == .betting && self.isHumanTurn {
@@ -129,6 +141,7 @@ class PokerGameStore: ObservableObject {
 
         // 状态变化监听 - 简化为单一入口点
         // 替换多个 watchdog 为一个可靠的 Combine 管道
+        // 由于 $state 是 @Published，在 @MainActor 类中自动在主线程上发布
         $state
             .sink { [weak self] newState in
                 self?.handleStateChange(newState)
@@ -143,6 +156,15 @@ class PokerGameStore: ObservableObject {
             // 进入 betting 状态时，检查是否需要等待人类玩家
             if isHumanTurn {
                 state = .waitingForAction
+            }
+            // 验证游戏状态一致性，防止卡住
+            if !validateGameStateConsistency() && !isProcessingHandOver {
+                #if DEBUG
+                logger.warning("handleStateChange: 检测到状态不一致，触发 handOver", category: .game)
+                #endif
+                isProcessingHandOver = true
+                send(.handOver)
+                return
             }
             // AI 会通过引擎自动处理，不需要额外的轮询
 
@@ -161,116 +183,44 @@ class PokerGameStore: ObservableObject {
 
     /// 取消所有异步任务 - 统一的清理入口
     private func cancelAllAsyncTasks() {
-        dealCompleteTimer?.cancel()
-        dealCompleteTimer = nil
-        pollTasks.forEach { $0.cancel() }
-        pollTasks.removeAll()
-        watchdogTask?.cancel()
-        watchdogTask = nil
-        handOverWatchdogTask?.cancel()
-        handOverWatchdogTask = nil
-        runOutBoardTasks.forEach { $0.cancel() }
-        runOutBoardTasks.removeAll()
+        dealCompleteTask?.cancel()
+        dealCompleteTask = nil
+        backgroundSimTask?.cancel()
+        backgroundSimTask = nil
     }
-    
-    // MARK: - BUG FIX 1: Hand Over Watchdog
-    
-    /// 定时检查机制：如果 engine.isHandOver == true 但状态不是 .showdown，强制转换
-    private var handOverWatchdogTask: DispatchWorkItem?
-    
-    private func scheduleHandOverWatchdog() {
-        // 取消之前的 watchdog 任务
-        handOverWatchdogTask?.cancel()
-        
-        let task = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-            
-            // 检查引擎是否已结束但状态机不知道
-            if self.engine.isHandOver && self.state != .showdown {
-                #if DEBUG
-                logger.warning("HandOver Watchdog: engine.isHandOver is true but state is \(self.state). Forcing transition to showdown.", category: .game)
-                #endif
-                self.send(.handOver)
-            }
-            
-            // 检查状态是否长时间停留在 betting/waitingForAction 且没有活跃玩家
-            if (self.state == .betting || self.state == .waitingForAction) {
-                let activePlayers = self.engine.players.filter { $0.status == .active }
-                if activePlayers.isEmpty && self.engine.isHandOver {
-                    #if DEBUG
-                    logger.warning("HandOver Watchdog: No active players and engine.isHandOver is true. Forcing transition to showdown.", category: .game)
-                    #endif
-                    self.send(.handOver)
-                }
-            }
+
+    /// 验证游戏状态一致性 - 用于检测潜在的死锁或卡住情况
+    /// 在关键状态转换时调用，确保游戏可以继续进行
+    private func validateGameStateConsistency() -> Bool {
+        // 检查是否有活跃玩家
+        let activePlayers = engine.players.filter { $0.status == .active || $0.status == .allIn }
+        if activePlayers.isEmpty {
+            #if DEBUG
+            logger.warning("validateGameStateConsistency: 没有活跃玩家，触发手牌结束", category: .game)
+            #endif
+            return false
         }
-        handOverWatchdogTask = task
-        // 定期检查，每 2 秒一次
-        DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.showdown, execute: task)
-    }
-    
-    /// 轮询检查是否轮到人类玩家（解决 AI 在 dealing 期间已完成行动的竞态问题）
-    private func pollForHumanTurn() {
-        // 取消之前的所有 poll 任务
-        pollTasks.forEach { $0.cancel() }
-        pollTasks.removeAll()
-        
-        // 设置取消标志位（用于取消正在执行的任务）
-        pollTasksCancelled = true
 
-        // 检查多次，覆盖 AI 延迟执行的时间窗口
-        for _ in [0.1, 0.5, 1.0, 2.0, 3.0] {
-            let task = DispatchWorkItem { [weak self] in
-                guard let self = self else { return }
-                // 检查是否需要取消
-                guard !self.pollTasksCancelled else { return }
-                guard self.state == .betting else { return }
-
-                let isHuman = self.isHumanTurn
-                #if DEBUG
-                logger.debug("Poll: state=\(self.state), activeIdx=\(self.engine.activePlayerIndex), isHumanTurn=\(isHuman)", category: .game)
-                if let player = self.engine.players.indices.contains(self.engine.activePlayerIndex) ? self.engine.players[self.engine.activePlayerIndex] : nil {
-                    logger.debug("ActivePlayer: \(player.name), status=\(player.status), isHuman=\(player.isHuman)", category: .game)
-                }
-                #endif
-
-                if isHuman {
-                    logger.debug("Poll detected human turn, switching to waitingForAction", category: .game)
-                    self.state = .waitingForAction
-                }
-            }
-            pollTasks.append(task)
-            DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.playerAction, execute: task)
+        // 检查当前玩家索引是否有效
+        if engine.activePlayerIndex < 0 || engine.activePlayerIndex >= engine.players.count {
+            #if DEBUG
+            logger.warning("validateGameStateConsistency: 玩家索引无效 \(engine.activePlayerIndex)，触发手牌结束", category: .game)
+            #endif
+            return false
         }
-    }
 
-    /// 监控 AI 是否卡住，如果卡住则强制触发
-    private func scheduleAIWatchdog() {
-        // 取消之前的 watchdog 任务
-        watchdogTask?.cancel()
-
-        let task = DispatchWorkItem { [weak self] in
-            guard let self = self, self.state == .betting else { return }
-
-            // 如果依然是 AI 回合（非人类回合），尝试踢一下引擎
-            if !self.isHumanTurn {
-                #if DEBUG
-                logger.warning("AI Watchdog: Kicking engine to check bot turn. ActiveIdx=\(self.engine.activePlayerIndex)", category: .game)
-                #endif
-                self.engine.checkBotTurn()
-
-                // 递归调度，直到状态改变（添加深度限制防止无限递归）
-                self.scheduleAIWatchdog()
-            } else {
-                // It IS human turn, but state is still betting? Force switch.
-                logger.warning("AI Watchdog: It IS human turn but state is .betting. Forcing switch.", category: .game)
-                self.state = .waitingForAction
-            }
+        // 如果在 betting 状态但没有任何玩家可以行动，结束手牌
+        let currentPlayer = engine.players[engine.activePlayerIndex]
+        if state == .betting && currentPlayer.status == .folded {
+            #if DEBUG
+            logger.warning("validateGameStateConsistency: 当前玩家已 fold，触发 advanceTurn", category: .game)
+            #endif
+            return false
         }
-        watchdogTask = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.showdown, execute: task)
+
+        return true
     }
-    
+
     /// Number of players still in the game (chips > 0)
     var remainingPlayerCount: Int {
         engine.players.filter { $0.chips > 0 }.count
@@ -303,8 +253,8 @@ class PokerGameStore: ObservableObject {
             scheduleDealCompleteTimer()
             
         case (.dealing, .dealComplete):
-            dealCompleteTimer?.cancel()
-            dealCompleteTimer = nil
+            dealCompleteTask?.cancel()
+            dealCompleteTask = nil
             if engine.isHandOver {
                 state = .showdown
             } else if isHumanTurn {
@@ -324,44 +274,9 @@ class PokerGameStore: ObservableObject {
                 state = .betting
             }
             
-        case (.betting, .handOver):
-            state = .showdown
-            if remainingPlayerCount <= 1 {
-                finishGame()
-            }
-            // 现金局：记录每手盈利
-            #if DEBUG
-            logger.debug(".betting -> .handOver: 调用 recordHandProfit, handNumber=\(engine.handNumber)", category: .game)
-            #endif
-            if engine.gameMode == .cashGame {
-                recordHandProfit()
-            }
-            if isLeavingAfterHand && engine.gameMode == .cashGame {
-                // 延迟自动离开，让玩家看到 showdown 结果
-                DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.playerAction) { [weak self] in
-                    self?.leaveTable()
-                }
-            }
-            
-        case (.waitingForAction, .handOver):
-            // 人类操作导致一手结束
-            state = .showdown
-            if remainingPlayerCount <= 1 {
-                finishGame()
-            }
-            // 现金局：记录每手盈利
-            #if DEBUG
-            logger.debug(".waitingForAction -> .handOver: 调用 recordHandProfit, handNumber=\(engine.handNumber)", category: .game)
-            #endif
-            if engine.gameMode == .cashGame {
-                recordHandProfit()
-            }
-            if isLeavingAfterHand && engine.gameMode == .cashGame {
-                // 延迟自动离开，让玩家看到 showdown 结果
-                DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.playerAction) { [weak self] in
-                    self?.leaveTable()
-                }
-            }
+        case (.betting, .handOver), (.waitingForAction, .handOver):
+            // 统一处理手牌结束逻辑
+            handleHandOver(fromState: state)
             
         case (.showdown, .nextHand), (.showdown, .start):
             guard remainingPlayerCount >= 2 else {
@@ -412,60 +327,106 @@ class PokerGameStore: ObservableObject {
 
         // 玩家在游戏进行中离开（waitingForAction/betting 状态）
         case (.waitingForAction, .leaveTable), (.betting, .leaveTable):
-            guard engine.gameMode == .cashGame else { break }
-            isLeavingAfterHand = true
-            // 自动帮玩家弃牌
-            if engine.players.contains(where: { $0.isHuman }) {
-                engine.processAction(.fold)
-            }
-            showLeaveConfirm = false
+            handleLeaveTableDuringGame()
 
         // 玩家在发牌阶段离开
         case (.dealing, .leaveTable):
-            guard engine.gameMode == .cashGame else { break }
-            isLeavingAfterHand = true
-            showLeaveConfirm = false
+            handleLeaveTableDuringDealing()
 
+        // 无效转换 - 尝试自动恢复
         default:
             #if DEBUG
             logger.error("FSM: Invalid transition \(state) + \(event) — recovering to safe state", category: .game)
             #endif
-            // BUG FIX 3: 增强错误恢复逻辑
-            // 1. 如果引擎已经结束手牌，强制转换到 showdown
-            if engine.isHandOver && state != .showdown {
-                state = .showdown
-            }
-            // 2. 如果没有活跃玩家且不在 showdown/idle 状态，尝试恢复
-            // 注意：即使所有玩家都 fold 了，也要先等 showdown 完成才能进入 idle
-            let activePlayers = engine.players.filter { $0.status == .active }
-            if activePlayers.isEmpty && state != .showdown && state != .idle {
-                if engine.isHandOver {
-                    state = .showdown
-                }
-                // 不要在这里设置为 .idle，让正常的流程处理 showdown
-            }
-            // 3. 如果 activePlayerIndex 指向无效位置，尝试恢复
-            if engine.activePlayerIndex < 0 || engine.activePlayerIndex >= engine.players.count {
-                if engine.isHandOver {
-                    state = .showdown
-                }
-            }
-            // 4. 如果当前状态是 betting/waitingForAction 但引擎已结束，强制恢复
-            if (state == .betting || state == .waitingForAction) && engine.isHandOver {
-                state = .showdown
+            attemptStateRecovery()
+        }
+    }
+
+    // MARK: - Cash Game Leave Helpers
+
+    /// 处理游戏中离开（waitingForAction/betting 状态）
+    private func handleLeaveTableDuringGame() {
+        guard engine.gameMode == .cashGame else { return }
+        isLeavingAfterHand = true
+        // 自动帮玩家弃牌
+        if engine.players.contains(where: { $0.isHuman }) {
+            engine.processAction(.fold)
+        }
+        showLeaveConfirm = false
+    }
+
+    /// 处理发牌阶段离开
+    private func handleLeaveTableDuringDealing() {
+        guard engine.gameMode == .cashGame else { return }
+        isLeavingAfterHand = true
+        showLeaveConfirm = false
+    }
+
+    /// 统一处理手牌结束逻辑 - 提取公共方法减少重复
+    private func handleHandOver(fromState: GameState) {
+        // 重置竞态标志
+        isProcessingHandOver = false
+        state = .showdown
+        if remainingPlayerCount <= 1 {
+            finishGame()
+        }
+        // 现金局：记录每手盈利
+        #if DEBUG
+        logger.debug(".\(fromState) -> .handOver: 调用 recordHandProfit, handNumber=\(engine.handNumber)", category: .game)
+        #endif
+        if engine.gameMode == .cashGame {
+            recordHandProfit()
+        }
+        if isLeavingAfterHand && engine.gameMode == .cashGame {
+            // 延迟自动离开，让玩家看到 showdown 结果
+            DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.playerAction) { [weak self] in
+                self?.leaveTable()
             }
         }
     }
+
+    /// 状态机错误恢复逻辑 - 拆分为独立方法提高可读性
+    private func attemptStateRecovery() {
+        // 优先处理：引擎已结束手牌时强制转换到 showdown
+        if shouldTransitionToShowdown() {
+            state = .showdown
+            return
+        }
+
+        // 检查是否有活跃玩家，无活跃玩家时处理
+        if !hasActivePlayers() && state != .showdown && state != .idle {
+            return
+        }
+
+        // 检查 activePlayerIndex 有效性
+        if !isActivePlayerIndexValid() && engine.isHandOver {
+            state = .showdown
+        }
+    }
+
+    /// 检查是否应该转换到 showdown 状态
+    private func shouldTransitionToShowdown() -> Bool {
+        return engine.isHandOver && state != .showdown
+    }
+
+    /// 检查是否有活跃玩家
+    private func hasActivePlayers() -> Bool {
+        return engine.players.contains { $0.status == .active || $0.status == .allIn }
+    }
+
+    /// 检查 activePlayerIndex 是否有效
+    private func isActivePlayerIndexValid() -> Bool {
+        return engine.activePlayerIndex >= 0 && engine.activePlayerIndex < engine.players.count
+    }
     
-    /// 调度可取消的 dealComplete 兜底 timer
+    /// 调度可取消的 dealComplete 兜底 timer（使用 Task 统一异步模式）
     private func scheduleDealCompleteTimer() {
-        dealCompleteTimer?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self = self, self.state == .dealing else { return }
+        dealCompleteTask?.cancel()
+        dealCompleteTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(GameConstants.Delays.tiltWarning * 1_000_000_000))
+            guard let self = self, !Task.isCancelled, self.state == .dealing else { return }
             self.send(.dealComplete)
         }
-        dealCompleteTimer = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + GameConstants.Delays.tiltWarning, execute: work)
     }
     
     // MARK: - Game Over
@@ -506,7 +467,7 @@ class PokerGameStore: ObservableObject {
     }
     
     // MARK: - AI Background Simulation
-    
+
     /// 为 AI 玩家启动后台模拟任务，加快数据收集速度
     private func startBackgroundAISimulation() {
         guard !isBackgroundSimulating else { return }
@@ -525,78 +486,81 @@ class PokerGameStore: ObservableObject {
         logger.info("开始 AI 后台模拟...", category: .game)
         #endif
 
-        // 在后台队列执行模拟
-        let simulationQueue = DispatchQueue(label: "com.poker.ai.simulation", qos: .userInitiated)
-
-        simulationQueue.async { [weak self] in
-            guard let self = self else { return }
-
-            // 获取当前所有玩家名称（用于统计）
-            let playerNames = self.engine.players.map { $0.name }
-            let gameMode = self.engine.gameMode
-
-            // 执行多批模拟
-            for batch in 0..<self.backgroundBatches {
-                self.runBatchSimulation(batch: batch + 1, totalBatches: self.backgroundBatches)
-            }
-
-            // 模拟完成后更新统计数据
-            DispatchQueue.main.async {
-                self.updateAllPlayerStats(playerNames: playerNames, gameMode: gameMode)
-                self.isBackgroundSimulating = false
-            }
+        // 使用 Task 替代 DispatchQueue，避免 @MainActor 桥接问题
+        // 保存任务引用以便正确取消
+        backgroundSimTask = Task {
+            await runBackgroundSimulation()
         }
     }
-    
-    /// 执行一批后台模拟
-    private func runBatchSimulation(batch: Int, totalBatches: Int) {
-        // 由于 PokerEngine 是 @MainActor，需要在主线程创建实例
-        // 使用阻塞方式等待结果
-        var simEngine: PokerEngine?
 
-        let semaphore = DispatchSemaphore(value: 0)
-        DispatchQueue.main.async {
-            simEngine = PokerEngine(
-                mode: self.engine.gameMode,
-                config: self.engine.tournamentConfig,
-                difficulty: self.gameDifficulty,
-                playerCount: self.gamePlayerCount
+    /// 后台模拟主逻辑（在 Task 中运行）
+    /// 注意：由于 PokerGameStore 是 @MainActor 类，这里可以直接访问 engine
+    private func runBackgroundSimulation() async {
+        // 获取当前所有玩家名称（用于统计）
+        let playerNames = engine.players.map { $0.name }
+        let gameMode = engine.gameMode
+        let config = engine.tournamentConfig
+
+        // 执行多批模拟
+        for batch in 0..<backgroundBatches {
+            // 检查任务是否被取消
+            if Task.isCancelled { break }
+            await runBatchSimulation(
+                batch: batch + 1,
+                totalBatches: backgroundBatches,
+                gameMode: gameMode,
+                config: config
             )
-            semaphore.signal()
         }
-        semaphore.wait()
 
-        guard let engine = simEngine else { return }
+        // 模拟完成后更新统计数据
+        updateAllPlayerStats(playerNames: playerNames, gameMode: gameMode)
+        isBackgroundSimulating = false
+    }
+
+    /// 执行一批后台模拟
+    private func runBatchSimulation(batch: Int, totalBatches: Int, gameMode: GameMode, config: TournamentConfig?) async {
+        // 由于 PokerGameStore 是 @MainActor，可以直接创建 PokerEngine 实例
+        let simEngine = PokerEngine(
+            mode: gameMode,
+            config: config,
+            difficulty: self.gameDifficulty,
+            playerCount: self.gamePlayerCount
+        )
 
         // 使用同步方式快速完成多手牌
         for _ in 0..<backgroundHandsPerBatch {
             // 检查是否还有足够玩家继续
-            let activePlayers = engine.players.filter { $0.chips > 0 }
+            let activePlayers = simEngine.players.filter { $0.chips > 0 }
             if activePlayers.count < 2 {
                 break
             }
 
             // 快速模拟一手牌（不播放动画）
-            self.quickSimulateHand(engine: engine)
+            quickSimulateHand(engine: simEngine)
         }
+
+        // 修复资源泄漏：模拟完成后正确销毁引擎
+        simEngine.destroy()
 
         #if DEBUG
         logger.info("Batch \(batch)/\(totalBatches) 完成，已模拟 \(backgroundHandsPerBatch) 手牌", category: .game)
         #endif
     }
-    
+
     /// 快速模拟一手牌（无动画，无延迟）
+    /// 注意：由于 PokerGameStore 是 @MainActor，engine 方法可以直接调用
     private func quickSimulateHand(engine: PokerEngine) {
         // 启动手牌
         engine.startHand()
-        
+
         // 快速进行到底（不使用延迟）
         while !engine.isHandOver && engine.activePlayerIndex >= 0 && engine.activePlayerIndex < engine.players.count {
             let player = engine.players[engine.activePlayerIndex]
-            
-            // AI 玩家快速决策（0 延迟）
+
+            // AI 玩家快速决策（0 延迟）- 使用注入的决策引擎
             if !player.isHuman && player.status == .active {
-                let action = DecisionEngine.makeDecision(player: player, engine: engine)
+                let action = engine.decisionEngine.makeDecision(player: player, engine: engine)
                 engine.processAction(action)
             } else if player.isHuman && player.status == .active {
                 // 人类玩家跳过（不参与后台模拟）
@@ -614,7 +578,7 @@ class PokerGameStore: ObservableObject {
             }
         }
     }
-    
+
     /// 更新所有玩家（人类 + AI）的统计数据
     private func updateAllPlayerStats(playerNames: [String], gameMode: GameMode) {
         // 为所有玩家重新计算统计数据
@@ -677,35 +641,37 @@ class PokerGameStore: ObservableObject {
         // 在主引擎上快速模拟一手
         quickSimulateOnMainEngine()
         spectateHandCount += 1
-        
-        // 按速度延迟后继续
-        let work = DispatchWorkItem { [weak self] in
-            self?.spectateLoop()
+
+        // 按速度延迟后继续（使用 Task 统一异步模式）
+        spectateLoopTask = Task { [weak self] in
+            guard let self = self else { return }
+            try? await Task.sleep(nanoseconds: UInt64(self.spectateSpeed.rawValue * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self.spectateLoop()
         }
-        spectateLoopTask = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + spectateSpeed.rawValue, execute: work)
     }
     
     /// 在主引擎上快速模拟一手（无动画，人类自动弃牌）
     private func quickSimulateOnMainEngine() {
         engine.startHand()
-        
+
         var safetyCounter = 0
-        let maxIterations = 200 // 防止无限循环
-        
+        let maxIterations = GameConstants.Simulation.maxSimulationIterations
+
         while !engine.isHandOver && safetyCounter < maxIterations {
             safetyCounter += 1
             
             let idx = engine.activePlayerIndex
             guard idx >= 0 && idx < engine.players.count else { break }
             let player = engine.players[idx]
-            
+
             if player.status == .active {
                 if player.isHuman {
                     // 人类自动弃牌
                     engine.processAction(.fold)
                 } else {
-                    let action = DecisionEngine.makeDecision(player: player, engine: engine)
+                    // 使用注入的决策引擎
+                    let action = engine.decisionEngine.makeDecision(player: player, engine: engine)
                     engine.processAction(action)
                 }
             } else {
@@ -885,29 +851,14 @@ class PokerGameStore: ObservableObject {
     
     func resetGame(mode: GameMode = .cashGame, config: TournamentConfig? = nil) {
         // 取消所有异步任务
-        dealCompleteTimer?.cancel()
-        dealCompleteTimer = nil
-        backgroundSimulationTask?.cancel()
-        backgroundSimulationTask = nil
+        dealCompleteTask?.cancel()
+        dealCompleteTask = nil
+        // 取消后台模拟 Task
+        backgroundSimTask?.cancel()
+        backgroundSimTask = nil
         spectateLoopTask?.cancel()
         spectateLoopTask = nil
-        
-        // 取消 poll 任务
-        pollTasks.forEach { $0.cancel() }
-        pollTasks.removeAll()
-        
-        // 取消 watchdog 任务
-        watchdogTask?.cancel()
-        watchdogTask = nil
-        
-        // 取消 handOverWatchdog 任务
-        handOverWatchdogTask?.cancel()
-        handOverWatchdogTask = nil
-        
-        // 取消 runOutBoard 任务
-        runOutBoardTasks.forEach { $0.cancel() }
-        runOutBoardTasks.removeAll()
-        
+
         isGameOver = false
         isBackgroundSimulating = false
         isSpectating = false
@@ -944,5 +895,21 @@ class PokerGameStore: ObservableObject {
         // Re-subscribe
         cancellables.removeAll()
         subscribeToEngine()
+    }
+
+    // MARK: - Deinit
+
+    /// 清理所有异步任务，防止内存泄漏
+    /// 注意：由于 Swift 6 并发规则，deinit 必须在非隔离上下文中运行
+    /// 因此这里只做安全的清理操作，复杂的异步清理通过 Task 完成
+    deinit {
+        // 取消所有 Task（Task 是 Sendable，可以在 deinit 中安全取消）
+        backgroundSimTask?.cancel()
+        spectateLoopTask?.cancel()
+        dealCompleteTask?.cancel()
+
+        // 注意：引擎销毁通过 DecisionEngine.unregisterEngine 处理
+        // 由于 engine 是 @MainActor，不能在 deinit 中直接访问
+        // 引擎会在 PokerGameStore 被释放时自动清理
     }
 }

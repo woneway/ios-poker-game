@@ -1,6 +1,7 @@
 import XCTest
 @testable import TexasPoker
 
+@MainActor
 class TournamentTests: XCTestCase {
     
     // MARK: - TournamentConfig Tests

@@ -1,5 +1,7 @@
 import SwiftUI
 
+private let logger = AppLogger.shared
+
 /// 买入选择视图 - 现金桌买入金额选择界面
 struct BuyInView: View {
     let config: CashGameConfig
@@ -132,7 +134,9 @@ struct BuyInView: View {
         config: .default,
         remainingBuyIns: 3,
         onConfirm: { amount in
-            print("买入金额: $\(amount)")
+            #if DEBUG
+            logger.debug("买入金额: $\(amount)", category: .game)
+            #endif
         }
     )
 }
